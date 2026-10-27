@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const { DEFAULT_TYPES } = require('../models/Item');
 const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
+const { broadcast } = require('../services/events.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex } = require('../utils/parse');
 
@@ -68,6 +69,8 @@ async function createItem(req, res) {
     return recalculateItem(created._id, session);
   });
 
+  // Sent after the MongoDB transaction commits, so other PCs re-fetch the saved data.
+  broadcast('item-changed', { itemId: String(item._id) });
   res.status(201).json({ item });
 }
 

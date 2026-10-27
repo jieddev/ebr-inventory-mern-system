@@ -5,7 +5,9 @@ import SegmentedControl from '../../components/ui/SegmentedControl'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
+import { getItemTransactions } from '../../api/items'
 import { createTransaction } from '../../api/transactions'
+import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import ItemCodePicker from './ItemCodePicker'
 import checkIcon from '../../assets/icons/check-circle.svg'
@@ -36,6 +38,15 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
   useEffect(() => {
     codeRef.current?.focus()
   }, [])
+
+  // Keep the selected item's balance current when another PC records a transaction
+  // for it, so "Balance after saving" is never based on an old number.
+  useLiveUpdates(({ itemId, reconnected }) => {
+    if (!item || (!reconnected && itemId !== item._id)) return
+    getItemTransactions(item._id)
+      .then(({ item: fresh }) => setItem((current) => (current?._id === fresh._id ? fresh : current)))
+      .catch(() => {}) // keep showing the last known balance
+  })
 
   function clearError(name) {
     setErrors((e) => ({ ...e, [name]: undefined }))
