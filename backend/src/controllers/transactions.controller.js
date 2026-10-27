@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
-const { broadcast } = require('../services/events.service');
+const { broadcast, sourceClientId } = require('../services/events.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 
@@ -87,7 +87,18 @@ async function createTransaction(req, res) {
   });
 
   // Sent after the MongoDB transaction commits, so other PCs re-fetch the saved data.
-  broadcast('item-changed', { itemId: String(result.item._id) });
+  // `activity` is shown to everyone else as "[name] has added a transaction".
+  broadcast('item-changed', {
+    itemId: String(result.item._id),
+    activity: {
+      kind: 'transaction',
+      actorName: req.user.name,
+      type,
+      quantity,
+      itemCode: result.item.code,
+    },
+    sourceClientId: sourceClientId(req),
+  });
   res.status(201).json(result);
 }
 

@@ -13,4 +13,10 @@ function broadcast(event, data) {
   for (const res of clients) res.write(message);
 }
 
-module.exports = { addClient, broadcast };
+// The browser tab that made a request (see frontend api/client.js), so that tab can
+// skip announcements about its own save.
+function sourceClientId(req) {
+  return String(req.get('X-Client-Id') ?? '').slice(0, 64);
+}
+
+module.exports = { addClient, broadcast, sourceClientId };
