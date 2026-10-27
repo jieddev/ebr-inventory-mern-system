@@ -72,6 +72,7 @@ Back-dated entries need the later entries' `endingBalance` recalculated (see M4)
 | POST | `/api/auth/login` | returns JWT (httpOnly cookie) |
 | POST | `/api/auth/logout` | |
 | GET | `/api/auth/me` | current user |
+| POST | `/api/users` | create a user (admin only) |
 | GET | `/api/items` | `?search=&type=&brand=&stock=in\|out\|negative&page=` |
 | GET | `/api/items/:code` | lookup for Add Transaction |
 | POST | `/api/items` | Add Item |
