@@ -1,0 +1,23 @@
+.badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: var(--space-1) 10px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 16px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: var(--radius-full);
+}
+
+.badge-in {
+  color: var(--color-in);
+  background: var(--color-in-soft);
+}
+
+.badge-out {
+  color: var(--color-out);
+  background: var(--color-out-soft);
+}
