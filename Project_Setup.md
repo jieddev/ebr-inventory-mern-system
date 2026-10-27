@@ -167,6 +167,12 @@ npm run seed:admin
 
 Log in at <http://localhost:5173/login> with `SEED_ADMIN_ID` / `SEED_ADMIN_PASSWORD`.
 
+### Create more users
+
+Log in as an admin. On the home page, click **Create user** (`/users/new`) and enter an ID,
+name, password, and role (Staff or Admin). The new user can log in right away on the login page.
+Only admins see this button. The API (`POST /api/users`) returns 403 for staff.
+
 ---
 
 ## 7. npm scripts
