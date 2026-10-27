@@ -9,9 +9,12 @@
 }
 
 .logo-sm {
-  width: 36px;
-  height: 28px;
-  font-size: var(--text-sm);
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  border-radius: 10px;
 }
 
 .logo-md {

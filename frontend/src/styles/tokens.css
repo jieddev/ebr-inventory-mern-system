@@ -1,30 +1,35 @@
 /*
- * Design tokens.
- * TODO: replace placeholder values with the real ones from Figma
- * (EBR Inventory System → Screens). Component CSS must only use these variables.
+ * Design tokens, from Figma (EBR Inventory System → Screens).
+ * Component CSS must only use these variables.
+ * Figma name in brackets where ours differs.
  */
 :root {
   /* Brand */
-  --color-primary: #1f4fd1;
-  --color-primary-hover: #1a43b3;
-  --color-primary-soft: #e8eefc;
+  --color-primary: #2454c5; /* brand/primary */
+  --color-primary-hover: #1d46a8;
+  --color-primary-soft: #eaf0fc; /* brand/primary-subtle */
 
   /* Neutrals */
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-border: #e3e6eb;
-  --color-text: #1b1f27;
-  --color-text-muted: #5f6b7a;
+  --color-bg: #f4f6fa; /* bg/canvas */
+  --color-bg-subtle: #f8fafc; /* bg/subtle: table header, panel footer */
+  --color-surface: #ffffff; /* bg/surface */
+  --color-border: #e2e7ef; /* border/default */
+  --color-border-strong: #cbd3df; /* border/strong: inputs, secondary buttons */
+  --color-text: #172033; /* text/primary */
+  --color-text-muted: #5a6578; /* text/secondary */
+  --color-text-faint: #8c96a8; /* text/muted: placeholders, meta */
 
   /* Status */
-  --color-in: #1a7f4b;
-  --color-in-soft: #e5f5ec;
-  --color-out: #c2410c;
-  --color-out-soft: #fdeee5;
-  --color-danger: #c62828;
-  --color-danger-soft: #fdecec;
-  --color-success: #1a7f4b;
+  --color-in: #157a47; /* status/in */
+  --color-in-soft: #e5f5ec; /* status/in-subtle */
+  --color-out: #b3361e; /* status/out */
+  --color-out-soft: #fcece8; /* status/out-subtle */
+  --color-danger: #b3361e;
+  --color-danger-soft: #fcece8;
+  --color-success: #157a47;
   --color-success-soft: #e5f5ec;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fff4cc;
 
   /* Typography */
   --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -33,7 +38,7 @@
   --text-sm: 13px;
   --text-md: 14px;
   --text-lg: 16px;
-  --text-xl: 20px;
+  --text-xl: 18px;
   --text-2xl: 24px;
   --weight-regular: 400;
   --weight-medium: 500;
@@ -47,6 +52,7 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-7: 28px;
   --space-8: 32px;
   --space-10: 40px;
 
@@ -58,6 +64,7 @@
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.16);
+  --shadow-panel: -8px 0 24px rgba(23, 33, 51, 0.08);
 
   /* Layout */
   --app-bar-height: 64px;

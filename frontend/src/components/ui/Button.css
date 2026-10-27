@@ -5,9 +5,15 @@
   gap: var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
   transition: background-color 0.15s, border-color 0.15s;
+}
+
+.btn > img {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .btn:disabled {
@@ -53,7 +59,7 @@
 .btn-secondary {
   color: var(--color-text);
   background: var(--color-surface);
-  border-color: var(--color-border);
+  border-color: var(--color-border-strong);
 }
 
 .btn-secondary:hover:not(:disabled) {

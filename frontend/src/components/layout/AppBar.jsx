@@ -2,8 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../ui/Button'
 import Logo from '../ui/Logo'
+import logoutIcon from '../../assets/icons/logout.svg'
 import { useAuth } from '../../features/auth/useAuth'
 import './AppBar.css'
+
+function initials(name) {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts.at(-1)[0] : (parts[0]?.[1] ?? ''))).toUpperCase()
+}
 
 export default function AppBar() {
   const { user, logout } = useAuth()
@@ -22,11 +28,14 @@ export default function AppBar() {
       </Link>
 
       <div className="app-bar-user">
-        <div className="app-bar-user-text">
-          <span className="app-bar-user-name">{user.name}</span>
-          <span className="app-bar-user-role">{user.role}</span>
-        </div>
-        <Button variant="secondary" size="sm" onClick={handleLogout} isLoading={isLoggingOut}>
+        <span className="app-bar-avatar" aria-hidden="true">
+          {initials(user.name)}
+        </span>
+        <span className="app-bar-user-name" title={user.role}>
+          {user.name}
+        </span>
+        <Button variant="ghost" onClick={handleLogout} isLoading={isLoggingOut}>
+          {!isLoggingOut && <img src={logoutIcon} alt="" />}
           Log out
         </Button>
       </div>
