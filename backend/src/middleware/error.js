@@ -7,6 +7,15 @@ function notFound(req, res) {
 // Express 5 forwards rejected promises from async handlers here automatically.
 // eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
+  // Mongoose validation and unique-index errors are the client's fault, not the server's.
+  if (err.name === 'ValidationError') {
+    err.status = 400;
+    err.message = Object.values(err.errors)[0]?.message || err.message;
+  } else if (err.code === 11000) {
+    err.status = 409;
+    err.message = 'This record already exists';
+  }
+
   const status = err.status || err.statusCode || 500;
   if (status >= 500) console.error(err);
   res.status(status).json({

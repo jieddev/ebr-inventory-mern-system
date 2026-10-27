@@ -3,10 +3,11 @@
   top: 0;
   z-index: 10;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   height: var(--app-bar-height);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-8);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -15,7 +16,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
+  line-height: 24px;
   color: var(--color-text);
   text-decoration: none;
 }
@@ -23,21 +26,21 @@
 .app-bar-user {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-.app-bar-user-text {
+.app-bar-avatar {
   display: grid;
-  text-align: right;
-  line-height: 1.25;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
 }
 
 .app-bar-user-name {
   font-weight: var(--weight-medium);
-}
-
-.app-bar-user-role {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  text-transform: capitalize;
 }

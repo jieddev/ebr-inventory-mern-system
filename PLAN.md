@@ -37,15 +37,19 @@ User
   name          String            → "Prepared by" on reports
   role          'admin' | 'staff'
 
-Item
-  code              String, unique, uppercase, indexed   e.g. "NS40 GOLD"
-  brand             String                                e.g. "MOTOLITE"
-  typeDesign        String, indexed                       e.g. "BATTERY", "TIRE"
+Item                       unique key = code + brand + typeDesign (same as the Excel macros)
+  code              String, uppercase                     e.g. "NS40 GOLD"
+  brand             String, uppercase, may be blank       e.g. "MOTOLITE"
+  typeDesign        String, uppercase, may be blank       e.g. "BATTERY", "TIRE"
   balanceForwarded  Number (opening stock)
   balance           Number (current ending balance, kept in sync)
-  lastTransactionAt Date
+  transactionCount  Number
+  lastTransactionDate Date
   lastTransactionType 'IN' | 'OUT'
   timestamps
+
+  One code can be several items: in the workbook "2.25-17" is a STAR tire, a CHAMP tire
+  and an IZUMI tube. So lookups go by item _id, and the code picker shows brand + type.
 
 Transaction
   item          ObjectId → Item, indexed
@@ -53,12 +57,15 @@ Transaction
   type          'IN' | 'OUT'
   quantity      Number > 0
   customerName  String
+  isBalanceForwarded Boolean   the opening "BALANCE FORWARDED" IN entry made by Add Item
   endingBalance Number (balance of the item right after this entry)
   createdBy     ObjectId → User
   timestamps
 ```
 
-**Balance rule:** `endingBalance = previous balance ± quantity`. Negative balances are
+**Balance rule:** `endingBalance = previous balance ± quantity`, walking the item's ledger in
+order (balance forwarded first, then date, then entry order). `services/balance.service.js`
+re-runs the whole ledger after every save, so back-dated entries stay correct. Negative balances are
 allowed, because the design has a "Negative" stock filter. Saving a transaction and updating
 `Item.balance` happen together in a **MongoDB transaction session**, so the two always match.
 Back-dated entries need the later entries' `endingBalance` recalculated (see M4).
@@ -73,11 +80,13 @@ Back-dated entries need the later entries' `endingBalance` recalculated (see M4)
 | POST | `/api/auth/logout` | |
 | GET | `/api/auth/me` | current user |
 | GET | `/api/items` | `?search=&type=&brand=&stock=in\|out\|negative&page=` |
-| GET | `/api/items/:code` | lookup for Add Transaction |
-| POST | `/api/items` | Add Item |
+| GET | `/api/items/search?q=` | item code lookup for Add Transaction ✅ |
+| GET | `/api/items/types` | Type / Design choices ✅ |
+| GET | `/api/items/:id/transactions` | full ledger for "View all" ✅ |
+| POST | `/api/items` | Add Item (+ BALANCE FORWARDED entry) ✅ |
 | GET | `/api/items/facets` | type/design list, brand list, stock counts (for the filter UI) |
-| GET | `/api/transactions` | grouped by item; `?search=&type=&from=&to=&typeDesign=&brand=&stock=&page=` |
-| POST | `/api/transactions` | Add Transaction (updates balance) |
+| GET | `/api/transactions` | grouped by item; `?search=&page=` ✅ (filters `type, from, to, typeDesign, brand, stock` pending) |
+| POST | `/api/transactions` | Add Transaction (updates balance) ✅ |
 | GET | `/api/reports/daily?date=` | balance of every item as of that date |
 | GET | `/api/reports/transactions?date=` | per-item IN/OUT totals + grand total for that date |
 
@@ -93,7 +102,7 @@ Each milestone ends with something you can run and check. We build them in order
 - [x] MongoDB connection (local or Atlas; **replica set needed for transactions**, which Atlas has by default)
 - [x] Health route `GET /api/health`
 - [x] Frontend: clear the Vite starter, add React Router, axios instance with `baseURL` + `withCredentials`, Vite proxy to backend
-- [ ] Design tokens from Figma (colors, typography, spacing, radius) as CSS variables. `tokens.css` exists, but **real values are pending** (Figma rate limit)
+- [x] Design tokens from Figma (colors, typography, spacing, radius) as CSS variables in `tokens.css`
 - [x] Setup docs with how to run it (`Project_Setup.md`)
 
 **Done when:** `npm run dev` in both folders works and the frontend shows the health check result.
@@ -108,19 +117,19 @@ Each milestone ends with something you can run and check. We build them in order
 **Done when:** you can log in with the seeded user and reach an (empty) Transactions page; refreshing keeps you logged in.
 
 ### M2 — Items & Add Item panel (Screen 03)
-- [ ] `Item` model + validation (unique uppercase code, balance forwarded ≥ 0)
-- [ ] `POST /api/items`, `GET /api/items/:code`, `GET /api/items`
-- [ ] Shared UI parts: Button, TextField, SidePanel, Toast/inline success message
-- [ ] Add Item side panel: required-field errors, duplicate-code error, success message, "Added this session" list, form resets after each save, Close
+- [x] `Item` model + validation (unique code + brand + type, balance forwarded ≥ 0)
+- [x] `POST /api/items`, `GET /api/items/search`, `GET /api/items/types`
+- [x] Shared UI parts: Button, TextField, SidePanel, Badge, SegmentedControl, inline success message
+- [x] Add Item side panel: required-field errors, duplicate error, success message, "Added this session" list, form resets after each save, Close
 - [ ] CSV/Excel import script for existing stock (≈1,800 items), if you have a spreadsheet
 
 **Done when:** you can add items from the panel and see them saved in MongoDB.
 
 ### M3 — Transactions list (Screens 02, 02a, 02b)
-- [ ] `Transaction` model + indexes
-- [ ] `GET /api/transactions` aggregation: group by item, newest entries first, paginate by item group
-- [ ] Transactions table: item group header row + entry rows, IN/OUT badges, ending balance, footer count + pages
-- [ ] Search (item code / brand / customer), debounced
+- [x] `Transaction` model + indexes
+- [x] `GET /api/transactions`: group by item, newest entries first, paginate by item group
+- [x] Transactions table: item group header row + entry rows, IN/OUT badges, ending balance, collapse, View all, footer count + pages
+- [x] Search (item code / brand / customer), debounced, kept in the URL
 - [ ] Filter dropdown: type segmented control, date range + presets, stock status with counts, Type/Design checklist with search + "Show all", brand, selected count, Clear all
 - [ ] Active filter chips + result summary (items, IN/OUT totals); filters kept in the URL query string
 - [ ] Empty and loading states
@@ -128,11 +137,11 @@ Each milestone ends with something you can run and check. We build them in order
 **Done when:** seed data shows up grouped correctly, and every filter combination narrows the results like 02b does.
 
 ### M4 — Add Transaction panel (Screen 04)
-- [ ] `POST /api/transactions` in a Mongo session: insert entry, update `Item.balance` / last-transaction fields
-- [ ] Back-dated entries: recalculate `endingBalance` for later entries of that item
-- [ ] Panel: item code autocomplete → brand/type auto-fill (read-only), date (default today), IN/OUT control, quantity, customer name
-- [ ] Live **Item details** card: last transaction date/type, ending balance, *balance after saving* with the math (`12 − 4 = 8`), warning when it would go negative
-- [ ] Refresh the list after saving
+- [x] `POST /api/transactions` in a Mongo session: insert entry, update `Item.balance` / last-transaction fields
+- [x] Back-dated entries: recalculate `endingBalance` for later entries of that item
+- [x] Panel: item code autocomplete → brand/type auto-fill (read-only), date (default today), IN/OUT control, quantity, customer name
+- [x] Live **Item details** card: last transaction date/type, ending balance, *balance after saving* with the math (`12 − 4`), warning when it would go negative, back-dated notice
+- [x] Refresh the list after saving
 
 **Done when:** recording IN/OUT updates balances correctly, including a back-dated entry.
 

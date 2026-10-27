@@ -1,7 +1,16 @@
 import { useId } from 'react'
 import './TextField.css'
 
-export default function TextField({ label, hint, error, endAdornment, required, className = '', ...inputProps }) {
+export default function TextField({
+  label,
+  hint,
+  error,
+  endAdornment,
+  endIcon,
+  required,
+  className = '',
+  ...inputProps
+}) {
   const id = useId()
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
 
@@ -23,6 +32,11 @@ export default function TextField({ label, hint, error, endAdornment, required, 
           {...inputProps}
         />
         {endAdornment && <div className="field-adornment">{endAdornment}</div>}
+        {endIcon && (
+          <div className="field-adornment field-adornment-icon" aria-hidden="true">
+            <img src={endIcon} alt="" width="20" height="20" />
+          </div>
+        )}
       </div>
       {error ? (
         <p id={`${id}-error`} className="field-error">
