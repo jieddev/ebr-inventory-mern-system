@@ -64,8 +64,8 @@ export default function CreateUserPage() {
     <section className="create-user-page">
       <header className="create-user-header">
         <h1>Create user</h1>
-        <Button variant="secondary" onClick={() => navigate('/')}>
-          Back to home
+        <Button variant="secondary" onClick={() => navigate('/transactions')}>
+          Go to Transactions
         </Button>
       </header>
 

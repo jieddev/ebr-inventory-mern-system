@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../ui/Button'
 import Logo from '../ui/Logo'
 import logoutIcon from '../../assets/icons/logout.svg'
@@ -14,6 +14,8 @@ function initials(name) {
 export default function AppBar() {
   const { user, logout } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   async function handleLogout() {
     setIsLoggingOut(true)
@@ -28,6 +30,11 @@ export default function AppBar() {
       </Link>
 
       <div className="app-bar-user">
+        {user.role === 'admin' && pathname !== '/users/new' && (
+          <Button variant="secondary" size="sm" onClick={() => navigate('/users/new')}>
+            Create user
+          </Button>
+        )}
         <span className="app-bar-avatar" aria-hidden="true">
           {initials(user.name)}
         </span>

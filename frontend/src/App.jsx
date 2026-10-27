@@ -1,10 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AdminRoute from './components/layout/AdminRoute'
 import AppLayout from './components/layout/AppLayout'
+import HomeRedirect from './components/layout/HomeRedirect'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import AuthProvider from './features/auth/AuthProvider'
 import LoginPage from './features/auth/LoginPage'
-import HomePage from './features/home/HomePage'
 import StatusPage from './features/system/StatusPage'
 import TransactionsPage from './features/transactions/TransactionsPage'
 import CreateUserPage from './features/users/CreateUserPage'
@@ -19,7 +19,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<HomeRedirect />} />
               <Route path="/transactions" element={<TransactionsPage />} />
 
               <Route element={<AdminRoute />}>

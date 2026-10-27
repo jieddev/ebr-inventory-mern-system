@@ -1,7 +1,11 @@
 .create-user-page {
   display: grid;
+  flex: 1;
   gap: var(--space-6);
-  max-width: 480px;
+  align-content: start;
+  max-width: calc(480px + 2 * var(--space-8));
+  padding: var(--space-7) var(--space-8) var(--space-8);
+  overflow-y: auto;
 }
 
 .create-user-header {
