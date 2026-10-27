@@ -1,12 +1,17 @@
 .activity-toasts {
   position: fixed;
-  top: calc(var(--app-bar-height) + var(--space-4));
   right: var(--space-6);
+  bottom: var(--space-6);
   z-index: 50;
   display: grid;
   gap: var(--space-2);
   width: min(360px, calc(100vw - 2 * var(--space-4)));
   pointer-events: none;
+}
+
+/* Keep clear of a side panel's footer, where its Save / Add button sits. */
+.app-layout:has(.side-panel-footer) .activity-toasts {
+  bottom: calc(var(--side-panel-footer-height) + var(--space-4));
 }
 
 .activity-toast {
@@ -74,7 +79,7 @@
 @keyframes activity-toast-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(8px);
   }
 }
 

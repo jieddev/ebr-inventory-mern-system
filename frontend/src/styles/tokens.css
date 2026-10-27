@@ -69,4 +69,5 @@
   /* Layout */
   --app-bar-height: 64px;
   --side-panel-width: 480px;
+  --side-panel-footer-height: 73px; /* 16px padding ×2 + 40px button + 1px border */
 }
