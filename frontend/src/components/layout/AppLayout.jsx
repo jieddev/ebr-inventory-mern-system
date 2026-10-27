@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import ActivityToasts from './ActivityToasts'
 import AppBar from './AppBar'
 import './AppLayout.css'
 
@@ -9,6 +10,7 @@ export default function AppLayout() {
       <main className="app-content">
         <Outlet />
       </main>
+      <ActivityToasts />
     </div>
   )
 }

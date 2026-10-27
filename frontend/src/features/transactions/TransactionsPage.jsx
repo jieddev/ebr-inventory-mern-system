@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import { getErrorMessage } from '../../api/auth'
 import { getItemTransactions } from '../../api/items'
 import { getTransactions } from '../../api/transactions'
+import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
 import TransactionTable from './TransactionTable'
@@ -16,6 +17,8 @@ import './TransactionsPage.css'
 
 const PAGE_SIZE = 10
 const SEARCH_DELAY_MS = 300
+// Saves from other PCs that land within this window cause a single re-fetch.
+const LIVE_REFRESH_DELAY_MS = 300
 
 export default function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -37,6 +40,8 @@ export default function TransactionsPage() {
 
   const updateParams = useCallback(
     (changes) => {
+      // A new page or search shows different items, so drop their "View all" lists.
+      setExpandedEntries(new Map())
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
@@ -59,28 +64,62 @@ export default function TransactionsPage() {
     return () => clearTimeout(timer)
   }, [searchText, search, updateParams])
 
-  const requestKey = `${search}|${page}|${reloadKey}`
+  const view = `${search}|${page}`
+  const requestKey = `${view}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
     getTransactions({ search, page, limit: PAGE_SIZE }, { signal: controller.signal })
       .then((data) => {
-        setResponse({ key: requestKey, data, error: '' })
-        setExpandedEntries(new Map())
+        setResponse({ key: requestKey, view, data, error: '' })
         setError('')
       })
       .catch((err) => {
         if (controller.signal.aborted) return
         const message = getErrorMessage(err, 'Could not load transactions.')
-        setResponse((prev) => ({ key: requestKey, data: prev.data, error: message }))
+        setResponse((prev) => ({ key: requestKey, view, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [search, page, requestKey])
+  }, [search, page, view, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
+  // Only dim the table when moving to another page or search, not on background refreshes.
+  const isChangingView = isLoading && response.view !== view
   const shownError = response.error || error
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), [])
+
+  // Live updates from other PCs: re-fetch the page once, and refresh any open
+  // "View all" lists of the items that changed (all of them after a reconnect).
+  const expandedIdsRef = useRef([])
+  useEffect(() => {
+    expandedIdsRef.current = [...expandedEntries.keys()]
+  }, [expandedEntries])
+
+  const pendingLive = useRef({ itemIds: new Set(), everything: false, timer: null })
+  useEffect(() => () => clearTimeout(pendingLive.current.timer), [])
+
+  useLiveUpdates(({ itemId, reconnected }) => {
+    const pending = pendingLive.current
+    if (reconnected) pending.everything = true
+    else pending.itemIds.add(itemId)
+
+    clearTimeout(pending.timer)
+    pending.timer = setTimeout(() => {
+      const { itemIds, everything } = pending
+      pendingLive.current = { itemIds: new Set(), everything: false, timer: null }
+
+      reload()
+      for (const id of expandedIdsRef.current) {
+        if (!everything && !itemIds.has(id)) continue
+        getItemTransactions(id)
+          .then(({ transactions }) =>
+            setExpandedEntries((prev) => (prev.has(id) ? new Map(prev).set(id, transactions) : prev)),
+          )
+          .catch(() => {}) // the list keeps its last entries; the next change retries
+      }
+    }, LIVE_REFRESH_DELAY_MS)
+  })
   const closePanel = useCallback(() => setPanel(null), [])
 
   const handleItemAdded = useCallback(
@@ -180,7 +219,7 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        <div className={`table-card ${isLoading ? 'is-loading' : ''}`} aria-busy={isLoading}>
+        <div className={`table-card ${isChangingView ? 'is-loading' : ''}`} aria-busy={isLoading}>
           {data && data.groups.length > 0 && (
             <TransactionTable
               groups={data.groups}
