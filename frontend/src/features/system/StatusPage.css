@@ -1,0 +1,63 @@
+.status-page {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--space-6);
+}
+
+.status-card {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-8);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.status-card h1 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.status-subtitle {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.status-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+.status-dot.is-ok {
+  background: var(--color-success);
+}
+
+.status-dot.is-down {
+  background: var(--color-danger);
+}
+
+.status-label {
+  font-weight: var(--weight-medium);
+}
+
+.status-detail {
+  margin-left: auto;
+  color: var(--color-text-muted);
+}

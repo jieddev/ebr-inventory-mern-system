@@ -1,0 +1,21 @@
+.logo {
+  display: inline-grid;
+  place-items: center;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.logo-sm {
+  width: 36px;
+  height: 28px;
+  font-size: var(--text-sm);
+}
+
+.logo-md {
+  width: 94px;
+  height: 70px;
+  font-size: var(--text-2xl);
+}
