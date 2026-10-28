@@ -1,10 +1,10 @@
 const { Router } = require('express');
 const { listTransactions, createTransaction } = require('../controllers/transactions.controller');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireStaff } = require('../middleware/auth');
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireStaff);
 router.get('/', listTransactions);
 router.post('/', createTransaction);
 

@@ -73,7 +73,7 @@
   --color-overlay: rgba(11, 29, 69, 0.4); /* behind modal dialogs */
 
   /* Layout */
-  --app-bar-height: 64px;
+  --app-bar-height: 98px;
   --side-panel-width: 480px;
   --side-panel-footer-height: 73px; /* 16px padding ×2 + 40px button + 1px border */
 }

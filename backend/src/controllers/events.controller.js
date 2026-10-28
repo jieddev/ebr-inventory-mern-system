@@ -15,7 +15,7 @@ function streamEvents(req, res) {
   res.flushHeaders();
   res.write('retry: 3000\n\n'); // the browser reconnects 3 s after a drop
 
-  const removeClient = addClient(res);
+  const removeClient = addClient(res, req.user.role);
   const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS);
 
   req.on('close', () => {

@@ -1,16 +1,22 @@
-// Open Server-Sent Events connections, one per browser tab.
+// Open Server-Sent Events connections, one per browser tab, with the signed-in user's role.
 // Kept in memory, which is fine while there is a single API process.
-const clients = new Set();
+const clients = new Map();
 
-function addClient(res) {
-  clients.add(res);
+// Who may receive an event. Most events carry transaction details (quantities, customers),
+// so by default only staff and admins get them; item-only events go to everyone.
+const STAFF_ROLES = ['admin', 'staff'];
+const ALL_ROLES = ['admin', 'staff', 'encoder'];
+const ENCODER_ROLES = ['encoder'];
+
+function addClient(res, role) {
+  clients.set(res, role);
   return () => clients.delete(res);
 }
 
-// Sends one event to every connected browser.
-function broadcast(event, data) {
+// Sends one event to every connected browser whose user has one of `roles`.
+function broadcast(event, data, { roles = STAFF_ROLES } = {}) {
   const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of clients) res.write(message);
+  for (const [res, role] of clients) if (roles.includes(role)) res.write(message);
 }
 
 // The browser tab that made a request (see frontend api/client.js), so that tab can
@@ -19,4 +25,4 @@ function sourceClientId(req) {
   return String(req.get('X-Client-Id') ?? '').slice(0, 64);
 }
 
-module.exports = { addClient, broadcast, sourceClientId };
+module.exports = { addClient, broadcast, sourceClientId, ALL_ROLES, ENCODER_ROLES };

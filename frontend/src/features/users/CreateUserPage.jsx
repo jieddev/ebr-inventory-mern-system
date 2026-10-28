@@ -131,8 +131,9 @@ export default function CreateUserPage() {
             Role
           </label>
           <select id={roleId} name="role" className="field-input" value={form.role} onChange={handleChange}>
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
+            <option value="staff">Staff: items and transactions</option>
+            <option value="encoder">Encoder: add items only</option>
+            <option value="admin">Admin: everything</option>
           </select>
         </div>
 

@@ -4,7 +4,7 @@ const Transaction = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
 const { LINE_LIMIT, UNITS } = require('../models/ReceivingReport');
 const { recalculateItem } = require('../services/balance.service');
-const { broadcast, sourceClientId } = require('../services/events.service');
+const { broadcast, sourceClientId, ALL_ROLES } = require('../services/events.service');
 const { record } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, parseWholeNumber, parseObjectId } = require('../utils/parse');
@@ -127,7 +127,10 @@ async function createReceivingReport(req, res) {
   });
 
   // After the commit: other PCs re-fetch each item, and see one notification for the slip.
-  for (const itemId of result.itemIds) broadcast('item-changed', { itemId, sourceClientId: sourceClientId(req) });
+  // The per-item refreshes carry no transaction details, so encoders get them too (balances).
+  for (const itemId of result.itemIds) {
+    broadcast('item-changed', { itemId, sourceClientId: sourceClientId(req) }, { roles: ALL_ROLES });
+  }
   broadcast('item-changed', {
     activity: {
       kind: 'transaction',

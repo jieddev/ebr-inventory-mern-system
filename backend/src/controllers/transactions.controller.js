@@ -3,7 +3,7 @@ const Item = require('../models/Item');
 const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
-const { broadcast, sourceClientId } = require('../services/events.service');
+const { broadcast, sourceClientId, ENCODER_ROLES } = require('../services/events.service');
 const { record, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
@@ -135,6 +135,8 @@ async function createTransaction(req, res) {
     },
     sourceClientId: sourceClientId(req),
   });
+  // Encoders only learn that the item changed (its balance), not the transaction.
+  broadcast('item-changed', { itemId: String(result.item._id) }, { roles: ENCODER_ROLES });
   res.status(201).json(result);
 }
 

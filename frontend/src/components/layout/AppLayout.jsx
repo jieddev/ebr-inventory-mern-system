@@ -10,6 +10,7 @@ export default function AppLayout() {
       <main className="app-content">
         <Outlet />
       </main>
+      {/* Live notices. The server only sends each one to the roles allowed to see it. */}
       <ActivityToasts />
     </div>
   )

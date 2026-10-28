@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const SALT_ROUNDS = 12;
+const ROLES = ['admin', 'staff', 'encoder'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -17,7 +18,8 @@ const userSchema = new mongoose.Schema(
     },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     passwordHash: { type: String, required: true, select: false },
-    role: { type: String, enum: ['admin', 'staff'], default: 'staff' },
+    // admin: everything. staff: items and transactions. encoder: Add Item only.
+    role: { type: String, enum: ROLES, default: 'staff' },
     isActive: { type: Boolean, default: true },
     lastLoginAt: Date,
   },
@@ -42,3 +44,4 @@ userSchema.methods.checkPassword = function checkPassword(password) {
 };
 
 module.exports = mongoose.model('User', userSchema);
+module.exports.ROLES = ROLES;

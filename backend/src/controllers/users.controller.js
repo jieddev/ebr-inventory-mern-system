@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const { ROLES } = require('../models/User');
 const HttpError = require('../utils/httpError');
 const { record } = require('../services/audit.service');
 
-const ROLES = ['admin', 'staff'];
 const MIN_PASSWORD_LENGTH = 8;
 
 async function createUser(req, res) {
@@ -16,7 +16,7 @@ async function createUser(req, res) {
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new HttpError(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
-  if (!ROLES.includes(role)) throw new HttpError(400, 'Role must be admin or staff');
+  if (!ROLES.includes(role)) throw new HttpError(400, `Role must be one of: ${ROLES.join(', ')}`);
   if (await User.exists({ userId })) throw new HttpError(409, 'That ID is already taken');
 
   const user = new User({ userId, name, role });

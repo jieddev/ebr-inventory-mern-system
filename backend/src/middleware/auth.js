@@ -30,4 +30,7 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { AUTH_COOKIE, requireAuth, requireRole };
+// Everyone but encoders, who may only add items (see routes/items.routes.js).
+const requireStaff = requireRole('admin', 'staff');
+
+module.exports = { AUTH_COOKIE, requireAuth, requireRole, requireStaff };

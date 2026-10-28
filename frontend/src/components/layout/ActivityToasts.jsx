@@ -11,15 +11,17 @@ const MAX_TOASTS = 4
 
 let nextId = 1
 
-// Flash messages like "Maria Santos has added a transaction", shown on every page of
-// every other open tab. The tab that saved already shows its own confirmation.
+// Flash messages like "Maria Santos has added a transaction" or "… has added an item",
+// shown on every page of every other open tab. The tab that saved already shows its own
+// confirmation. Encoders only ever receive item notices (backend events.service.js).
+const TOAST_KINDS = ['transaction', 'item', 'import']
 export default function ActivityToasts() {
   const [toasts, setToasts] = useState([])
 
   const dismiss = useCallback((id) => setToasts((list) => list.filter((toast) => toast.id !== id)), [])
 
   useLiveUpdates(({ activity, sourceClientId }) => {
-    if (activity?.kind !== 'transaction' || sourceClientId === CLIENT_ID) return
+    if (!TOAST_KINDS.includes(activity?.kind) || sourceClientId === CLIENT_ID) return
     setToasts((list) => [...list, { id: nextId++, ...activity }].slice(-MAX_TOASTS))
   })
 
@@ -41,13 +43,34 @@ function ActivityToast({ toast, onDismiss }) {
   return (
     <div className="activity-toast">
       <div className="activity-toast-text">
-        <p className="activity-toast-title">{toast.actorName} has added a transaction</p>
-        <p className="activity-toast-detail">
-          <Badge kind={toast.type} />
-          <span>
-            {formatNumber(toast.quantity)} of {toast.itemCode}
-          </span>
-        </p>
+        {toast.kind === 'transaction' && (
+          <>
+            <p className="activity-toast-title">{toast.actorName} has added a transaction</p>
+            <p className="activity-toast-detail">
+              <Badge kind={toast.type} />
+              <span>
+                {formatNumber(toast.quantity)} of {toast.itemCode}
+              </span>
+            </p>
+          </>
+        )}
+        {toast.kind === 'item' && (
+          <>
+            <p className="activity-toast-title">{toast.actorName} has added an item</p>
+            <p className="activity-toast-detail">
+              <span className="activity-toast-id">{toast.itemId}</span>
+              <span>{toast.itemCode}</span>
+            </p>
+          </>
+        )}
+        {toast.kind === 'import' && (
+          <>
+            <p className="activity-toast-title">{toast.actorName} has imported items</p>
+            <p className="activity-toast-detail">
+              <span>{formatNumber(toast.count)} new items from Excel</span>
+            </p>
+          </>
+        )}
       </div>
       <button
         type="button"

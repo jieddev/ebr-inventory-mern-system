@@ -6,12 +6,15 @@ const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
-const { broadcast } = require('../services/events.service');
+const { broadcast, sourceClientId, ALL_ROLES } = require('../services/events.service');
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
 
+// What encoders see of an item: its details and current ending balance, but nothing about
+// its transactions (no last transaction date or type, no count).
+const ENCODER_ITEM_FIELDS = 'itemId category code brand typeDesign balance';
 const ITEM_FIELDS =
   'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
 
@@ -20,11 +23,19 @@ const ITEM_FIELDS =
 // ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
-  const filter = itemsPageFilter(req.query);
+  const isEncoder = req.user.role === 'encoder';
+  if (req.query.archived === '1' && req.user.role !== 'admin') throw new HttpError(403, 'You do not have access to this action');
+  // Encoders don't see stock (it comes from transactions), so they can't filter by it either.
+  const filter = itemsPageFilter(isEncoder ? { ...req.query, stock: '' } : req.query);
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
-    Item.find(filter).sort({ itemId: 1, _id: 1 }).skip(skip).limit(limit).select(ITEM_FIELDS).lean(),
+    Item.find(filter)
+      .sort({ itemId: 1, _id: 1 })
+      .skip(skip)
+      .limit(limit)
+      .select(isEncoder ? ENCODER_ITEM_FIELDS : ITEM_FIELDS)
+      .lean(),
   ]);
   res.json({ items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
@@ -113,7 +124,7 @@ async function listFacets(req, res) {
     categories: CATEGORIES.map((value) => ({ value, count: categoryCounts.get(value) ?? 0 })),
     typeDesigns: facets.typeDesigns,
     brands: facets.brands,
-    stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 },
+    ...(req.user.role !== 'encoder' && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
   });
 }
 
@@ -180,7 +191,16 @@ async function createItem(req, res) {
   });
 
   // Sent after the MongoDB transaction commits, so other PCs re-fetch the saved data.
-  broadcast('item-changed', { itemId: String(item._id) });
+  // `activity` is shown to everyone else as "[name] has added an item".
+  broadcast(
+    'item-changed',
+    {
+      itemId: String(item._id),
+      activity: { kind: 'item', actorName: req.user.name, itemId: item.itemId, itemCode: describe(item) },
+      sourceClientId: sourceClientId(req),
+    },
+    { roles: ALL_ROLES },
+  );
   res.status(201).json({ item });
 }
 
@@ -228,7 +248,7 @@ async function updateItem(req, res) {
     return recalculateItem(id, session);
   });
 
-  broadcast('item-changed', { itemId: String(item._id) });
+  broadcast('item-changed', { itemId: String(item._id) }, { roles: ALL_ROLES });
   res.json({ item: pickFields(item) });
 }
 
@@ -248,7 +268,7 @@ async function archiveItem(req, res) {
 
   if (item) {
     await record(req, { action: 'item.archive', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) });
+    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES });
   }
   res.json({ item: result });
 }
@@ -269,7 +289,7 @@ async function restoreItem(req, res) {
 
   if (item) {
     await record(req, { action: 'item.restore', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) });
+    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES });
   }
   res.json({ item: result });
 }
@@ -303,7 +323,7 @@ async function batchItems(req, res) {
       action: `item.batch_${action}`,
       details: all ? { count: modifiedCount, all: true, query } : { count: modifiedCount, selected: ids.length },
     });
-    broadcast('item-changed', { batch: action, count: modifiedCount });
+    broadcast('item-changed', { batch: action, count: modifiedCount }, { roles: ALL_ROLES });
   }
   res.json({ action, count: modifiedCount });
 }
@@ -381,7 +401,17 @@ async function importItems(req, res) {
     );
   });
 
-  if (toAdd.length) broadcast('item-changed', { imported: toAdd.length });
+  if (toAdd.length) {
+    broadcast(
+      'item-changed',
+      {
+        imported: toAdd.length,
+        activity: { kind: 'import', actorName: req.user.name, count: toAdd.length },
+        sourceClientId: sourceClientId(req),
+      },
+      { roles: ALL_ROLES },
+    );
+  }
   res.status(201).json({
     added: toAdd.length,
     asOf: date,

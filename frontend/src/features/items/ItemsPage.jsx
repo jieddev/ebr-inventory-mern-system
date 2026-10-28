@@ -11,11 +11,14 @@ import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
 import searchIcon from '../../assets/icons/search.svg'
+import plusIcon from '../../assets/icons/plus.svg'
 import uploadIcon from '../../assets/icons/upload.svg'
 import downloadIcon from '../../assets/icons/download.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import closeIcon from '../../assets/icons/close.svg'
 import EditItemPanel from './EditItemPanel'
+import AddItemPanel from './AddItemPanel'
+import { useAuth } from '../auth/useAuth'
 import '../transactions/TransactionsPage.css'
 import './ItemsPage.css'
 
@@ -28,14 +31,18 @@ const SEARCH_DELAY_MS = 300
 // all: every item matching the current search, filters and view, on every page.
 const NO_SELECTION = { scope: null, ids: new Set(), all: false }
 
-// Admin only: every unique item with its item ID, Excel import and export, and
-// Edit / Archive per item. Archived items have their own view, where they can be restored.
-// Ticked rows (or "Select all N matching") can be archived or restored in one go.
+// Every unique item with its item ID, and Add Item. Admins and encoders.
+// Everyone sees the current ending balance. Admins also get: the last transaction date,
+// Excel import and export, Edit / Archive per item, the Archived view (with Restore), and
+// ticked rows (or "Select all N matching") archived or restored in one go.
+// Encoders see item details and balance only; the API leaves out the rest.
 export default function ItemsPage() {
+  const { user } = useAuth()
+  const isAdmin = user.role === 'admin'
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
-  const isArchivedView = searchParams.get('archived') === '1'
+  const isArchivedView = isAdmin && searchParams.get('archived') === '1'
   // The Items page only uses the item filters (stock, category, type / design, brand).
   const filters = useMemo(() => {
     const { stock, category, typeDesign, brand } = readFilters(searchParams)
@@ -45,7 +52,11 @@ export default function ItemsPage() {
   const [searchText, setSearchText] = useState(search)
   const [reloadKey, setReloadKey] = useState(0)
   // The last finished request. It's loading while that isn't the current request.
-  const [response, setResponse] = useState({ key: null, data: null, error: '' })
+  const [response, setResponse] = useState({
+    key: null,
+    data: null,
+    error: '',
+  })
   const [error, setError] = useState('')
 
   const fileInputRef = useRef(null)
@@ -54,6 +65,8 @@ export default function ItemsPage() {
   const [importResult, setImportResult] = useState(null)
 
   const [editing, setEditing] = useState(null)
+  const [isAdding, setIsAdding] = useState(false)
+  const [addedThisSession, setAddedThisSession] = useState([])
   const [confirmArchive, setConfirmArchive] = useState(null) // { item, isBusy, error }
   const [restoringId, setRestoringId] = useState(null)
   const [notice, setNotice] = useState('')
@@ -102,7 +115,11 @@ export default function ItemsPage() {
       .catch((err) => {
         if (controller.signal.aborted) return
         const message = getErrorMessage(err, 'Could not load items.')
-        setResponse((prev) => ({ key: requestKey, data: prev.data, error: message }))
+        setResponse((prev) => ({
+          key: requestKey,
+          data: prev.data,
+          error: message,
+        }))
       })
     return () => controller.abort()
   }, [search, page, filters, isArchivedView, requestKey])
@@ -148,7 +165,11 @@ export default function ItemsPage() {
       setNotice(`${item.itemId} · ${item.code} was archived. Find it under Archived to restore it.`)
       reload()
     } catch (err) {
-      setConfirmArchive({ item, isBusy: false, error: getErrorMessage(err, 'Could not archive the item.') })
+      setConfirmArchive({
+        item,
+        isBusy: false,
+        error: getErrorMessage(err, 'Could not archive the item.'),
+      })
     }
   }
 
@@ -191,7 +212,9 @@ export default function ItemsPage() {
       const { stock, category, typeDesign, brand } = filters
       const count = await batchItems(
         action,
-        selection.all ? { all: true, query: { search, stock, category, typeDesign, brand } } : { ids: [...selection.ids] },
+        selection.all
+          ? { all: true, query: { search, stock, category, typeDesign, brand } }
+          : { ids: [...selection.ids] },
       )
       setConfirmBatch(null)
       clearSelection()
@@ -203,7 +226,10 @@ export default function ItemsPage() {
       )
       reload()
     } catch (err) {
-      setConfirmBatch({ isBusy: false, error: getErrorMessage(err, `Could not ${action} the items.`) })
+      setConfirmBatch({
+        isBusy: false,
+        error: getErrorMessage(err, `Could not ${action} the items.`),
+      })
     }
   }
 
@@ -242,23 +268,31 @@ export default function ItemsPage() {
         <header className="page-header">
           <h1>All Items</h1>
           {!isArchivedView && (
-          <div className="page-actions">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xlsm"
-              hidden
-              onChange={handleFileChosen}
-            />
-            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} isLoading={isImporting}>
-              {!isImporting && <img src={uploadIcon} alt="" />}
-              {isImporting ? 'Importing…' : 'Import Excel'}
-            </Button>
-            <Button variant="secondary" onClick={handleExport} isLoading={isExporting}>
-              {!isExporting && <img src={downloadIcon} alt="" />}
-              Export Excel
-            </Button>
-          </div>
+            <div className="page-actions">
+              <Button
+                onClick={() => {
+                  setEditing(null)
+                  setIsAdding(true)
+                }}
+                aria-pressed={isAdding}
+              >
+                <img src={plusIcon} alt="" />
+                Add Item
+              </Button>
+              {isAdmin && (
+                <>
+                  <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" hidden onChange={handleFileChosen} />
+                  <Button variant="secondary" onClick={() => fileInputRef.current?.click()} isLoading={isImporting}>
+                    {!isImporting && <img src={uploadIcon} alt="" />}
+                    {isImporting ? 'Importing…' : 'Import Excel'}
+                  </Button>
+                  <Button variant="secondary" onClick={handleExport} isLoading={isExporting}>
+                    {!isExporting && <img src={downloadIcon} alt="" />}
+                    Export Excel
+                  </Button>
+                </>
+              )}
+            </div>
           )}
         </header>
 
@@ -275,8 +309,7 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
-
-            <FilterDropdown filters={filters} onApply={applyFilters} align="start" />
+            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={isAdmin} />
 
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
@@ -288,26 +321,36 @@ export default function ItemsPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </label>
-
           </div>
-          <SegmentedControl
-            label="Show"
-            hideLabel
-            name="items-view"
-            options={VIEW_OPTIONS}
-            value={isArchivedView ? 'archived' : 'active'}
-            onChange={(view) => {
-              setNotice('')
-              updateParams({ archived: view === 'archived' ? '1' : null, page: null })
-            }}
-          />
+          {isAdmin && (
+            <SegmentedControl
+              label="Show"
+              hideLabel
+              name="items-view"
+              options={VIEW_OPTIONS}
+              value={isArchivedView ? 'archived' : 'active'}
+              onChange={(view) => {
+                setNotice('')
+                updateParams({
+                  archived: view === 'archived' ? '1' : null,
+                  page: null,
+                })
+              }}
+            />
+          )}
         </div>
 
         <ActiveFilters
           chips={filterChips(filters)}
           onChange={applyFilters}
           onClearAll={() => applyFilters(EMPTY_FILTERS)}
-          summary={data && <><strong>{pluralize(total, 'item')}</strong> match</>}
+          summary={
+            data && (
+              <>
+                <strong>{pluralize(total, 'item')}</strong> match
+              </>
+            )
+          }
         />
 
         {shownError && (
@@ -323,7 +366,9 @@ export default function ItemsPage() {
           {selectedCount > 0 && (
             <div className="items-bulk-bar" role="region" aria-label="Selected items">
               <span className="items-bulk-count">
-                {selection.all ? `All ${pluralize(total, 'matching item')} selected` : `${formatNumber(selectedCount)} selected`}
+                {selection.all
+                  ? `All ${pluralize(total, 'matching item')} selected`
+                  : `${formatNumber(selectedCount)} selected`}
               </span>
               {!selection.all && isPageSelected && total > selectedCount && (
                 <button type="button" className="filter-link" onClick={() => setSelection(new Set(), true)}>
@@ -349,38 +394,46 @@ export default function ItemsPage() {
               <table className="items-table">
                 <thead>
                   <tr>
-                    <th className="items-select-col">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all items on this page"
-                        checked={isPageSelected}
-                        ref={(el) => {
-                          if (el) el.indeterminate = selectedOnPage > 0 && !isPageSelected
-                        }}
-                        onChange={togglePage}
-                      />
-                    </th>
+                    {isAdmin && (
+                      <th className="items-select-col">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all items on this page"
+                          checked={isPageSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = selectedOnPage > 0 && !isPageSelected
+                          }}
+                          onChange={togglePage}
+                        />
+                      </th>
+                    )}
                     <th>Item ID</th>
                     <th>Category</th>
                     <th>Item code</th>
                     <th>Brand name</th>
                     <th>Type / Design</th>
                     <th className="is-number">Balance</th>
-                    <th>Last transaction</th>
-                    <th className="items-actions-col" aria-label="Actions" />
+                    {isAdmin && (
+                      <>
+                        <th>Last transaction</th>
+                        <th className="items-actions-col" aria-label="Actions" />
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => (
                     <tr key={item._id} className={isRowSelected(item._id) ? 'is-selected' : ''}>
-                      <td className="items-select-col">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${item.itemId}`}
-                          checked={isRowSelected(item._id)}
-                          onChange={() => toggleRow(item._id)}
-                        />
-                      </td>
+                      {isAdmin && (
+                        <td className="items-select-col">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${item.itemId}`}
+                            checked={isRowSelected(item._id)}
+                            onChange={() => toggleRow(item._id)}
+                          />
+                        </td>
+                      )}
                       <td className="items-id">{item.itemId}</td>
                       <td className="items-muted">{item.category || '—'}</td>
                       <td className="items-code">{item.code}</td>
@@ -389,41 +442,54 @@ export default function ItemsPage() {
                       <td className={`is-number ${item.balance < 0 ? 'is-negative' : ''}`}>
                         {formatNumber(item.balance)}
                       </td>
-                      <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>
-                      <td className="items-actions">
-                        {isArchivedView ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRestore(item)}
-                            isLoading={restoringId === item._id}
-                            aria-label={`Restore ${item.itemId}`}
-                          >
-                            Restore
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditing(item)}
-                              aria-pressed={editing?._id === item._id}
-                              aria-label={`Edit ${item.itemId}`}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="items-archive-btn"
-                              onClick={() => setConfirmArchive({ item, isBusy: false, error: '' })}
-                              aria-label={`Archive ${item.itemId}`}
-                            >
-                              Archive
-                            </Button>
-                          </>
-                        )}
-                      </td>
+                      {isAdmin && (
+                        <>
+                          <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>
+                          <td className="items-actions">
+                            {isArchivedView ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRestore(item)}
+                                isLoading={restoringId === item._id}
+                                aria-label={`Restore ${item.itemId}`}
+                              >
+                                Restore
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setIsAdding(false)
+                                    setEditing(item)
+                                  }}
+                                  aria-pressed={editing?._id === item._id}
+                                  aria-label={`Edit ${item.itemId}`}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="items-archive-btn"
+                                  onClick={() =>
+                                    setConfirmArchive({
+                                      item,
+                                      isBusy: false,
+                                      error: '',
+                                    })
+                                  }
+                                  aria-label={`Archive ${item.itemId}`}
+                                >
+                                  Archive
+                                </Button>
+                              </>
+                            )}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -441,7 +507,11 @@ export default function ItemsPage() {
                     size="sm"
                     onClick={() => {
                       setSearchText('')
-                      updateParams({ ...EMPTY_FILTERS, search: null, page: null })
+                      updateParams({
+                        ...EMPTY_FILTERS,
+                        search: null,
+                        page: null,
+                      })
                     }}
                   >
                     Clear filters
@@ -470,7 +540,11 @@ export default function ItemsPage() {
                   variant="ghost"
                   size="sm"
                   disabled={page <= 1}
-                  onClick={() => updateParams({ page: page - 1 > 1 ? String(page - 1) : null })}
+                  onClick={() =>
+                    updateParams({
+                      page: page - 1 > 1 ? String(page - 1) : null,
+                    })
+                  }
                 >
                   Previous
                 </Button>
@@ -490,6 +564,16 @@ export default function ItemsPage() {
 
       {editing && (
         <EditItemPanel key={editing._id} item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
+      )}
+      {isAdding && !editing && (
+        <AddItemPanel
+          onClose={() => setIsAdding(false)}
+          onAdded={(item) => {
+            setAddedThisSession((list) => [item, ...list])
+            reload()
+          }}
+          addedThisSession={addedThisSession}
+        />
       )}
 
       {confirmBatch && (
@@ -541,7 +625,10 @@ function ImportResult({ result, onDismiss }) {
   const { fileName, added, asOf, skippedExisting, skippedDuplicates, invalid } = result
   const problems = [
     ...invalid,
-    ...skippedDuplicates.map((row) => ({ ...row, reason: `Same item as row ${row.sameAsRow}` })),
+    ...skippedDuplicates.map((row) => ({
+      ...row,
+      reason: `Same item as row ${row.sameAsRow}`,
+    })),
   ].sort((a, b) => a.row - b.row)
 
   return (
@@ -554,7 +641,8 @@ function ImportResult({ result, onDismiss }) {
           </p>
           <p className="import-result-meta">
             Opening balances dated {formatDate(asOf)}
-            {skippedExisting.length > 0 && ` · ${pluralize(skippedExisting.length, 'item')} already existed and were left unchanged`}
+            {skippedExisting.length > 0 &&
+              ` · ${pluralize(skippedExisting.length, 'item')} already existed and were left unchanged`}
           </p>
         </div>
         <button type="button" className="import-result-close" onClick={onDismiss} aria-label="Dismiss import result">

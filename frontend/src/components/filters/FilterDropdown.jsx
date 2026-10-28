@@ -16,8 +16,14 @@ const TYPE_OPTIONS = [
 
 // The item filter of the Transactions and Items pages (see utils/filters.js).
 // withEntryFilters adds transaction type and date range (Transactions page only).
-// align: see FilterPopover.
-export default function FilterDropdown({ filters, onApply, withEntryFilters = false, align = 'end' }) {
+// withStock: false hides stock status (encoders don't see stock). align: see FilterPopover.
+export default function FilterDropdown({
+  filters,
+  onApply,
+  withEntryFilters = false,
+  withStock = true,
+  align = 'end',
+}) {
   const [facets, setFacets] = useState(null)
   const [facetsError, setFacetsError] = useState(false)
 
@@ -56,25 +62,27 @@ export default function FilterDropdown({ filters, onApply, withEntryFilters = fa
             </>
           )}
 
-          <section className="filter-section">
-            <h3 className="filter-title">Stock status</h3>
-            <div className="filter-options" role="radiogroup" aria-label="Stock status">
-              {STOCK_OPTIONS.map((option) => (
-                <label key={option.value} className="filter-option">
-                  <input
-                    type="radio"
-                    name={`${idPrefix}-stock`}
-                    checked={draft.stock === option.value}
-                    onChange={() => set({ stock: option.value })}
-                  />
-                  <span className="filter-option-label">{option.label}</span>
-                  {option.value && facets && (
-                    <span className="filter-option-count">{formatNumber(facets.stock[option.value])}</span>
-                  )}
-                </label>
-              ))}
-            </div>
-          </section>
+          {withStock && (
+            <section className="filter-section">
+              <h3 className="filter-title">Stock status</h3>
+              <div className="filter-options" role="radiogroup" aria-label="Stock status">
+                {STOCK_OPTIONS.map((option) => (
+                  <label key={option.value} className="filter-option">
+                    <input
+                      type="radio"
+                      name={`${idPrefix}-stock`}
+                      checked={draft.stock === option.value}
+                      onChange={() => set({ stock: option.value })}
+                    />
+                    <span className="filter-option-label">{option.label}</span>
+                    {option.value && facets && (
+                      <span className="filter-option-count">{formatNumber(facets.stock[option.value])}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
 
           {LIST_FILTERS.map(({ key, label, facet }) => (
             <ChecklistSection

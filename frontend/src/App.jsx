@@ -3,6 +3,7 @@ import AdminRoute from './components/layout/AdminRoute'
 import AppLayout from './components/layout/AppLayout'
 import HomeRedirect from './components/layout/HomeRedirect'
 import ProtectedRoute from './components/layout/ProtectedRoute'
+import RoleRoute from './components/layout/RoleRoute'
 import AuthProvider from './features/auth/AuthProvider'
 import LoginPage from './features/auth/LoginPage'
 import StatusPage from './features/system/StatusPage'
@@ -22,11 +23,15 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomeRedirect />} />
-              <Route path="/transactions" element={<TransactionsPage />} />
+              <Route element={<RoleRoute roles={['admin', 'staff']} />}>
+                <Route path="/transactions" element={<TransactionsPage />} />
+              </Route>
+              <Route element={<RoleRoute roles={['admin', 'encoder']} />}>
+                <Route path="/items" element={<ItemsPage />} />
+              </Route>
 
               <Route element={<AdminRoute />}>
                 <Route path="/users/new" element={<CreateUserPage />} />
-                <Route path="/items" element={<ItemsPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
               </Route>
             </Route>

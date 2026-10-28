@@ -6,6 +6,7 @@ import logoutIcon from '../../assets/icons/logout.svg'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import userPlusIcon from '../../assets/icons/user-plus.svg'
 import { useAuth } from '../../features/auth/useAuth'
+import { ROLE_LABELS } from '../../utils/roles'
 import { useClickOutside } from '../../hooks/useClickOutside'
 import './AppBar.css'
 
@@ -85,7 +86,7 @@ export default function AppBar() {
             <div id={menuId} className="profile-menu-popover">
               <div className="profile-menu-header">
                 <p className="profile-menu-name">{user.name}</p>
-                <p className="profile-menu-role">{user.role === 'admin' ? 'Admin' : 'Staff'}</p>
+                <p className="profile-menu-role">{ROLE_LABELS[user.role] ?? user.role}</p>
               </div>
               {user.role === 'admin' && pathname !== '/users/new' && (
                 <Button

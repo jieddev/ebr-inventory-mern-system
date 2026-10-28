@@ -186,10 +186,6 @@ export default function TransactionsPage() {
         <header className="page-header">
           <h1>Servitek Transactions</h1>
           <div className="page-actions">
-            <Button onClick={() => setPanel('item')} aria-pressed={panel === 'item'}>
-              <img src={plusIcon} alt="" />
-              Add Item
-            </Button>
             <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
               <img src={plusIcon} alt="" />
               Add Transaction

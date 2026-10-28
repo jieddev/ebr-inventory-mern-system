@@ -1,11 +1,11 @@
 const { Router } = require('express');
 const { checkReportNo, createReceivingReport } = require('../controllers/receiving.controller');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireStaff } = require('../middleware/auth');
 
 const router = Router();
 
 // Anyone who can add transactions can enter a receiving report.
-router.use(requireAuth);
+router.use(requireAuth, requireStaff);
 router.get('/check', checkReportNo);
 router.post('/', createReceivingReport);
 
