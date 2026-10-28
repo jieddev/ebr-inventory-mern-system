@@ -1,28 +1,19 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
-import SegmentedControl from '../../components/ui/SegmentedControl'
+import ActiveFilters from '../../components/filters/ActiveFilters'
 import { getErrorMessage } from '../../api/auth'
 import { getAuditLog } from '../../api/audit'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
-import { datePresets } from '../../utils/filters'
+import ActivityFilter from './ActivityFilter'
+import { EMPTY_ACTIVITY_FILTERS, activityChips, countActivityFilters, readActivityFilters } from './activityFilters'
 import searchIcon from '../../assets/icons/search.svg'
-// Chip and link styles for the date presets.
-import '../../components/filters/FilterDropdown.css'
 import '../transactions/TransactionsPage.css'
 import '../items/ItemsPage.css'
 import './ActivityPage.css'
 
 const PAGE_SIZE = 50
 const SEARCH_DELAY_MS = 300
-
-const GROUP_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'auth', label: 'Logins' },
-  { value: 'item', label: 'Items' },
-  { value: 'transaction', label: 'Transactions' },
-  { value: 'user', label: 'Users' },
-]
 
 const ACTION_LABELS = {
   'auth.login': 'Logged in',
@@ -61,14 +52,10 @@ const localDateFormat = new Intl.DateTimeFormat('en-US', { month: '2-digit', day
 // kept for a year (see backend models/AuditLog.js).
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const group = searchParams.get('group') ?? ''
-  const user = searchParams.get('user') ?? ''
-  const from = searchParams.get('from') ?? ''
-  const to = searchParams.get('to') ?? ''
+  const filters = useMemo(() => readActivityFilters(searchParams), [searchParams])
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
 
-  const userSelectId = useId()
   const [searchText, setSearchText] = useState(search)
   const [reloadKey, setReloadKey] = useState(0)
   // The last finished request. It's loading while that isn't the current request.
@@ -79,9 +66,10 @@ export default function ActivityPage() {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
+          // Lists become repeated keys; empty values remove the key.
           for (const [key, value] of Object.entries(changes)) {
-            if (value) next.set(key, value)
-            else next.delete(key)
+            next.delete(key)
+            for (const v of [].concat(value || [])) if (v) next.append(key, v)
           }
           return next
         },
@@ -101,7 +89,7 @@ export default function ActivityPage() {
   const requestKey = `${searchParams.toString()}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getAuditLog({ group, user, from, to, search, page, limit: PAGE_SIZE }, { signal: controller.signal })
+    getAuditLog({ ...filters, search, page, limit: PAGE_SIZE }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
@@ -109,7 +97,7 @@ export default function ActivityPage() {
         setResponse((prev) => ({ key: requestKey, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [group, user, from, to, search, page, requestKey])
+  }, [filters, search, page, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -120,15 +108,18 @@ export default function ActivityPage() {
   const totalPages = data?.totalPages ?? 1
   const first = total ? (page - 1) * PAGE_SIZE + 1 : 0
   const last = Math.min(page * PAGE_SIZE, total)
-  const isFiltered = Boolean(group || user || from || to || search)
+  const isFiltered = Boolean(search || countActivityFilters(filters))
 
-  function setFilter(changes) {
-    updateParams({ ...changes, page: null })
+  const userNames = new Map((data?.users ?? []).map((u) => [u._id, `${u.name} (${u.userId})`]))
+  const chips = activityChips(filters, (id) => userNames.get(id) ?? 'Unknown user')
+
+  function applyFilters(next) {
+    updateParams({ ...next, page: null })
   }
 
   function clearFilters() {
     setSearchText('')
-    updateParams({ group: null, user: null, from: null, to: null, search: null, page: null })
+    updateParams({ ...EMPTY_ACTIVITY_FILTERS, search: null, page: null })
   }
 
   return (
@@ -156,74 +147,16 @@ export default function ActivityPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </label>
-            <label className="visually-hidden" htmlFor={userSelectId}>
-              User
-            </label>
-            <select
-              id={userSelectId}
-              className="activity-select"
-              value={user}
-              onChange={(e) => setFilter({ user: e.target.value })}
-            >
-              <option value="">All users</option>
-              {(data?.users ?? []).map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name} ({u.userId})
-                </option>
-              ))}
-            </select>
+            <ActivityFilter filters={filters} onApply={applyFilters} />
           </div>
-          <SegmentedControl
-            label="Activity type"
-            hideLabel
-            name="activity-group"
-            options={GROUP_OPTIONS}
-            value={group}
-            onChange={(value) => setFilter({ group: value })}
-          />
         </div>
 
-        <div className="activity-dates">
-          {datePresets().map((preset) => {
-            const isActive = preset.from === from && preset.to === to
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                className={`filter-chip-button ${isActive ? 'is-active' : ''}`}
-                aria-pressed={isActive}
-                onClick={() => setFilter(isActive ? { from: null, to: null } : { from: preset.from, to: preset.to })}
-              >
-                {preset.label}
-              </button>
-            )
-          })}
-          <label>
-            <span>From</span>
-            <input
-              type="date"
-              className="field-input"
-              value={from}
-              max={to || undefined}
-              onChange={(e) => setFilter({ from: e.target.value })}
-            />
-          </label>
-          <label>
-            <span>To</span>
-            <input
-              type="date"
-              className="field-input"
-              value={to}
-              min={from || undefined}
-              onChange={(e) => setFilter({ to: e.target.value })}
-            />
-          </label>
-          {isFiltered && (
-            <button type="button" className="filter-link" onClick={clearFilters}>
-              Clear filters
-            </button>
-          )}
-        </div>
+        <ActiveFilters
+          chips={chips}
+          onChange={applyFilters}
+          onClearAll={() => applyFilters(EMPTY_ACTIVITY_FILTERS)}
+          summary={data && <><strong>{formatNumber(total)}</strong> {total === 1 ? 'entry' : 'entries'} match</>}
+        />
 
         {response.error && (
           <div className="page-error" role="alert">

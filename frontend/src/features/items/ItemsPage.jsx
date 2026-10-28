@@ -9,7 +9,7 @@ import { getErrorMessage } from '../../api/auth'
 import { archiveItem, batchItems, exportItems, getItems, importItems, restoreItem } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
-import { EMPTY_FILTERS, countActiveFilters, readFilters } from '../../utils/filters'
+import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
 import searchIcon from '../../assets/icons/search.svg'
 import uploadIcon from '../../assets/icons/upload.svg'
 import downloadIcon from '../../assets/icons/download.svg'
@@ -304,7 +304,7 @@ export default function ItemsPage() {
         </div>
 
         <ActiveFilters
-          filters={filters}
+          chips={filterChips(filters)}
           onChange={applyFilters}
           onClearAll={() => applyFilters(EMPTY_FILTERS)}
           summary={data && <><strong>{pluralize(total, 'item')}</strong> match</>}

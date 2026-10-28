@@ -11,7 +11,7 @@ import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
 import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
-import { EMPTY_FILTERS, countActiveFilters, readFilters } from '../../utils/filters'
+import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
 import plusIcon from '../../assets/icons/plus.svg'
 import searchIcon from '../../assets/icons/search.svg'
 import reportIcon from '../../assets/icons/report.svg'
@@ -224,7 +224,7 @@ export default function TransactionsPage() {
         </div>
 
         <ActiveFilters
-          filters={filters}
+          chips={filterChips(filters)}
           onChange={applyFilters}
           onClearAll={() => applyFilters(EMPTY_FILTERS)}
           summary={

@@ -1,10 +1,10 @@
-import { filterChips } from '../../utils/filters'
 import closeIcon from '../../assets/icons/close.svg'
 import './FilterDropdown.css'
 
 // One removable chip per active filter, "Clear all", and an optional result summary.
-export default function ActiveFilters({ filters, onChange, onClearAll, summary }) {
-  const chips = filterChips(filters)
+// chips: [{ id, label, without }], where without is the filters left when it's removed
+// (see filterChips() in utils/filters.js).
+export default function ActiveFilters({ chips, onChange, onClearAll, summary }) {
   if (!chips.length) return null
 
   return (
