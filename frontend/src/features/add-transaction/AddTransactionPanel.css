@@ -77,7 +77,7 @@
   line-height: 16px;
   color: var(--color-text-muted);
   background: var(--color-surface);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .item-details-note.is-warning {

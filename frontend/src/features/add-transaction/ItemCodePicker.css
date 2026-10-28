@@ -21,7 +21,7 @@
   align-items: baseline;
   padding: var(--space-2) 10px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .item-picker-list li.is-active {

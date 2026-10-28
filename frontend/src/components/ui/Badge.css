@@ -9,7 +9,7 @@
   letter-spacing: 0.3px;
   text-transform: uppercase;
   white-space: nowrap;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
 }
 
 .badge-in {
