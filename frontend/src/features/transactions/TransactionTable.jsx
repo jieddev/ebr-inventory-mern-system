@@ -47,6 +47,7 @@ export default function TransactionTable({ groups, collapsed, expandedEntries, l
                 >
                   <img src={isCollapsed ? chevronRight : chevronDown} alt="" width="16" height="16" />
                 </button>
+                {item.itemId && <span className="txn-group-id">{item.itemId}</span>}
                 <span className="txn-group-code">{item.code}</span>
                 {details && <span className="txn-group-details">{details}</span>}
               </div>

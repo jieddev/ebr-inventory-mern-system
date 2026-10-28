@@ -87,6 +87,15 @@
   outline-offset: 2px;
 }
 
+.txn-group-id {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 20px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
 .txn-group-code {
   font-weight: var(--weight-semibold);
   line-height: 20px;

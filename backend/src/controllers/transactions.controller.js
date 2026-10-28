@@ -24,7 +24,7 @@ async function listTransactions(req, res) {
   if (search) {
     const rx = containsRegex(search);
     const customerItemIds = await Transaction.distinct('item', { customerName: rx });
-    conditions.push({ $or: [{ code: rx }, { brand: rx }, { _id: { $in: customerItemIds } }] });
+    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { _id: { $in: customerItemIds } }] });
   }
   if (match) conditions.push({ _id: { $in: await Transaction.distinct('item', match) } });
   const filter = andFilter(conditions);
@@ -35,7 +35,7 @@ async function listTransactions(req, res) {
       .sort({ lastTransactionDate: -1, updatedAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit)
-      .select('code brand typeDesign balance transactionCount lastTransactionDate lastTransactionType')
+      .select('itemId code brand typeDesign balance transactionCount lastTransactionDate lastTransactionType')
       .lean(),
   ]);
 
