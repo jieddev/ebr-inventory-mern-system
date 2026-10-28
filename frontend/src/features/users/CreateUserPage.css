@@ -1,9 +1,12 @@
+/* A 480px column in the middle of the page. "safe" falls back to the top when the window
+   is too short, so the form scrolls instead of being cut off. */
 .create-user-page {
   display: grid;
   flex: 1;
+  grid-template-columns: minmax(0, 480px);
   gap: var(--space-6);
-  align-content: start;
-  max-width: calc(480px + 2 * var(--space-8));
+  justify-content: center;
+  align-content: safe center;
   padding: var(--space-7) var(--space-8) var(--space-8);
   overflow-y: auto;
 }
