@@ -10,6 +10,11 @@ export async function getItemTypes() {
   return data.types
 }
 
+export async function getItemCategories() {
+  const { data } = await api.get('/items/categories')
+  return data.categories
+}
+
 export async function createItem(item) {
   const { data } = await api.post('/items', item)
   return data.item

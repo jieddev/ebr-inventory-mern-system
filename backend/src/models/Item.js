@@ -16,11 +16,23 @@ const DEFAULT_TYPES = [
   'TUBE',
 ];
 
+// Item categories for Add Item. Items added before categories existed have ''.
+const CATEGORIES = [
+  'TIRES',
+  'TUBES',
+  'FLAPS',
+  'BATTERIES',
+  'OILS & LUBRICANTS',
+  'CHEMICALS & FLUIDS',
+  'OTHERS',
+];
+
 // Trim, collapse inner spaces and uppercase, so "155 R12  arisun " and "155 R12 ARISUN" are the same item.
 const normalize = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 
 const itemSchema = new mongoose.Schema(
   {
+    category: { type: String, enum: ['', ...CATEGORIES], default: '' },
     code: { type: String, required: true, maxlength: 80, set: normalize },
     brand: { type: String, default: '', maxlength: 60, set: normalize },
     typeDesign: { type: String, default: '', maxlength: 60, set: normalize },
@@ -51,3 +63,4 @@ itemSchema.statics.normalize = normalize;
 
 module.exports = mongoose.model('Item', itemSchema);
 module.exports.DEFAULT_TYPES = DEFAULT_TYPES;
+module.exports.CATEGORIES = CATEGORIES;

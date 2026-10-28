@@ -3,21 +3,24 @@ import Button from '../../components/ui/Button'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
-import { createItem, getItemTypes } from '../../api/items'
+import { createItem, getItemCategories, getItemTypes } from '../../api/items'
 import { formatNumber } from '../../utils/format'
 import plusIcon from '../../assets/icons/plus.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
 import './AddItemPanel.css'
 
-const EMPTY_FORM = { code: '', brand: '', typeDesign: '', balanceForwarded: '' }
+const EMPTY_FORM = { category: '', code: '', brand: '', typeDesign: '', balanceForwarded: '' }
 
-// Stays open after each save: the fields clear, a confirmation shows, and the item
-// is added to "Added this session", so many items can be entered in a row.
+// Stays open after each save: the fields clear (except Category), a confirmation shows,
+// and the item is added to "Added this session", so many items can be entered in a row.
 export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
   const typesListId = useId()
+  const categoryId = useId()
+  const categoryRef = useRef(null)
   const codeRef = useRef(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [categories, setCategories] = useState([])
   const [types, setTypes] = useState([])
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -25,7 +28,10 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    codeRef.current?.focus()
+    categoryRef.current?.focus()
+    getItemCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]))
     getItemTypes()
       .then(setTypes)
       .catch(() => setTypes([]))
@@ -39,6 +45,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
   async function handleSubmit(event) {
     event.preventDefault()
     const nextErrors = {}
+    if (!form.category) nextErrors.category = 'Select a category'
     if (!form.code.trim()) nextErrors.code = 'Enter an item code'
     const balance = form.balanceForwarded === '' ? 0 : Number(form.balanceForwarded)
     if (!Number.isInteger(balance) || balance < 0) nextErrors.balanceForwarded = 'Enter a whole number, 0 or more'
@@ -50,7 +57,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
     try {
       const item = await createItem({ ...form, balanceForwarded: balance })
       setSuccessMessage(`“${item.code}” was added. You can add another item.`)
-      setForm(EMPTY_FORM)
+      setForm({ ...EMPTY_FORM, category: form.category })
       onAdded(item)
       codeRef.current?.focus()
     } catch (err) {
@@ -92,6 +99,42 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
           {formError}
         </div>
       )}
+
+      <div className={`field ${errors.category ? 'has-error' : ''}`}>
+        <label className="field-label" htmlFor={categoryId}>
+          Category
+          <span className="field-required"> *</span>
+        </label>
+        <div className="field-control">
+          <select
+            ref={categoryRef}
+            id={categoryId}
+            className="field-input field-select"
+            required
+            aria-invalid={!!errors.category}
+            aria-describedby={errors.category ? `${categoryId}-error` : undefined}
+            value={form.category}
+            onChange={(e) => setField('category', e.target.value)}
+          >
+            <option value="" disabled>
+              Select category
+            </option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <div className="field-adornment field-adornment-icon" aria-hidden="true">
+            <img src={chevronIcon} alt="" width="20" height="20" />
+          </div>
+        </div>
+        {errors.category && (
+          <p id={`${categoryId}-error`} className="field-error">
+            {errors.category}
+          </p>
+        )}
+      </div>
 
       <TextField
         ref={codeRef}

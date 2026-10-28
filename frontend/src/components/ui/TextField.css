@@ -58,6 +58,20 @@
   right: var(--space-2);
 }
 
+/* Native select styled like a text field; the chevron comes from .field-adornment-icon. */
+.field-select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.field-select:invalid {
+  color: var(--color-text-faint);
+}
+
+.field-select option {
+  color: var(--color-text);
+}
+
 /* Icon-only adornment, e.g. the chevron on a type picker. */
 .field-control:has(.field-adornment-icon) .field-input {
   padding-right: 40px;
