@@ -41,7 +41,8 @@
   background: var(--color-primary-soft);
 }
 
-.activity-action-transaction {
+.activity-action-transaction,
+.activity-action-receiving {
   color: var(--color-in);
   background: var(--color-in-soft);
 }

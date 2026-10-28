@@ -11,6 +11,7 @@ import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import { isCompleteItemId, parseItemId } from '../../utils/itemId'
 import ItemCodePicker from './ItemCodePicker'
+import ReceivingReportPanel from './ReceivingReportPanel'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
@@ -25,7 +26,7 @@ const TYPE_OPTIONS = [
 // by item code; either way the other fields fill in.
 // After saving, the item, quantity and customer clear for the next entry. Date and
 // IN/OUT are kept, since entries are usually typed in batches from the same day.
-export default function AddTransactionPanel({ onClose, onSaved }) {
+function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const idRef = useRef(null)
   const codeRef = useRef(null)
   const [idText, setIdText] = useState('')
@@ -45,8 +46,8 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    idRef.current?.focus()
-  }, [])
+    if (isActive) idRef.current?.focus()
+  }, [isActive])
 
   useEffect(() => {
     const { itemId, attempt } = lookup
@@ -168,7 +169,8 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
     <SidePanel
       title="Add Transaction"
       subtitle="Record stock coming in or going out."
-      onClose={onClose}
+      // Only the visible mode reacts to Esc and the close button.
+      onClose={isActive ? onClose : ignoreClose}
       as="form"
       bodyProps={{ onSubmit: handleSubmit, noValidate: true }}
       footer={
@@ -182,6 +184,8 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
         </>
       }
     >
+      {modeToggle}
+
       {successMessage && (
         <div className="panel-alert panel-alert-success" role="status">
           <img src={checkIcon} alt="" width="20" height="20" />
@@ -312,5 +316,53 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
         )}
       </section>
     </SidePanel>
+  )
+}
+
+const ignoreClose = () => {}
+
+const MODE_KEY = 'ebr.addTransaction.mode'
+const MODE_OPTIONS = [
+  { value: 'form', label: 'Form' },
+  { value: 'brr', label: 'BRR template' },
+]
+
+// Remembered per PC, so the bodega PC can stay on the BRR template.
+function savedMode() {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'brr' ? 'brr' : 'form'
+  } catch {
+    return 'form'
+  }
+}
+
+// Add Transaction with two modes: the single-entry form, or the Bodega Receiving Report
+// slip (several IN lines at once). Both stay mounted, so switching never loses what was typed.
+export default function AddTransactionPanel({ onClose, onSaved }) {
+  const [mode, setMode] = useState(savedMode)
+
+  function changeMode(next) {
+    setMode(next)
+    try {
+      localStorage.setItem(MODE_KEY, next)
+    } catch {
+      // not remembered; fine
+    }
+  }
+
+  // One per panel: radio buttons sharing a name would act as a single group.
+  const modeToggle = (name) => (
+    <SegmentedControl label="Entry type" name={name} options={MODE_OPTIONS} value={mode} onChange={changeMode} />
+  )
+
+  return (
+    <>
+      <div className="entry-mode-slot" hidden={mode !== 'form'}>
+        <SingleEntryPanel onClose={onClose} onSaved={onSaved} modeToggle={modeToggle('entry-mode-form')} isActive={mode === 'form'} />
+      </div>
+      <div className="entry-mode-slot" hidden={mode !== 'brr'}>
+        <ReceivingReportPanel onClose={onClose} onSaved={onSaved} modeToggle={modeToggle('entry-mode-brr')} isActive={mode === 'brr'} />
+      </div>
+    </>
   )
 }

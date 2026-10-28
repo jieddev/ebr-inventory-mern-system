@@ -84,3 +84,12 @@
   color: var(--color-warning);
   background: var(--color-warning-soft);
 }
+
+/* Each entry mode's panel sits in the page layout as if the wrapper weren't there. */
+.entry-mode-slot {
+  display: contents;
+}
+
+.entry-mode-slot[hidden] {
+  display: none;
+}

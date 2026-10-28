@@ -47,7 +47,8 @@ async function searchItems(req, res) {
   const q = Item.normalize(req.query.q);
   if (!q) return res.json({ items: [] });
 
-  const items = await Item.find({ ...ACTIVE, code: containsRegex(q) })
+  const rx = containsRegex(q);
+  const items = await Item.find({ ...ACTIVE, $or: [{ code: rx }, { itemId: rx }] })
     .select(ITEM_FIELDS)
     .sort({ code: 1, brand: 1, typeDesign: 1 })
     .limit(20)

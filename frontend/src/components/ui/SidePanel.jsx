@@ -3,13 +3,13 @@ import closeIcon from '../../assets/icons/close.svg'
 import './SidePanel.css'
 
 // Right-hand panel that sits beside the page content (it doesn't cover it).
-// Esc closes it.
+// Esc closes it, unless a dialog is open on top (Esc closes the dialog then).
 export default function SidePanel({ title, subtitle, onClose, footer, children, as: Body = 'div', bodyProps }) {
   const titleId = useId()
 
   useEffect(() => {
     function handleKeyDown(event) {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !document.querySelector('dialog[open]')) onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)

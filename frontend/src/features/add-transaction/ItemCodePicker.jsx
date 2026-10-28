@@ -6,9 +6,22 @@ import './ItemCodePicker.css'
 
 const SEARCH_DELAY_MS = 200
 
-// Type-ahead for item codes. One code can belong to several items (different brand or
-// type), so each match shows its brand and type, and the user picks the exact one.
-export default function ItemCodePicker({ value, onChange, selected, onSelect, error, hint, inputRef }) {
+// Type-ahead for item codes (or item IDs). One code can belong to several items (different
+// brand or type), so each match shows its ID, brand and type, and the user picks the exact one.
+// hideLabel keeps the label for screen readers only (BRR template lines); hint is optional.
+export default function ItemCodePicker({
+  value,
+  onChange,
+  selected,
+  onSelect,
+  error,
+  hint,
+  inputRef,
+  label = 'Item code',
+  hideLabel = false,
+  required = true,
+  placeholder = 'Start typing an item code',
+}) {
   const id = useId()
   const listId = `${id}-list`
   // Matches for the last finished search; stale while the user keeps typing.
@@ -63,12 +76,13 @@ export default function ItemCodePicker({ value, onChange, selected, onSelect, er
   }
 
   const showList = isOpen && !selected && query !== ''
-  const describedBy = error ? `${id}-error` : `${id}-hint`
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
 
   return (
     <div className={`field item-picker ${error ? 'has-error' : ''}`}>
-      <label className="field-label" htmlFor={id}>
-        Item code<span className="field-required"> *</span>
+      <label className={hideLabel ? 'visually-hidden' : 'field-label'} htmlFor={id}>
+        {label}
+        {required && !hideLabel && <span className="field-required"> *</span>}
       </label>
       <div className="field-control">
         <input
@@ -83,7 +97,7 @@ export default function ItemCodePicker({ value, onChange, selected, onSelect, er
           aria-invalid={!!error}
           aria-describedby={describedBy}
           autoComplete="off"
-          placeholder="Start typing an item code"
+          placeholder={placeholder}
           value={value}
           onChange={(e) => {
             onChange(e.target.value)
@@ -130,9 +144,11 @@ export default function ItemCodePicker({ value, onChange, selected, onSelect, er
           {error}
         </p>
       ) : (
-        <p id={`${id}-hint`} className="field-hint">
-          {hint}
-        </p>
+        hint && (
+          <p id={`${id}-hint`} className="field-hint">
+            {hint}
+          </p>
+        )
       )}
     </div>
   )

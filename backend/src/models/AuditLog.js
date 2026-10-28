@@ -15,6 +15,7 @@ const ACTIONS = [
   'item.import',
   'item.export',
   'transaction.create',
+  'receiving.create',
 ];
 
 // How long entries are kept. Changing it also updates an existing database's TTL index
@@ -36,7 +37,7 @@ const auditLogSchema = new mongoose.Schema(
       role: String,
     },
     target: {
-      type: { type: String, enum: ['item', 'user', 'transaction'] },
+      type: { type: String, enum: ['item', 'user', 'transaction', 'receiving'] },
       id: mongoose.Schema.Types.ObjectId,
       label: String,
     },

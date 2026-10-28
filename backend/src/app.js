@@ -9,6 +9,7 @@ const itemRoutes = require('./routes/items.routes');
 const transactionRoutes = require('./routes/transactions.routes');
 const eventRoutes = require('./routes/events.routes');
 const auditRoutes = require('./routes/audit.routes');
+const receivingRoutes = require('./routes/receiving.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/receiving-reports', receivingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -29,6 +29,7 @@ const ACTION_LABELS = {
   'item.import': 'Imported Excel',
   'item.export': 'Exported Excel',
   'transaction.create': 'Added transaction',
+  'receiving.create': 'Receiving report',
 }
 
 const FIELD_LABELS = {
@@ -303,6 +304,23 @@ function Details({ entry }) {
       )
     case 'item.create':
       return `${d.category || 'No category'} · opening balance ${formatNumber(d.balanceForwarded)}`
+    case 'receiving.create':
+      return (
+        <>
+          <span>
+            {[`IN ${formatNumber(d.totalQuantity)}`, formatDate(d.date), d.customerName]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <ul className="activity-changes">
+            {(d.lines ?? []).map((line, i) => (
+              <li key={i} className="items-muted">
+                {formatNumber(line.quantity)} {line.unit} · {line.itemId} {line.code}
+              </li>
+            ))}
+          </ul>
+        </>
+      )
     case 'transaction.create':
       return [`${d.type} ${formatNumber(d.quantity)}`, formatDate(d.date), d.customerName].filter(Boolean).join(' · ')
     case 'item.import':
