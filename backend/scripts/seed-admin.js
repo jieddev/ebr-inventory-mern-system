@@ -10,9 +10,14 @@ async function main() {
   const password = process.env.SEED_ADMIN_PASSWORD;
   const name = process.env.SEED_ADMIN_NAME || 'Administrator';
 
-  if (!userId || !password) throw new Error('Set SEED_ADMIN_ID and SEED_ADMIN_PASSWORD in backend/.env');
-  if (password === PLACEHOLDER) throw new Error('Change SEED_ADMIN_PASSWORD in backend/.env first');
-  if (password.length < 8) throw new Error('SEED_ADMIN_PASSWORD must be at least 8 characters');
+  if (!userId || !password)
+    throw new Error(
+      'Set SEED_ADMIN_ID and SEED_ADMIN_PASSWORD in backend/.env',
+    );
+  if (password === PLACEHOLDER)
+    throw new Error('Change SEED_ADMIN_PASSWORD in backend/.env first');
+  if (password.length < 8)
+    throw new Error('SEED_ADMIN_PASSWORD must be at least 8 characters');
 
   await connectDB();
 
