@@ -4,20 +4,23 @@
  * Figma name in brackets where ours differs.
  */
 :root {
-  /* Brand */
-  --color-primary: #2454c5; /* brand/primary */
-  --color-primary-hover: #1d46a8;
-  --color-primary-soft: #eaf0fc; /* brand/primary-subtle */
+  /* Brand: Goodyear PH theme (goodyear.com.ph) */
+  --color-primary: #013b81; /* Goodyear blue */
+  --color-primary-hover: #0b1d45; /* Goodyear dark navy */
+  --color-primary-soft: #e6edf6;
+  --color-accent: #ffdd00; /* Goodyear yellow */
+  --color-accent-hover: #fbbd00;
+  --color-accent-text: #0b1d45; /* text on yellow */
 
   /* Neutrals */
-  --color-bg: #f4f6fa; /* bg/canvas */
-  --color-bg-subtle: #f8fafc; /* bg/subtle: table header, panel footer */
+  --color-bg: #f2f2f2; /* bg/canvas */
+  --color-bg-subtle: #f7f7f7; /* bg/subtle: table header, panel footer */
   --color-surface: #ffffff; /* bg/surface */
-  --color-border: #e2e7ef; /* border/default */
-  --color-border-strong: #cbd3df; /* border/strong: inputs, secondary buttons */
-  --color-text: #172033; /* text/primary */
-  --color-text-muted: #5a6578; /* text/secondary */
-  --color-text-faint: #8c96a8; /* text/muted: placeholders, meta */
+  --color-border: #e0e1e2; /* border/default */
+  --color-border-strong: #c6c8ca; /* border/strong: inputs, secondary buttons */
+  --color-text: #231f20; /* text/primary */
+  --color-text-muted: #6d6e71; /* text/secondary */
+  --color-text-faint: #96989b; /* text/muted: placeholders, meta */
 
   /* Status */
   --color-in: #157a47; /* status/in */
@@ -32,7 +35,7 @@
   --color-warning-soft: #fff4cc;
 
   /* Typography */
-  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'PT Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
