@@ -11,6 +11,7 @@ import TransactionsPage from './features/transactions/TransactionsPage'
 import CreateUserPage from './features/users/CreateUserPage'
 import ItemsPage from './features/items/ItemsPage'
 import ActivityPage from './features/audit/ActivityPage'
+import DailyReportPage from './features/reports/DailyReportPage'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
               <Route path="/" element={<HomeRedirect />} />
               <Route element={<RoleRoute roles={['admin', 'staff']} />}>
                 <Route path="/transactions" element={<TransactionsPage />} />
+                <Route path="/reports/daily" element={<DailyReportPage />} />
               </Route>
               <Route element={<RoleRoute roles={['admin', 'encoder']} />}>
                 <Route path="/items" element={<ItemsPage />} />

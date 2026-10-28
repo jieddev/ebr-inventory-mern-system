@@ -38,3 +38,7 @@
   justify-content: flex-end;
   margin-top: var(--space-6);
 }
+
+.pick-date-field {
+  margin-top: var(--space-5);
+}

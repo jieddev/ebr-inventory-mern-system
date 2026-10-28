@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
+import PickDateDialog from '../../components/ui/PickDateDialog'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
 import { getErrorMessage } from '../../api/auth'
@@ -41,6 +42,8 @@ export default function TransactionsPage() {
   const [loadingAll, setLoadingAll] = useState(null)
 
   const [panel, setPanel] = useState(null) // 'item' | 'transaction' | null
+  const [isPickingReportDate, setIsPickingReportDate] = useState(false)
+  const navigate = useNavigate()
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
 
   const updateParams = useCallback(
@@ -208,7 +211,7 @@ export default function TransactionsPage() {
             <FilterDropdown filters={filters} onApply={applyFilters} withEntryFilters />
           </div>
           <div className="toolbar-reports">
-            <Button variant="secondary" disabled title="Coming soon">
+            <Button variant="secondary" onClick={() => setIsPickingReportDate(true)}>
               <img src={reportIcon} alt="" />
               Generate Daily Report
             </Button>
@@ -314,6 +317,15 @@ export default function TransactionsPage() {
         <AddItemPanel onClose={closePanel} onAdded={handleItemAdded} addedThisSession={itemsAddedThisSession} />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
+
+      {isPickingReportDate && (
+        <PickDateDialog
+          title="Generate Daily Report"
+          subtitle="Show ending balances as of which date?"
+          onCancel={() => setIsPickingReportDate(false)}
+          onConfirm={(date) => navigate(`/reports/daily?date=${date}`)}
+        />
+      )}
     </div>
   )
 }

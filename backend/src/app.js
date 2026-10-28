@@ -10,6 +10,7 @@ const transactionRoutes = require('./routes/transactions.routes');
 const eventRoutes = require('./routes/events.routes');
 const auditRoutes = require('./routes/audit.routes');
 const receivingRoutes = require('./routes/receiving.routes');
+const reportRoutes = require('./routes/reports.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/receiving-reports', receivingRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
