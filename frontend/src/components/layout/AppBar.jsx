@@ -5,6 +5,7 @@ import Logo from '../ui/Logo'
 import logoutIcon from '../../assets/icons/logout.svg'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import userPlusIcon from '../../assets/icons/user-plus.svg'
+import listIcon from '../../assets/icons/list.svg'
 import { useAuth } from '../../features/auth/useAuth'
 import './AppBar.css'
 
@@ -77,6 +78,20 @@ export default function AppBar() {
                 <p className="profile-menu-name">{user.name}</p>
                 <p className="profile-menu-role">{user.role === 'admin' ? 'Admin' : 'Staff'}</p>
               </div>
+              {user.role === 'admin' && pathname !== '/items' && (
+                <Button
+                  variant="ghost"
+                  block
+                  className="profile-menu-item"
+                  onClick={() => {
+                    setIsMenuOpen(false)
+                    navigate('/items')
+                  }}
+                >
+                  <img src={listIcon} alt="" />
+                  All items
+                </Button>
+              )}
               {user.role === 'admin' && pathname !== '/users/new' && (
                 <Button
                   variant="ghost"

@@ -24,6 +24,7 @@ const CATEGORIES = [
   'BATTERIES',
   'OILS & LUBRICANTS',
   'CHEMICALS & FLUIDS',
+  'PARTS & ACCESSORIES',
   'OTHERS',
 ];
 
@@ -32,6 +33,8 @@ const normalize = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toU
 
 const itemSchema = new mongoose.Schema(
   {
+    // Permanent, human-readable ID such as ITM-00001. Set by services/itemId.service.js.
+    itemId: { type: String },
     category: { type: String, enum: ['', ...CATEGORIES], default: '' },
     code: { type: String, required: true, maxlength: 80, set: normalize },
     brand: { type: String, default: '', maxlength: 60, set: normalize },
@@ -58,6 +61,8 @@ const itemSchema = new mongoose.Schema(
 // The same code can belong to different items, e.g. "2.25-17" is a STAR tire, a CHAMP tire and an IZUMI tube.
 itemSchema.index({ code: 1, brand: 1, typeDesign: 1 }, { unique: true });
 itemSchema.index({ lastTransactionDate: -1, updatedAt: -1 });
+// Sparse, so items saved before IDs existed don't clash until the startup backfill runs.
+itemSchema.index({ itemId: 1 }, { unique: true, sparse: true });
 
 itemSchema.statics.normalize = normalize;
 

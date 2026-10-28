@@ -8,6 +8,7 @@ import LoginPage from './features/auth/LoginPage'
 import StatusPage from './features/system/StatusPage'
 import TransactionsPage from './features/transactions/TransactionsPage'
 import CreateUserPage from './features/users/CreateUserPage'
+import ItemsPage from './features/items/ItemsPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
 
               <Route element={<AdminRoute />}>
                 <Route path="/users/new" element={<CreateUserPage />} />
+                <Route path="/items" element={<ItemsPage />} />
               </Route>
             </Route>
           </Route>

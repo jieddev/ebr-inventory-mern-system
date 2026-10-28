@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const app = require('./src/app');
 const connectDB = require('./src/config/db');
 const { port } = require('./src/config/env');
+const { backfillItemIds } = require('./src/services/itemId.service');
 
 async function start() {
   try {
@@ -8,6 +10,11 @@ async function start() {
   } catch (err) {
     // Keep the API up so /api/health can report the DB problem.
     console.error('Could not connect to MongoDB:', err.message);
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    const backfilled = await backfillItemIds().catch((err) => console.error('Could not give items an ID:', err.message));
+    if (backfilled) console.log(`Gave item IDs to ${backfilled} existing items`);
   }
 
   app.listen(port, () => console.log(`API running at http://localhost:${port}/api`));

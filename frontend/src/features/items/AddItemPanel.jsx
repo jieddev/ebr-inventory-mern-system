@@ -56,7 +56,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
     setIsSaving(true)
     try {
       const item = await createItem({ ...form, balanceForwarded: balance })
-      setSuccessMessage(`“${item.code}” was added. You can add another item.`)
+      setSuccessMessage(`“${item.code}” was added as ${item.itemId}. You can add another item.`)
       setForm({ ...EMPTY_FORM, category: form.category })
       onAdded(item)
       codeRef.current?.focus()
