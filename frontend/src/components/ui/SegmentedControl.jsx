@@ -2,12 +2,13 @@ import { useId } from 'react'
 import './SegmentedControl.css'
 
 // options: [{ value, label, icon?, tone? }]. tone ('in' | 'out') colors the selected option.
-export default function SegmentedControl({ label, options, value, onChange, name }) {
+// hideLabel keeps the label for screen readers only, e.g. inside a toolbar.
+export default function SegmentedControl({ label, options, value, onChange, name, hideLabel = false }) {
   const labelId = useId()
 
   return (
     <div className="segmented-field">
-      <span id={labelId} className="field-label">
+      <span id={labelId} className={hideLabel ? 'visually-hidden' : 'field-label'}>
         {label}
       </span>
       <div className="segmented" role="radiogroup" aria-labelledby={labelId}>

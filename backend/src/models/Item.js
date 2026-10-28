@@ -53,6 +53,11 @@ const itemSchema = new mongoose.Schema(
     lastTransactionType: { type: String, enum: ['IN', 'OUT'] },
 
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    // Set when an admin archives ("deletes") the item. Archived items are hidden from every
+    // list and can't get new transactions, but keep their ledger and item ID.
+    archivedAt: { type: Date, default: null },
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
 );
@@ -66,6 +71,10 @@ itemSchema.index({ itemId: 1 }, { unique: true, sparse: true });
 
 itemSchema.statics.normalize = normalize;
 
+// Not archived. Also matches items saved before archiving existed (no archivedAt field).
+const ACTIVE = { archivedAt: null };
+
 module.exports = mongoose.model('Item', itemSchema);
 module.exports.DEFAULT_TYPES = DEFAULT_TYPES;
 module.exports.CATEGORIES = CATEGORIES;
+module.exports.ACTIVE = ACTIVE;

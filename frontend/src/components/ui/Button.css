@@ -56,6 +56,15 @@
   background: var(--color-primary-hover);
 }
 
+.btn-danger {
+  color: var(--color-surface);
+  background: var(--color-danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+}
+
 .btn-secondary {
   color: var(--color-text);
   background: var(--color-surface);

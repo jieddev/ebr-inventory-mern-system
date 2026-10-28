@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
+const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
@@ -19,7 +20,7 @@ async function listTransactions(req, res) {
   const search = String(req.query.search ?? '').trim();
   const match = entryMatch(req.query);
 
-  const conditions = itemConditions(req.query);
+  const conditions = [ACTIVE, ...itemConditions(req.query)];
   if (search) {
     const rx = containsRegex(search);
     const customerItemIds = await Transaction.distinct('item', { customerName: rx });
@@ -98,7 +99,9 @@ async function createTransaction(req, res) {
   const customerName = String(body.customerName ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 
   const result = await mongoose.connection.transaction(async (session) => {
-    if (!(await Item.exists({ _id: itemId }).session(session))) throw new HttpError(404, 'Item not found');
+    const target = await Item.findById(itemId).select('archivedAt').session(session).lean();
+    if (!target) throw new HttpError(404, 'Item not found');
+    if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
 
     const [transaction] = await Transaction.create(
       [{ item: itemId, date, type, quantity, customerName, createdBy: req.user._id }],

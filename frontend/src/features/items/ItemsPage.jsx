@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import SegmentedControl from '../../components/ui/SegmentedControl'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
 import { getErrorMessage } from '../../api/auth'
-import { exportItems, getItems, importItems } from '../../api/items'
+import { archiveItem, batchItems, exportItems, getItems, importItems, restoreItem } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, readFilters } from '../../utils/filters'
@@ -13,17 +15,27 @@ import uploadIcon from '../../assets/icons/upload.svg'
 import downloadIcon from '../../assets/icons/download.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import closeIcon from '../../assets/icons/close.svg'
+import EditItemPanel from './EditItemPanel'
 import '../transactions/TransactionsPage.css'
 import './ItemsPage.css'
 
 const PAGE_SIZE = 25
+const VIEW_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'archived', label: 'Archived' },
+]
 const SEARCH_DELAY_MS = 300
+// all: every item matching the current search, filters and view, on every page.
+const NO_SELECTION = { scope: null, ids: new Set(), all: false }
 
-// Admin only: every unique item with its item ID, plus Excel import and export.
+// Admin only: every unique item with its item ID, Excel import and export, and
+// Edit / Archive per item. Archived items have their own view, where they can be restored.
+// Ticked rows (or "Select all N matching") can be archived or restored in one go.
 export default function ItemsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const isArchivedView = searchParams.get('archived') === '1'
   // The Items page only uses the item filters (stock, category, type / design, brand).
   const filters = useMemo(() => {
     const { stock, category, typeDesign, brand } = readFilters(searchParams)
@@ -40,6 +52,22 @@ export default function ItemsPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
+
+  const [editing, setEditing] = useState(null)
+  const [confirmArchive, setConfirmArchive] = useState(null) // { item, isBusy, error }
+  const [restoringId, setRestoringId] = useState(null)
+  const [notice, setNotice] = useState('')
+
+  // The selection belongs to one search + filters + view (page excluded, so it survives
+  // paging). Changing any of them drops it.
+  const selectionScope = useMemo(() => {
+    const scope = new URLSearchParams(searchParams)
+    scope.delete('page')
+    return scope.toString()
+  }, [searchParams])
+  const [selectionState, setSelectionState] = useState(NO_SELECTION)
+  const selection = selectionState.scope === selectionScope ? selectionState : NO_SELECTION
+  const [confirmBatch, setConfirmBatch] = useState(null) // { isBusy, error }
 
   const updateParams = useCallback(
     (changes) => {
@@ -69,7 +97,7 @@ export default function ItemsPage() {
   const requestKey = `${searchParams.toString()}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getItems({ search, page, limit: PAGE_SIZE, filters }, { signal: controller.signal })
+    getItems({ search, page, limit: PAGE_SIZE, filters, archived: isArchivedView }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
@@ -77,7 +105,7 @@ export default function ItemsPage() {
         setResponse((prev) => ({ key: requestKey, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [search, page, filters, requestKey])
+  }, [search, page, filters, isArchivedView, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -104,6 +132,81 @@ export default function ItemsPage() {
     }
   }
 
+  function handleSaved(item) {
+    setEditing(null)
+    setNotice(`${item.itemId} · ${item.code} was saved.`)
+    reload()
+  }
+
+  async function handleArchive() {
+    const { item } = confirmArchive
+    setConfirmArchive({ item, isBusy: true, error: '' })
+    try {
+      await archiveItem(item._id)
+      setConfirmArchive(null)
+      if (editing?._id === item._id) setEditing(null)
+      setNotice(`${item.itemId} · ${item.code} was archived. Find it under Archived to restore it.`)
+      reload()
+    } catch (err) {
+      setConfirmArchive({ item, isBusy: false, error: getErrorMessage(err, 'Could not archive the item.') })
+    }
+  }
+
+  async function handleRestore(item) {
+    setRestoringId(item._id)
+    setError('')
+    try {
+      await restoreItem(item._id)
+      setNotice(`${item.itemId} · ${item.code} was restored.`)
+      reload()
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not restore the item.'))
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  const setSelection = (ids, all = false) => setSelectionState({ scope: selectionScope, ids, all })
+  const clearSelection = () => setSelectionState(NO_SELECTION)
+
+  function toggleRow(id) {
+    // In "all matching" mode, unticking a row falls back to this page's rows.
+    const ids = new Set(selection.all ? items.map((item) => item._id) : selection.ids)
+    if (ids.has(id)) ids.delete(id)
+    else ids.add(id)
+    setSelection(ids)
+  }
+
+  function togglePage() {
+    const ids = new Set(selection.ids)
+    if (isPageSelected) items.forEach((item) => ids.delete(item._id))
+    else items.forEach((item) => ids.add(item._id))
+    setSelection(ids)
+  }
+
+  async function handleBatch() {
+    const action = isArchivedView ? 'restore' : 'archive'
+    setConfirmBatch({ isBusy: true, error: '' })
+    try {
+      const { stock, category, typeDesign, brand } = filters
+      const count = await batchItems(
+        action,
+        selection.all ? { all: true, query: { search, stock, category, typeDesign, brand } } : { ids: [...selection.ids] },
+      )
+      setConfirmBatch(null)
+      clearSelection()
+      setEditing(null)
+      setNotice(
+        action === 'archive'
+          ? `${pluralize(count, 'item')} archived. Find them under Archived to restore them.`
+          : `${pluralize(count, 'item')} restored.`,
+      )
+      reload()
+    } catch (err) {
+      setConfirmBatch({ isBusy: false, error: getErrorMessage(err, `Could not ${action} the items.`) })
+    }
+  }
+
   async function handleExport() {
     setIsExporting(true)
     setError('')
@@ -123,6 +226,12 @@ export default function ItemsPage() {
   const last = Math.min(page * PAGE_SIZE, total)
   const isFiltered = Boolean(search || countActiveFilters(filters))
 
+  const isRowSelected = (id) => selection.all || selection.ids.has(id)
+  const selectedOnPage = items.filter((item) => isRowSelected(item._id)).length
+  const isPageSelected = items.length > 0 && selectedOnPage === items.length
+  const selectedCount = selection.all ? total : selection.ids.size
+  const batchVerb = isArchivedView ? 'Restore' : 'Archive'
+
   function applyFilters(next) {
     updateParams({ ...next, page: null })
   }
@@ -132,6 +241,7 @@ export default function ItemsPage() {
       <section className="workspace-content">
         <header className="page-header">
           <h1>All Items</h1>
+          {!isArchivedView && (
           <div className="page-actions">
             <input
               ref={fileInputRef}
@@ -149,14 +259,24 @@ export default function ItemsPage() {
               Export Excel
             </Button>
           </div>
+          )}
         </header>
 
         {importResult && <ImportResult result={importResult} onDismiss={() => setImportResult(null)} />}
+        {notice && (
+          <div className="panel-alert panel-alert-success items-notice" role="status">
+            <img src={checkIcon} alt="" width="20" height="20" />
+            <p>{notice}</p>
+            <button type="button" className="import-result-close" onClick={() => setNotice('')} aria-label="Dismiss">
+              <img src={closeIcon} alt="" width="20" height="20" />
+            </button>
+          </div>
+        )}
 
         <div className="toolbar">
           <div className="toolbar-search">
 
-            <FilterDropdown filters={filters} onApply={applyFilters} />
+            <FilterDropdown filters={filters} onApply={applyFilters} align="start" />
 
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
@@ -170,6 +290,17 @@ export default function ItemsPage() {
             </label>
 
           </div>
+          <SegmentedControl
+            label="Show"
+            hideLabel
+            name="items-view"
+            options={VIEW_OPTIONS}
+            value={isArchivedView ? 'archived' : 'active'}
+            onChange={(view) => {
+              setNotice('')
+              updateParams({ archived: view === 'archived' ? '1' : null, page: null })
+            }}
+          />
         </div>
 
         <ActiveFilters
@@ -189,11 +320,46 @@ export default function ItemsPage() {
         )}
 
         <div className={`table-card ${isLoading && data ? 'is-loading' : ''}`} aria-busy={isLoading}>
+          {selectedCount > 0 && (
+            <div className="items-bulk-bar" role="region" aria-label="Selected items">
+              <span className="items-bulk-count">
+                {selection.all ? `All ${pluralize(total, 'matching item')} selected` : `${formatNumber(selectedCount)} selected`}
+              </span>
+              {!selection.all && isPageSelected && total > selectedCount && (
+                <button type="button" className="filter-link" onClick={() => setSelection(new Set(), true)}>
+                  Select all {pluralize(total, 'matching item')}
+                </button>
+              )}
+              <button type="button" className="filter-link" onClick={clearSelection}>
+                Clear selection
+              </button>
+              <Button
+                size="sm"
+                variant={isArchivedView ? 'primary' : 'danger'}
+                className="items-bulk-action"
+                onClick={() => setConfirmBatch({ isBusy: false, error: '' })}
+              >
+                {batchVerb} {selection.all ? 'all' : 'selected'}
+              </Button>
+            </div>
+          )}
+
           {items.length > 0 && (
             <div className="items-table-scroll">
               <table className="items-table">
                 <thead>
                   <tr>
+                    <th className="items-select-col">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all items on this page"
+                        checked={isPageSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = selectedOnPage > 0 && !isPageSelected
+                        }}
+                        onChange={togglePage}
+                      />
+                    </th>
                     <th>Item ID</th>
                     <th>Category</th>
                     <th>Item code</th>
@@ -201,11 +367,20 @@ export default function ItemsPage() {
                     <th>Type / Design</th>
                     <th className="is-number">Balance</th>
                     <th>Last transaction</th>
+                    <th className="items-actions-col" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item._id}>
+                    <tr key={item._id} className={isRowSelected(item._id) ? 'is-selected' : ''}>
+                      <td className="items-select-col">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${item.itemId}`}
+                          checked={isRowSelected(item._id)}
+                          onChange={() => toggleRow(item._id)}
+                        />
+                      </td>
                       <td className="items-id">{item.itemId}</td>
                       <td className="items-muted">{item.category || '—'}</td>
                       <td className="items-code">{item.code}</td>
@@ -215,6 +390,40 @@ export default function ItemsPage() {
                         {formatNumber(item.balance)}
                       </td>
                       <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>
+                      <td className="items-actions">
+                        {isArchivedView ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRestore(item)}
+                            isLoading={restoringId === item._id}
+                            aria-label={`Restore ${item.itemId}`}
+                          >
+                            Restore
+                          </Button>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditing(item)}
+                              aria-pressed={editing?._id === item._id}
+                              aria-label={`Edit ${item.itemId}`}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="items-archive-btn"
+                              onClick={() => setConfirmArchive({ item, isBusy: false, error: '' })}
+                              aria-label={`Archive ${item.itemId}`}
+                            >
+                              Archive
+                            </Button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -238,6 +447,8 @@ export default function ItemsPage() {
                     Clear filters
                   </Button>
                 </>
+              ) : isArchivedView ? (
+                <p>No archived items.</p>
               ) : (
                 <p>No items yet. Import a Summary Report Excel file or add items from the Transactions page.</p>
               )}
@@ -276,6 +487,51 @@ export default function ItemsPage() {
           )}
         </div>
       </section>
+
+      {editing && (
+        <EditItemPanel key={editing._id} item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
+      )}
+
+      {confirmBatch && (
+        <ConfirmDialog
+          title={`${batchVerb} ${selection.all ? 'all ' : ''}${pluralize(selectedCount, 'item')}?`}
+          message={
+            isArchivedView ? (
+              <p>They'll be back in transactions, search, filters and exports, and can get new transactions again.</p>
+            ) : (
+              <p>
+                {selection.all && isFiltered && 'Every item matching the current search and filters, on every page. '}
+                {selection.all && !isFiltered && <strong>This is every active item. </strong>}
+                They'll be hidden from transactions, search, filters and exports, and can't get new transactions. Their
+                history is kept, and you can restore them from the Archived view.
+              </p>
+            )
+          }
+          confirmLabel={`${batchVerb} ${pluralize(selectedCount, 'item')}`}
+          tone={isArchivedView ? 'primary' : 'danger'}
+          isBusy={confirmBatch.isBusy}
+          error={confirmBatch.error}
+          onConfirm={handleBatch}
+          onCancel={() => setConfirmBatch(null)}
+        />
+      )}
+
+      {confirmArchive && (
+        <ConfirmDialog
+          title={`Archive ${confirmArchive.item.itemId}?`}
+          message={
+            <p>
+              <strong>{confirmArchive.item.code}</strong> will be hidden from transactions, search, filters and exports,
+              and can't get new transactions. Its history is kept, and you can restore it from the Archived view.
+            </p>
+          }
+          confirmLabel="Archive item"
+          isBusy={confirmArchive.isBusy}
+          error={confirmArchive.error}
+          onConfirm={handleArchive}
+          onCancel={() => setConfirmArchive(null)}
+        />
+      )}
     </div>
   )
 }

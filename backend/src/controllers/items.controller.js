@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
-const { DEFAULT_TYPES, CATEGORIES } = require('../models/Item');
+const { DEFAULT_TYPES, CATEGORIES, ACTIVE } = require('../models/Item');
 const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds } = require('../services/itemId.service');
@@ -11,20 +11,15 @@ const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
 
-const ITEM_FIELDS = 'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType';
+const ITEM_FIELDS =
+  'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
 
-// GET /api/items?search=&stock=&category=&typeDesign=&brand=&page=&limit=
+// GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&page=&limit=
 // Every item, by item ID (admin Items page). See utils/filters.js for the filters.
+// ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
-  const search = String(req.query.search ?? '').trim();
-
-  const conditions = itemConditions(req.query);
-  if (search) {
-    const rx = containsRegex(search);
-    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { typeDesign: rx }] });
-  }
-  const filter = andFilter(conditions);
+  const filter = itemsPageFilter(req.query);
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
@@ -33,12 +28,25 @@ async function listItems(req, res) {
   res.json({ items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
 
+// The Items page's search, filters and Active / Archived view as one Item filter.
+// Shared by the list and the batch actions, so "all matching" means what the page shows.
+function itemsPageFilter(query) {
+  const conditions = itemConditions(query);
+  conditions.push(query.archived === '1' ? { archivedAt: { $ne: null } } : ACTIVE);
+  const search = String(query.search ?? '').trim();
+  if (search) {
+    const rx = containsRegex(search);
+    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { typeDesign: rx }] });
+  }
+  return andFilter(conditions);
+}
+
 // GET /api/items/search?q= — item code lookup for Add Transaction.
 async function searchItems(req, res) {
   const q = Item.normalize(req.query.q);
   if (!q) return res.json({ items: [] });
 
-  const items = await Item.find({ code: containsRegex(q) })
+  const items = await Item.find({ ...ACTIVE, code: containsRegex(q) })
     .select(ITEM_FIELDS)
     .sort({ code: 1, brand: 1, typeDesign: 1 })
     .limit(20)
@@ -66,6 +74,7 @@ async function listFacets(req, res) {
   ];
   const whenBalance = (condition) => ({ $sum: { $cond: [condition, 1, 0] } });
   const [facets] = await Item.aggregate([
+    { $match: ACTIVE },
     {
       $facet: {
         categories: countBy('category'),
@@ -101,20 +110,37 @@ function listCategories(req, res) {
   res.json({ categories: CATEGORIES });
 }
 
+// The fields Add Item and Edit Item accept.
+function parseItemFields(body = {}) {
+  const fields = {
+    category: Item.normalize(body.category),
+    code: Item.normalize(body.code),
+    brand: Item.normalize(body.brand),
+    typeDesign: Item.normalize(body.typeDesign),
+  };
+  if (!CATEGORIES.includes(fields.category)) throw new HttpError(400, 'Select a category');
+  if (!fields.code) throw new HttpError(400, 'Enter an item code');
+  fields.balanceForwarded = parseWholeNumber(body.balanceForwarded ?? 0, 'Balance forwarded');
+  return fields;
+}
+
+// 409 when another item already has this code + brand + type / design.
+async function assertKeyIsFree(key, exceptId) {
+  const filter = { code: key.code, brand: key.brand, typeDesign: key.typeDesign };
+  if (exceptId) filter._id = { $ne: exceptId };
+  const other = await Item.findOne(filter).select('itemId archivedAt').lean();
+  if (!other) return;
+  if (other.archivedAt) {
+    throw new HttpError(409, `${describe(key)} matches archived item ${other.itemId}. Restore it on the Items page instead.`);
+  }
+  throw new HttpError(409, `${describe(key)} already exists`);
+}
+
 // POST /api/items — Add Item. A balance forwarded above 0 is also saved as an IN entry
 // marked BALANCE FORWARDED, like the opening row of each item in the Excel sheet.
 async function createItem(req, res) {
-  const category = Item.normalize(req.body?.category);
-  const code = Item.normalize(req.body?.code);
-  const brand = Item.normalize(req.body?.brand);
-  const typeDesign = Item.normalize(req.body?.typeDesign);
-  if (!CATEGORIES.includes(category)) throw new HttpError(400, 'Select a category');
-  if (!code) throw new HttpError(400, 'Enter an item code');
-  const balanceForwarded = parseWholeNumber(req.body?.balanceForwarded ?? 0, 'Balance forwarded');
-
-  if (await Item.exists({ code, brand, typeDesign })) {
-    throw new HttpError(409, `${describe({ code, brand, typeDesign })} already exists`);
-  }
+  const { category, code, brand, typeDesign, balanceForwarded } = parseItemFields(req.body);
+  await assertKeyIsFree({ code, brand, typeDesign });
 
   const item = await mongoose.connection.transaction(async (session) => {
     const [itemId] = await nextItemIds(1, session);
@@ -143,6 +169,114 @@ async function createItem(req, res) {
   // Sent after the MongoDB transaction commits, so other PCs re-fetch the saved data.
   broadcast('item-changed', { itemId: String(item._id) });
   res.status(201).json({ item });
+}
+
+// PATCH /api/items/:id — Edit Item (admin). A new balance forwarded rewrites the item's
+// BALANCE FORWARDED entry (adds or removes it when it goes from or to 0), then re-runs the ledger.
+async function updateItem(req, res) {
+  const id = parseObjectId(req.params.id, 'Item');
+  const fields = parseItemFields(req.body);
+
+  const item = await mongoose.connection.transaction(async (session) => {
+    const current = await Item.findById(id).session(session);
+    if (!current) throw new HttpError(404, 'Item not found');
+    if (current.archivedAt) throw new HttpError(409, 'This item is archived. Restore it before editing.');
+    await assertKeyIsFree(fields, id);
+
+    const balanceChanged = current.balanceForwarded !== fields.balanceForwarded;
+    current.set(fields);
+    await current.save({ session });
+    if (!balanceChanged) return current;
+
+    const opening = await Transaction.findOne({ item: id, isBalanceForwarded: true }).session(session);
+    if (fields.balanceForwarded === 0) {
+      if (opening) await opening.deleteOne({ session });
+    } else if (opening) {
+      opening.quantity = fields.balanceForwarded;
+      await opening.save({ session });
+    } else {
+      await Transaction.create(
+        [
+          {
+            item: id,
+            date: today(),
+            type: 'IN',
+            quantity: fields.balanceForwarded,
+            customerName: BALANCE_FORWARDED,
+            isBalanceForwarded: true,
+            createdBy: req.user._id,
+          },
+        ],
+        { session },
+      );
+    }
+    return recalculateItem(id, session);
+  });
+
+  broadcast('item-changed', { itemId: String(item._id) });
+  res.json({ item: pickFields(item) });
+}
+
+// DELETE /api/items/:id — "Delete" archives the item (admin). Its ledger and item ID are kept.
+async function archiveItem(req, res) {
+  const id = parseObjectId(req.params.id, 'Item');
+  const item = await Item.findOneAndUpdate(
+    { _id: id, ...ACTIVE },
+    { archivedAt: new Date(), archivedBy: req.user._id },
+    { returnDocument: 'after' },
+  )
+    .select(ITEM_FIELDS)
+    .lean();
+  // Already archived: nothing to do.
+  const result = item ?? (await Item.findById(id).select(ITEM_FIELDS).lean());
+  if (!result) throw new HttpError(404, 'Item not found');
+
+  if (item) broadcast('item-changed', { itemId: String(id) });
+  res.json({ item: result });
+}
+
+// POST /api/items/:id/restore — bring an archived item back (admin).
+async function restoreItem(req, res) {
+  const id = parseObjectId(req.params.id, 'Item');
+  const item = await Item.findByIdAndUpdate(
+    id,
+    { archivedAt: null, $unset: { archivedBy: 1 } },
+    { returnDocument: 'after' },
+  )
+    .select(ITEM_FIELDS)
+    .lean();
+  if (!item) throw new HttpError(404, 'Item not found');
+
+  broadcast('item-changed', { itemId: String(id) });
+  res.json({ item });
+}
+
+const MAX_BATCH_IDS = 1000;
+
+// POST /api/items/batch — archive or restore many items at once (admin).
+// Body: { action: 'archive' | 'restore', ids: [...] } for picked items, or
+// { action, all: true, query: { search, stock, category, typeDesign, brand } } for every
+// item matching the Items page's current search and filters.
+async function batchItems(req, res) {
+  const { action, ids, all, query = {} } = req.body ?? {};
+  if (action !== 'archive' && action !== 'restore') throw new HttpError(400, 'Action must be archive or restore');
+
+  // Archive acts on active items, restore on archived ones: the view the action comes from.
+  const filter = itemsPageFilter({ ...(all ? query : {}), archived: action === 'restore' ? '1' : '' });
+  if (!all) {
+    if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, 'Select at least one item');
+    if (ids.length > MAX_BATCH_IDS) throw new HttpError(400, `Select at most ${MAX_BATCH_IDS} items, or use "Select all"`);
+    filter._id = { $in: ids.map((id) => parseObjectId(id, 'Item')) };
+  }
+
+  const update =
+    action === 'archive'
+      ? { archivedAt: new Date(), archivedBy: req.user._id }
+      : { archivedAt: null, $unset: { archivedBy: 1 } };
+  const { modifiedCount } = await Item.updateMany(filter, update);
+
+  if (modifiedCount) broadcast('item-changed', { batch: action, count: modifiedCount });
+  res.json({ action, count: modifiedCount });
 }
 
 // POST /api/items/import — body is an Excel file in the Summary Report format.
@@ -216,7 +350,7 @@ async function importItems(req, res) {
 
 // GET /api/items/export — every item as an Excel file in the Summary Report layout.
 async function exportItems(req, res) {
-  const items = await Item.find().sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
+  const items = await Item.find(ACTIVE).sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
   const asOf = today();
   const buffer = await buildSummaryReport(items, asOf);
   res
@@ -245,6 +379,12 @@ function itemKey({ code, brand, typeDesign }) {
   return `${code}\u0000${brand}\u0000${typeDesign}`;
 }
 
+// The ITEM_FIELDS of a saved item document, as the other endpoints return them.
+function pickFields(item) {
+  const plain = item.toObject ? item.toObject() : item;
+  return Object.fromEntries(['_id', ...ITEM_FIELDS.split(' ')].map((key) => [key, plain[key] ?? null]));
+}
+
 function pick({ row, code, brand, typeDesign }) {
   return { row, code, brand, typeDesign };
 }
@@ -260,6 +400,10 @@ module.exports = {
   listCategories,
   listFacets,
   createItem,
+  updateItem,
+  archiveItem,
+  restoreItem,
+  batchItems,
   importItems,
   exportItems,
   listItemTransactions,

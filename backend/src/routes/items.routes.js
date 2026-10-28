@@ -6,6 +6,10 @@ const {
   listCategories,
   listFacets,
   createItem,
+  updateItem,
+  archiveItem,
+  restoreItem,
+  batchItems,
   importItems,
   exportItems,
   listItemTransactions,
@@ -23,8 +27,12 @@ router.get('/categories', listCategories);
 router.get('/facets', listFacets);
 router.get('/export', adminOnly, exportItems);
 router.post('/', createItem);
+router.post('/batch', adminOnly, batchItems);
 // The Excel file is sent as the raw request body.
 router.post('/import', adminOnly, express.raw({ type: () => true, limit: '25mb' }), importItems);
 router.get('/:id/transactions', listItemTransactions);
+router.patch('/:id', adminOnly, updateItem);
+router.delete('/:id', adminOnly, archiveItem);
+router.post('/:id/restore', adminOnly, restoreItem);
 
 module.exports = router;

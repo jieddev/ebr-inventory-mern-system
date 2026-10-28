@@ -18,7 +18,8 @@ const TYPE_OPTIONS = [
 
 // "Filter" button with a dropdown. Changes are a draft until "Show results".
 // withEntryFilters adds transaction type and date range (Transactions page only).
-export default function FilterDropdown({ filters, onApply, withEntryFilters = false }) {
+// align: 'end' opens leftward from the button, 'start' rightward (for a button at the left edge).
+export default function FilterDropdown({ filters, onApply, withEntryFilters = false, align = 'end' }) {
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
   const popoverId = useId()
@@ -77,7 +78,7 @@ export default function FilterDropdown({ filters, onApply, withEntryFilters = fa
       </Button>
 
       {isOpen && (
-        <div id={popoverId} className="filter-popover" role="dialog" aria-label="Filters">
+        <div id={popoverId} className={`filter-popover filter-popover-${align}`} role="dialog" aria-label="Filters">
           <div className="filter-body">
             {withEntryFilters && (
               <>

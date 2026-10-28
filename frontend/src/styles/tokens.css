@@ -28,6 +28,7 @@
   --color-out: #b3361e; /* status/out */
   --color-out-soft: #fcece8; /* status/out-subtle */
   --color-danger: #b3361e;
+  --color-danger-hover: #8f2b18;
   --color-danger-soft: #fcece8;
   --color-success: #157a47;
   --color-success-soft: #e5f5ec;
@@ -69,6 +70,7 @@
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.16);
   --shadow-panel: -8px 0 24px rgba(23, 33, 51, 0.08);
+  --color-overlay: rgba(11, 29, 69, 0.4); /* behind modal dialogs */
 
   /* Layout */
   --app-bar-height: 64px;

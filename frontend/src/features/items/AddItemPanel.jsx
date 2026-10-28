@@ -1,27 +1,21 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Button from '../../components/ui/Button'
 import SidePanel from '../../components/ui/SidePanel'
-import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
-import { createItem, getItemCategories, getItemTypes } from '../../api/items'
+import { createItem } from '../../api/items'
 import { formatNumber } from '../../utils/format'
 import plusIcon from '../../assets/icons/plus.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
-import chevronIcon from '../../assets/icons/chevron-down.svg'
+import ItemFields from './ItemFields'
+import { EMPTY_ITEM_FORM, validateItemForm } from './itemForm'
 import './AddItemPanel.css'
-
-const EMPTY_FORM = { category: '', code: '', brand: '', typeDesign: '', balanceForwarded: '' }
 
 // Stays open after each save: the fields clear (except Category), a confirmation shows,
 // and the item is added to "Added this session", so many items can be entered in a row.
 export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
-  const typesListId = useId()
-  const categoryId = useId()
   const categoryRef = useRef(null)
   const codeRef = useRef(null)
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [categories, setCategories] = useState([])
-  const [types, setTypes] = useState([])
+  const [form, setForm] = useState(EMPTY_ITEM_FORM)
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -29,12 +23,6 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
 
   useEffect(() => {
     categoryRef.current?.focus()
-    getItemCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]))
-    getItemTypes()
-      .then(setTypes)
-      .catch(() => setTypes([]))
   }, [])
 
   function setField(name, value) {
@@ -44,20 +32,16 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
-    const nextErrors = {}
-    if (!form.category) nextErrors.category = 'Select a category'
-    if (!form.code.trim()) nextErrors.code = 'Enter an item code'
-    const balance = form.balanceForwarded === '' ? 0 : Number(form.balanceForwarded)
-    if (!Number.isInteger(balance) || balance < 0) nextErrors.balanceForwarded = 'Enter a whole number, 0 or more'
+    const { errors: nextErrors, balanceForwarded } = validateItemForm(form)
     setErrors(nextErrors)
     setFormError('')
     if (Object.keys(nextErrors).length) return
 
     setIsSaving(true)
     try {
-      const item = await createItem({ ...form, balanceForwarded: balance })
+      const item = await createItem({ ...form, balanceForwarded })
       setSuccessMessage(`“${item.code}” was added as ${item.itemId}. You can add another item.`)
-      setForm({ ...EMPTY_FORM, category: form.category })
+      setForm({ ...EMPTY_ITEM_FORM, category: form.category })
       onAdded(item)
       codeRef.current?.focus()
     } catch (err) {
@@ -100,88 +84,13 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
         </div>
       )}
 
-      <div className={`field ${errors.category ? 'has-error' : ''}`}>
-        <label className="field-label" htmlFor={categoryId}>
-          Category
-          <span className="field-required"> *</span>
-        </label>
-        <div className="field-control">
-          <select
-            ref={categoryRef}
-            id={categoryId}
-            className="field-input field-select"
-            required
-            aria-invalid={!!errors.category}
-            aria-describedby={errors.category ? `${categoryId}-error` : undefined}
-            value={form.category}
-            onChange={(e) => setField('category', e.target.value)}
-          >
-            <option value="" disabled>
-              Select category
-            </option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-          <div className="field-adornment field-adornment-icon" aria-hidden="true">
-            <img src={chevronIcon} alt="" width="20" height="20" />
-          </div>
-        </div>
-        {errors.category && (
-          <p id={`${categoryId}-error`} className="field-error">
-            {errors.category}
-          </p>
-        )}
-      </div>
-
-      <TextField
-        ref={codeRef}
-        label="Item code"
-        required
-        placeholder="e.g. 185 R14 DUNLOP VANO1"
-        autoComplete="off"
-        value={form.code}
-        onChange={(e) => setField('code', e.target.value)}
-        error={errors.code}
-      />
-
-      <div className="panel-row">
-        <TextField
-          label="Brand name"
-          placeholder="e.g. DUNLOP"
-          autoComplete="off"
-          value={form.brand}
-          onChange={(e) => setField('brand', e.target.value)}
-        />
-        <TextField
-          label="Type / Design"
-          placeholder="Select type"
-          autoComplete="off"
-          list={typesListId}
-          endIcon={chevronIcon}
-          value={form.typeDesign}
-          onChange={(e) => setField('typeDesign', e.target.value)}
-        />
-        <datalist id={typesListId}>
-          {types.map((type) => (
-            <option key={type} value={type} />
-          ))}
-        </datalist>
-      </div>
-
-      <TextField
-        label="Balance forwarded"
-        type="number"
-        inputMode="numeric"
-        min="0"
-        step="1"
-        placeholder="0"
-        value={form.balanceForwarded}
-        onChange={(e) => setField('balanceForwarded', e.target.value)}
-        error={errors.balanceForwarded}
-        hint="Stock on hand when the item is added. Saved as an IN entry marked BALANCE FORWARDED."
+      <ItemFields
+        form={form}
+        errors={errors}
+        onChange={setField}
+        categoryRef={categoryRef}
+        codeRef={codeRef}
+        balanceHint="Stock on hand when the item is added. Saved as an IN entry marked BALANCE FORWARDED."
       />
 
       {addedThisSession.length > 0 && (

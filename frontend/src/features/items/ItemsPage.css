@@ -65,6 +65,77 @@
   white-space: nowrap;
 }
 
+.toolbar .segmented {
+  height: 40px;
+}
+
+.items-select-col {
+  width: 1%;
+}
+
+.items-table th.items-select-col,
+.items-table td.items-select-col {
+  padding-right: 0;
+}
+
+.items-select-col input {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.items-table tr.is-selected td {
+  background: var(--color-primary-soft);
+}
+
+.items-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+  background: var(--color-primary-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.items-bulk-count {
+  font-weight: var(--weight-semibold);
+}
+
+.btn.items-bulk-action {
+  margin-left: auto;
+}
+
+.items-actions-col {
+  width: 1%;
+}
+
+.items-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.btn.items-archive-btn {
+  color: var(--color-danger);
+}
+
+.btn.items-archive-btn:hover:not(:disabled) {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.items-notice {
+  align-items: center;
+}
+
+.items-notice p {
+  flex: 1;
+}
+
 /* Import result */
 .import-result {
   display: grid;
