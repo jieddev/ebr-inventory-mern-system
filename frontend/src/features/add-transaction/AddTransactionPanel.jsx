@@ -5,10 +5,11 @@ import SegmentedControl from '../../components/ui/SegmentedControl'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
-import { getItemTransactions } from '../../api/items'
+import { getItemByItemId, getItemTransactions } from '../../api/items'
 import { createTransaction } from '../../api/transactions'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
+import { isCompleteItemId, parseItemId } from '../../utils/itemId'
 import ItemCodePicker from './ItemCodePicker'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import dotIn from '../../assets/icons/dot-in.svg'
@@ -20,10 +21,18 @@ const TYPE_OPTIONS = [
   { value: 'OUT', label: 'OUT', icon: dotOut, tone: 'out' },
 ]
 
+// The item is found by its Item ID (typed in full, or short like "12" + Enter) or picked
+// by item code; either way the other fields fill in.
 // After saving, the item, quantity and customer clear for the next entry. Date and
 // IN/OUT are kept, since entries are usually typed in batches from the same day.
 export default function AddTransactionPanel({ onClose, onSaved }) {
+  const idRef = useRef(null)
   const codeRef = useRef(null)
+  const [idText, setIdText] = useState('')
+  // The ID to look up (attempt changes on every request, so asking again retries),
+  // and the result of the last finished lookup.
+  const [lookup, setLookup] = useState({ itemId: '', attempt: 0 })
+  const [idResult, setIdResult] = useState({ attempt: 0, error: '' })
   const [codeText, setCodeText] = useState('')
   const [item, setItem] = useState(null)
   const [date, setDate] = useState(todayInputValue)
@@ -36,8 +45,26 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    codeRef.current?.focus()
+    idRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    const { itemId, attempt } = lookup
+    if (!itemId) return
+    const controller = new AbortController()
+    getItemByItemId(itemId, { signal: controller.signal })
+      .then((found) => {
+        setIdResult({ attempt, error: '' })
+        setItem(found)
+        setCodeText(found.code)
+        setErrors((e) => ({ ...e, item: undefined }))
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setIdResult({ attempt, error: getErrorMessage(err, 'Could not look up this item ID.') })
+      })
+    return () => controller.abort()
+  }, [lookup])
 
   // Keep the selected item's balance current when another PC records a transaction
   // for it, so "Balance after saving" is never based on an old number.
@@ -52,17 +79,51 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
     setErrors((e) => ({ ...e, [name]: undefined }))
   }
 
+  const findId = (itemId) => setLookup((l) => ({ itemId, attempt: l.attempt + 1 }))
+
+  const isLookingUp = Boolean(lookup.itemId) && idResult.attempt !== lookup.attempt
+  const idError = lookup.itemId && !isLookingUp ? idResult.error : ''
+
+  function handleIdChange(text) {
+    setIdText(text)
+    setItem(null)
+    setCodeText('')
+    clearError('item')
+    findId(isCompleteItemId(text) ? parseItemId(text) : '')
+  }
+
+  // Enter or leaving the field looks up a short ID such as "12". Asking again after
+  // "not found" retries; a lookup already running or done isn't repeated.
+  function findIdNow() {
+    const itemId = parseItemId(idText)
+    if (!itemId || item?.itemId === itemId) return
+    if (itemId === lookup.itemId && (isLookingUp || !idError)) return
+    setIdText(itemId)
+    findId(itemId)
+  }
+
   function handleCodeChange(text) {
     setCodeText(text)
     setItem(null)
+    // The ID belonged to the item that was picked before.
+    setIdText('')
+    findId('')
     clearError('item')
   }
 
   function handleSelect(picked) {
     setItem(picked)
     setCodeText(picked.code)
+    setIdText(picked.itemId ?? '')
+    findId('')
     clearError('item')
   }
+
+  const idHint = isLookingUp
+    ? `Looking up ${lookup.itemId}…`
+    : item
+      ? `Found ${item.itemId}.`
+      : 'e.g. ITM-00012, or just 12 and press Enter. Or pick the item by its code below.'
 
   const qty = Number(quantity)
   const hasQty = quantity !== '' && Number.isInteger(qty) && qty > 0
@@ -72,7 +133,9 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
   async function handleSubmit(event) {
     event.preventDefault()
     const nextErrors = {}
-    if (!item) nextErrors.item = codeText.trim() ? 'Pick the item from the list' : 'Enter an item code'
+    if (!item) {
+      nextErrors.item = codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item code'
+    }
     if (!date) nextErrors.date = 'Pick a date'
     if (!hasQty) nextErrors.quantity = 'Enter a whole number, 1 or more'
     setErrors(nextErrors)
@@ -86,11 +149,13 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
         `Saved ${type} ${formatNumber(qty)} of “${updated.code}”. Ending balance is now ${formatNumber(updated.balance)}.`,
       )
       setItem(null)
+      setIdText('')
+      findId('')
       setCodeText('')
       setQuantity('')
       setCustomerName('')
       onSaved()
-      codeRef.current?.focus()
+      idRef.current?.focus()
     } catch (err) {
       setSuccessMessage('')
       setFormError(getErrorMessage(err))
@@ -128,6 +193,24 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
           {formError}
         </div>
       )}
+
+      <TextField
+        ref={idRef}
+        label="Item ID"
+        placeholder="ITM-00012"
+        autoComplete="off"
+        value={idText}
+        onChange={(e) => handleIdChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          // Look the ID up instead of submitting the form.
+          e.preventDefault()
+          findIdNow()
+        }}
+        onBlur={findIdNow}
+        error={idError}
+        hint={idHint}
+      />
 
       <ItemCodePicker
         inputRef={codeRef}

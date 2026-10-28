@@ -34,6 +34,12 @@ export async function exportItems() {
   URL.revokeObjectURL(url)
 }
 
+// Add Transaction's Item ID field. Rejects (404 / 409) for unknown or archived IDs.
+export async function getItemByItemId(itemId, { signal } = {}) {
+  const { data } = await api.get(`/items/by-item-id/${encodeURIComponent(itemId)}`, { signal })
+  return data.item
+}
+
 export async function searchItems(q, { signal } = {}) {
   const { data } = await api.get('/items/search', { params: { q }, signal })
   return data.items

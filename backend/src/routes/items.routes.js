@@ -2,6 +2,7 @@ const express = require('express');
 const {
   listItems,
   searchItems,
+  findByItemId,
   listTypes,
   listCategories,
   listFacets,
@@ -22,6 +23,7 @@ const adminOnly = requireRole('admin');
 router.use(requireAuth);
 router.get('/', adminOnly, listItems);
 router.get('/search', searchItems);
+router.get('/by-item-id/:itemId', findByItemId);
 router.get('/types', listTypes);
 router.get('/categories', listCategories);
 router.get('/facets', listFacets);

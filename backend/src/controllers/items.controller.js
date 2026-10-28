@@ -4,7 +4,7 @@ const Transaction = require('../models/Transaction');
 const { DEFAULT_TYPES, CATEGORIES, ACTIVE } = require('../models/Item');
 const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
-const { nextItemIds } = require('../services/itemId.service');
+const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
 const { broadcast } = require('../services/events.service');
 const HttpError = require('../utils/httpError');
@@ -55,6 +55,16 @@ async function searchItems(req, res) {
   // Codes that start with what was typed come first.
   items.sort((a, b) => b.code.startsWith(q) - a.code.startsWith(q));
   res.json({ items });
+}
+
+// GET /api/items/by-item-id/:itemId — Add Transaction's Item ID field. Accepts "ITM-00012" or just "12".
+async function findByItemId(req, res) {
+  const itemId = parseItemId(req.params.itemId);
+  if (!itemId) throw new HttpError(400, 'Enter an item ID like ITM-00012');
+  const item = await Item.findOne({ itemId }).select(ITEM_FIELDS).lean();
+  if (!item) throw new HttpError(404, `No item has the ID ${itemId}`);
+  if (item.archivedAt) throw new HttpError(409, `${itemId} is archived. Restore it on the Items page first.`);
+  res.json({ item });
 }
 
 // GET /api/items/types — Type / Design choices for Add Item.
@@ -396,6 +406,7 @@ function describe({ code, brand, typeDesign }) {
 module.exports = {
   listItems,
   searchItems,
+  findByItemId,
   listTypes,
   listCategories,
   listFacets,

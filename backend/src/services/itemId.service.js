@@ -5,6 +5,14 @@ const COUNTER = 'itemId';
 
 const formatItemId = (n) => `ITM-${String(n).padStart(5, '0')}`;
 
+// What a user types for an item ID → its stored form: "12", "00012", "itm-12" → "ITM-00012".
+// Returns null for anything that isn't an item ID.
+function parseItemId(text) {
+  const match = /^\s*(?:ITM)?[-\s]?(\d{1,9})\s*$/i.exec(String(text ?? ''));
+  const n = match && Number(match[1]);
+  return n ? formatItemId(n) : null;
+}
+
 // Reserves `count` new item IDs in one step, e.g. ['ITM-00012', 'ITM-00013'].
 // Numbers are never handed out twice, even if the item is later removed.
 async function nextItemIds(count, session) {
@@ -33,4 +41,4 @@ async function backfillItemIds() {
   return items.length;
 }
 
-module.exports = { nextItemIds, backfillItemIds };
+module.exports = { nextItemIds, backfillItemIds, parseItemId };

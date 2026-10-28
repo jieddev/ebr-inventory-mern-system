@@ -112,7 +112,7 @@ export default function ItemCodePicker({ value, onChange, selected, onSelect, er
               >
                 <span className="item-picker-code">{item.code}</span>
                 <span className="item-picker-details">
-                  {[item.brand, item.typeDesign].filter(Boolean).join(' · ') || 'No brand or type'}
+                  {[item.itemId, item.brand, item.typeDesign].filter(Boolean).join(' · ') || 'No brand or type'}
                 </span>
                 <span className="item-picker-balance">Bal. {formatNumber(item.balance)}</span>
               </li>
