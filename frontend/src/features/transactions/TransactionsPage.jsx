@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
+import ActiveFilters from '../../components/filters/ActiveFilters'
+import FilterDropdown from '../../components/filters/FilterDropdown'
 import { getErrorMessage } from '../../api/auth'
 import { getItemTransactions } from '../../api/items'
 import { getTransactions } from '../../api/transactions'
@@ -8,10 +10,10 @@ import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
 import TransactionTable from './TransactionTable'
-import { formatNumber } from '../../utils/format'
+import { formatNumber, pluralize } from '../../utils/format'
+import { EMPTY_FILTERS, countActiveFilters, readFilters } from '../../utils/filters'
 import plusIcon from '../../assets/icons/plus.svg'
 import searchIcon from '../../assets/icons/search.svg'
-import filterIcon from '../../assets/icons/filter.svg'
 import reportIcon from '../../assets/icons/report.svg'
 import './TransactionsPage.css'
 
@@ -24,6 +26,9 @@ export default function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const filters = useMemo(() => readFilters(searchParams), [searchParams])
+  const entryFilters = useMemo(() => ({ type: filters.type, from: filters.from, to: filters.to }), [filters])
+  const activeFilterCount = countActiveFilters(filters)
 
   const [searchText, setSearchText] = useState(search)
   const [reloadKey, setReloadKey] = useState(0)
@@ -45,9 +50,10 @@ export default function TransactionsPage() {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
+          // Lists become repeated keys; empty values remove the key.
           for (const [key, value] of Object.entries(changes)) {
-            if (value) next.set(key, value)
-            else next.delete(key)
+            next.delete(key)
+            for (const v of [].concat(value || [])) if (v) next.append(key, v)
           }
           return next
         },
@@ -64,11 +70,12 @@ export default function TransactionsPage() {
     return () => clearTimeout(timer)
   }, [searchText, search, updateParams])
 
-  const view = `${search}|${page}`
+  // Search, page and filters: everything in the URL.
+  const view = searchParams.toString()
   const requestKey = `${view}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getTransactions({ search, page, limit: PAGE_SIZE }, { signal: controller.signal })
+    getTransactions({ search, page, limit: PAGE_SIZE, filters }, { signal: controller.signal })
       .then((data) => {
         setResponse({ key: requestKey, view, data, error: '' })
         setError('')
@@ -79,7 +86,7 @@ export default function TransactionsPage() {
         setResponse((prev) => ({ key: requestKey, view, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [search, page, view, requestKey])
+  }, [search, page, filters, view, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -112,7 +119,7 @@ export default function TransactionsPage() {
       reload()
       for (const id of expandedIdsRef.current) {
         if (!everything && !itemIds.has(id)) continue
-        getItemTransactions(id)
+        getItemTransactions(id, entryFilters)
           .then(({ transactions }) =>
             setExpandedEntries((prev) => (prev.has(id) ? new Map(prev).set(id, transactions) : prev)),
           )
@@ -142,7 +149,7 @@ export default function TransactionsPage() {
   async function viewAll(id) {
     setLoadingAll(id)
     try {
-      const { transactions } = await getItemTransactions(id)
+      const { transactions } = await getItemTransactions(id, entryFilters)
       setExpandedEntries((prev) => new Map(prev).set(id, transactions))
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load the transactions for this item.'))
@@ -157,6 +164,15 @@ export default function TransactionsPage() {
       next.delete(id)
       return next
     })
+  }
+
+  function applyFilters(next) {
+    updateParams({ ...next, page: null })
+  }
+
+  function clearSearchAndFilters() {
+    setSearchText('')
+    updateParams({ ...EMPTY_FILTERS, search: null, page: null })
   }
 
   const total = data?.total ?? 0
@@ -193,10 +209,7 @@ export default function TransactionsPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </label>
-            <Button variant="secondary" disabled title="Coming soon">
-              <img src={filterIcon} alt="" />
-              Filter
-            </Button>
+            <FilterDropdown filters={filters} onApply={applyFilters} withEntryFilters />
           </div>
           <div className="toolbar-reports">
             <Button variant="secondary" disabled title="Coming soon">
@@ -209,6 +222,20 @@ export default function TransactionsPage() {
             </Button>
           </div>
         </div>
+
+        <ActiveFilters
+          filters={filters}
+          onChange={applyFilters}
+          onClearAll={() => applyFilters(EMPTY_FILTERS)}
+          summary={
+            data?.summary && (
+              <>
+                <strong>{pluralize(total, 'item')}</strong> · IN total <strong>{formatNumber(data.summary.in)}</strong> ·
+                OUT total <strong>{formatNumber(data.summary.out)}</strong>
+              </>
+            )
+          }
+        />
 
         {shownError && (
           <div className="page-error" role="alert">
@@ -234,11 +261,11 @@ export default function TransactionsPage() {
 
           {data && data.groups.length === 0 && (
             <div className="table-empty">
-              {search ? (
+              {search || activeFilterCount ? (
                 <>
-                  <p>No items match “{search}”.</p>
-                  <Button variant="secondary" size="sm" onClick={() => setSearchText('')}>
-                    Clear search
+                  <p>{search ? `No items match “${search}”` : 'No items match'}{activeFilterCount ? ' with these filters.' : '.'}</p>
+                  <Button variant="secondary" size="sm" onClick={clearSearchAndFilters}>
+                    {activeFilterCount ? 'Clear search and filters' : 'Clear search'}
                   </Button>
                 </>
               ) : (

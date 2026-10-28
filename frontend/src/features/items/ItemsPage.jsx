@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
+import ActiveFilters from '../../components/filters/ActiveFilters'
+import FilterDropdown from '../../components/filters/FilterDropdown'
 import { getErrorMessage } from '../../api/auth'
-import { exportItems, getItemCategories, getItems, importItems } from '../../api/items'
+import { exportItems, getItems, importItems } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
+import { EMPTY_FILTERS, countActiveFilters, readFilters } from '../../utils/filters'
 import searchIcon from '../../assets/icons/search.svg'
 import uploadIcon from '../../assets/icons/upload.svg'
 import downloadIcon from '../../assets/icons/download.svg'
@@ -20,11 +23,14 @@ const SEARCH_DELAY_MS = 300
 export default function ItemsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.get('search') ?? ''
-  const category = searchParams.get('category') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  // The Items page only uses the item filters (stock, category, type / design, brand).
+  const filters = useMemo(() => {
+    const { stock, category, typeDesign, brand } = readFilters(searchParams)
+    return { ...EMPTY_FILTERS, stock, category, typeDesign, brand }
+  }, [searchParams])
 
   const [searchText, setSearchText] = useState(search)
-  const [categories, setCategories] = useState([])
   const [reloadKey, setReloadKey] = useState(0)
   // The last finished request. It's loading while that isn't the current request.
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
@@ -40,9 +46,10 @@ export default function ItemsPage() {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
+          // Lists become repeated keys; empty values remove the key.
           for (const [key, value] of Object.entries(changes)) {
-            if (value) next.set(key, value)
-            else next.delete(key)
+            next.delete(key)
+            for (const v of [].concat(value || [])) if (v) next.append(key, v)
           }
           return next
         },
@@ -52,12 +59,6 @@ export default function ItemsPage() {
     [setSearchParams],
   )
 
-  useEffect(() => {
-    getItemCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]))
-  }, [])
-
   // Push the search box into the URL after the user stops typing.
   useEffect(() => {
     if (searchText.trim() === search) return
@@ -65,10 +66,10 @@ export default function ItemsPage() {
     return () => clearTimeout(timer)
   }, [searchText, search, updateParams])
 
-  const requestKey = `${search}|${category}|${page}|${reloadKey}`
+  const requestKey = `${searchParams.toString()}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getItems({ search, category, page, limit: PAGE_SIZE }, { signal: controller.signal })
+    getItems({ search, page, limit: PAGE_SIZE, filters }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
@@ -76,7 +77,7 @@ export default function ItemsPage() {
         setResponse((prev) => ({ key: requestKey, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [search, category, page, requestKey])
+  }, [search, page, filters, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -120,7 +121,11 @@ export default function ItemsPage() {
   const totalPages = data?.totalPages ?? 1
   const first = total ? (page - 1) * PAGE_SIZE + 1 : 0
   const last = Math.min(page * PAGE_SIZE, total)
-  const isFiltered = Boolean(search || category)
+  const isFiltered = Boolean(search || countActiveFilters(filters))
+
+  function applyFilters(next) {
+    updateParams({ ...next, page: null })
+  }
 
   return (
     <div className="workspace">
@@ -150,6 +155,9 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
+
+            <FilterDropdown filters={filters} onApply={applyFilters} />
+
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
               <input
@@ -160,21 +168,16 @@ export default function ItemsPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </label>
-            <select
-              className="items-category-filter"
-              aria-label="Filter by category"
-              value={category}
-              onChange={(e) => updateParams({ category: e.target.value, page: null })}
-            >
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+
           </div>
         </div>
+
+        <ActiveFilters
+          filters={filters}
+          onChange={applyFilters}
+          onClearAll={() => applyFilters(EMPTY_FILTERS)}
+          summary={data && <><strong>{pluralize(total, 'item')}</strong> match</>}
+        />
 
         {shownError && (
           <div className="page-error" role="alert">
@@ -229,7 +232,7 @@ export default function ItemsPage() {
                     size="sm"
                     onClick={() => {
                       setSearchText('')
-                      updateParams({ search: null, category: null, page: null })
+                      updateParams({ ...EMPTY_FILTERS, search: null, page: null })
                     }}
                   >
                     Clear filters

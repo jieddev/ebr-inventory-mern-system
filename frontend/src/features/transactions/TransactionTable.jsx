@@ -25,12 +25,13 @@ export default function TransactionTable({ groups, collapsed, expandedEntries, l
         </span>
       </div>
 
-      {groups.map(({ item, entries }) => {
+      {groups.map(({ item, entries, matchCount }) => {
         const id = item._id
         const isCollapsed = collapsed.has(id)
         const allEntries = expandedEntries.get(id)
         const shown = allEntries ?? entries
-        const canViewAll = !allEntries && item.transactionCount > entries.length
+        // matchCount is less than transactionCount when a type or date filter is on.
+        const canViewAll = !allEntries && matchCount > entries.length
         const details = [item.brand, item.typeDesign].filter(Boolean).join(' · ')
 
         return (
@@ -51,6 +52,7 @@ export default function TransactionTable({ groups, collapsed, expandedEntries, l
               </div>
               <div className="txn-group-meta" role="cell">
                 <span>
+                  {matchCount < item.transactionCount && `${formatNumber(matchCount)} of `}
                   {pluralize(item.transactionCount, 'transaction')}
                   {isCollapsed && item.lastTransactionDate && ` · Last on ${formatDate(item.lastTransactionDate)}`}
                 </span>

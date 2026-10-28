@@ -9,6 +9,15 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true,
   headers: { 'X-Client-Id': CLIENT_ID },
+  // Lists go out as repeated keys (?brand=A&brand=B), which Express reads as an array.
+  paramsSerializer: { indexes: null },
 })
+
+// Drops empty strings and empty lists, so they don't show up in the query string.
+export function cleanParams(params) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => (Array.isArray(value) ? value.length : value !== '' && value != null)),
+  )
+}
 
 export default api

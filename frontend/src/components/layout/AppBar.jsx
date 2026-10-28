@@ -1,12 +1,12 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useId, useRef, useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../ui/Button'
 import Logo from '../ui/Logo'
 import logoutIcon from '../../assets/icons/logout.svg'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import userPlusIcon from '../../assets/icons/user-plus.svg'
-import listIcon from '../../assets/icons/list.svg'
 import { useAuth } from '../../features/auth/useAuth'
+import { useClickOutside } from '../../hooks/useClickOutside'
 import './AppBar.css'
 
 function initials(name) {
@@ -24,15 +24,7 @@ export default function AppBar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
-  // Close the profile menu on any click outside it.
-  useEffect(() => {
-    if (!isMenuOpen) return
-    function handlePointerDown(event) {
-      if (!menuRef.current?.contains(event.target)) setIsMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [isMenuOpen])
+  useClickOutside(menuRef, isMenuOpen, () => setIsMenuOpen(false))
 
   function handleMenuKeyDown(event) {
     if (event.key !== 'Escape' || !isMenuOpen) return
@@ -49,10 +41,24 @@ export default function AppBar() {
 
   return (
     <header className="app-bar">
-      <Link to="/" className="app-bar-brand">
-        <Logo size="sm" />
-        <span>EBR Inventory System</span>
-      </Link>
+      <div className="app-bar-start">
+        <Link to="/" className="app-bar-brand">
+          <Logo size="sm" />
+          <span>EBR Inventory System</span>
+        </Link>
+
+        {/* Staff only have the Transactions page, so the tabs show for admins only. */}
+        {user.role === 'admin' && (
+          <nav className="app-nav" aria-label="Main">
+            <NavLink to="/transactions" className="app-nav-link">
+              Transactions
+            </NavLink>
+            <NavLink to="/items" className="app-nav-link">
+              Items
+            </NavLink>
+          </nav>
+        )}
+      </div>
 
       <div className="app-bar-user">
         <div className="profile-menu" ref={menuRef} onKeyDown={handleMenuKeyDown}>
@@ -78,20 +84,6 @@ export default function AppBar() {
                 <p className="profile-menu-name">{user.name}</p>
                 <p className="profile-menu-role">{user.role === 'admin' ? 'Admin' : 'Staff'}</p>
               </div>
-              {user.role === 'admin' && pathname !== '/items' && (
-                <Button
-                  variant="ghost"
-                  block
-                  className="profile-menu-item"
-                  onClick={() => {
-                    setIsMenuOpen(false)
-                    navigate('/items')
-                  }}
-                >
-                  <img src={listIcon} alt="" />
-                  All items
-                </Button>
-              )}
               {user.role === 'admin' && pathname !== '/users/new' && (
                 <Button
                   variant="ghost"

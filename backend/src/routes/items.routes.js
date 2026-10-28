@@ -4,6 +4,7 @@ const {
   searchItems,
   listTypes,
   listCategories,
+  listFacets,
   createItem,
   importItems,
   exportItems,
@@ -19,6 +20,7 @@ router.get('/', adminOnly, listItems);
 router.get('/search', searchItems);
 router.get('/types', listTypes);
 router.get('/categories', listCategories);
+router.get('/facets', listFacets);
 router.get('/export', adminOnly, exportItems);
 router.post('/', createItem);
 // The Excel file is sent as the raw request body.

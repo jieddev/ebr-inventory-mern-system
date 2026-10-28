@@ -1,10 +1,14 @@
-import api from './client'
+import api, { cleanParams } from './client'
 
-export async function getItems({ search, category, page, limit } = {}, { signal } = {}) {
-  const { data } = await api.get('/items', {
-    params: { search: search || undefined, category: category || undefined, page, limit },
-    signal,
-  })
+// filters: see utils/filters.js (the item filters: stock, category, typeDesign, brand).
+export async function getItems({ search, page, limit, filters } = {}, { signal } = {}) {
+  const { data } = await api.get('/items', { params: cleanParams({ search, page, limit, ...filters }), signal })
+  return data
+}
+
+// Choices and counts for the filter dropdown.
+export async function getItemFacets() {
+  const { data } = await api.get('/items/facets')
   return data
 }
 
@@ -48,7 +52,8 @@ export async function createItem(item) {
   return data.item
 }
 
-export async function getItemTransactions(itemId) {
-  const { data } = await api.get(`/items/${itemId}/transactions`)
+// entryFilters ({ type, from, to }) limit the ledger to matching entries.
+export async function getItemTransactions(itemId, entryFilters = {}) {
+  const { data } = await api.get(`/items/${itemId}/transactions`, { params: cleanParams(entryFilters) })
   return data
 }

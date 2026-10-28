@@ -5,22 +5,28 @@ const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
+const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
 
 // Entries shown under each item group before "View all".
 const PREVIEW_ENTRIES = 2;
 
-// GET /api/transactions?search=&page=&limit=
+// GET /api/transactions?search=&page=&limit= plus the filters in utils/filters.js.
 // One group per item, most recent activity first, each with its latest entries.
+// With a type or date filter, only items with matching entries are listed, and only
+// those entries are shown. `summary` totals the matching entries across all pages.
 async function listTransactions(req, res) {
   const { page, limit, skip } = parsePage(req.query);
   const search = String(req.query.search ?? '').trim();
+  const match = entryMatch(req.query);
 
-  const filter = {};
+  const conditions = itemConditions(req.query);
   if (search) {
     const rx = containsRegex(search);
     const customerItemIds = await Transaction.distinct('item', { customerName: rx });
-    filter.$or = [{ code: rx }, { brand: rx }, { _id: { $in: customerItemIds } }];
+    conditions.push({ $or: [{ code: rx }, { brand: rx }, { _id: { $in: customerItemIds } }] });
   }
+  if (match) conditions.push({ _id: { $in: await Transaction.distinct('item', match) } });
+  const filter = andFilter(conditions);
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
@@ -33,11 +39,12 @@ async function listTransactions(req, res) {
   ]);
 
   const previews = await Transaction.aggregate([
-    { $match: { item: { $in: items.map((item) => item._id) } } },
+    { $match: { item: { $in: items.map((item) => item._id) }, ...match } },
     { $sort: { isBalanceForwarded: 1, date: -1, _id: -1 } },
     {
       $group: {
         _id: '$item',
+        matchCount: { $sum: 1 },
         entries: {
           $push: {
             _id: '$_id',
@@ -50,17 +57,33 @@ async function listTransactions(req, res) {
         },
       },
     },
-    { $project: { entries: { $slice: ['$entries', PREVIEW_ENTRIES] } } },
+    { $project: { matchCount: 1, entries: { $slice: ['$entries', PREVIEW_ENTRIES] } } },
   ]);
-  const entriesByItem = new Map(previews.map((p) => [String(p._id), p.entries]));
+  const previewByItem = new Map(previews.map((p) => [String(p._id), p]));
 
   res.json({
-    groups: items.map((item) => ({ item, entries: entriesByItem.get(String(item._id)) ?? [] })),
+    groups: items.map((item) => {
+      const preview = previewByItem.get(String(item._id));
+      return { item, entries: preview?.entries ?? [], matchCount: preview?.matchCount ?? 0 };
+    }),
+    summary: await summarize(filter, match),
     page,
     limit,
     total,
     totalPages: Math.max(1, Math.ceil(total / limit)),
   });
+}
+
+// IN and OUT quantity totals of the entries behind a filtered list.
+async function summarize(itemFilter, match) {
+  const entryFilter = { ...match };
+  if (Object.keys(itemFilter).length) entryFilter.item = { $in: await Item.distinct('_id', itemFilter) };
+  const totals = await Transaction.aggregate([
+    { $match: entryFilter },
+    { $group: { _id: '$type', quantity: { $sum: '$quantity' } } },
+  ]);
+  const byType = Object.fromEntries(totals.map((t) => [t._id, t.quantity]));
+  return { in: byType.IN ?? 0, out: byType.OUT ?? 0 };
 }
 
 // POST /api/transactions — Add Transaction. Saves the entry and updates the item's

@@ -1,7 +1,9 @@
-import api from './client'
+import api, { cleanParams } from './client'
 
-export async function getTransactions({ search, page, limit } = {}, { signal } = {}) {
-  const { data } = await api.get('/transactions', { params: { search: search || undefined, page, limit }, signal })
+// filters: see utils/filters.js. Empty values are left out of the query string.
+export async function getTransactions({ search, page, limit, filters } = {}, { signal } = {}) {
+  const params = cleanParams({ search, page, limit, ...filters })
+  const { data } = await api.get('/transactions', { params, signal })
   return data
 }
 

@@ -9,21 +9,22 @@ const { readSummaryReport, buildSummaryReport } = require('../services/summaryRe
 const { broadcast } = require('../services/events.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
+const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
 
 const ITEM_FIELDS = 'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType';
 
-// GET /api/items?search=&category=&page=&limit= — every item, by item ID (admin Items page).
+// GET /api/items?search=&stock=&category=&typeDesign=&brand=&page=&limit=
+// Every item, by item ID (admin Items page). See utils/filters.js for the filters.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
   const search = String(req.query.search ?? '').trim();
-  const category = Item.normalize(req.query.category);
 
-  const filter = {};
-  if (category) filter.category = category;
+  const conditions = itemConditions(req.query);
   if (search) {
     const rx = containsRegex(search);
-    filter.$or = [{ itemId: rx }, { code: rx }, { brand: rx }, { typeDesign: rx }];
+    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { typeDesign: rx }] });
   }
+  const filter = andFilter(conditions);
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
@@ -53,6 +54,46 @@ async function listTypes(req, res) {
   const used = await Item.distinct('typeDesign');
   const types = [...new Set([...DEFAULT_TYPES, ...used.filter(Boolean)])].sort();
   res.json({ types });
+}
+
+// GET /api/items/facets — choices and counts for the filter dropdown.
+async function listFacets(req, res) {
+  const countBy = (field) => [
+    { $match: { [field]: { $nin: ['', null] } } },
+    { $group: { _id: `$${field}`, count: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+    { $project: { _id: 0, value: '$_id', count: 1 } },
+  ];
+  const whenBalance = (condition) => ({ $sum: { $cond: [condition, 1, 0] } });
+  const [facets] = await Item.aggregate([
+    {
+      $facet: {
+        categories: countBy('category'),
+        typeDesigns: countBy('typeDesign'),
+        brands: countBy('brand'),
+        stock: [
+          {
+            $group: {
+              _id: null,
+              in: whenBalance({ $gt: ['$balance', 0] }),
+              out: whenBalance({ $eq: ['$balance', 0] }),
+              negative: whenBalance({ $lt: ['$balance', 0] }),
+            },
+          },
+          { $project: { _id: 0 } },
+        ],
+      },
+    },
+  ]);
+
+  // Every category is listed, even ones no item uses yet.
+  const categoryCounts = new Map(facets.categories.map((c) => [c.value, c.count]));
+  res.json({
+    categories: CATEGORIES.map((value) => ({ value, count: categoryCounts.get(value) ?? 0 })),
+    typeDesigns: facets.typeDesigns,
+    brands: facets.brands,
+    stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 },
+  });
 }
 
 // GET /api/items/categories — Category choices for Add Item.
@@ -184,13 +225,15 @@ async function exportItems(req, res) {
     .send(Buffer.from(buffer));
 }
 
-// GET /api/items/:id/transactions — the item's full ledger, newest first ("View all").
+// GET /api/items/:id/transactions?type=&from=&to= — the item's full ledger, newest
+// first ("View all"). The Transactions page passes its filters so only matching entries show.
 async function listItemTransactions(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
+  const match = entryMatch(req.query);
   const item = await Item.findById(id).select(ITEM_FIELDS).lean();
   if (!item) throw new HttpError(404, 'Item not found');
 
-  const transactions = await Transaction.find({ item: id })
+  const transactions = await Transaction.find({ item: id, ...match })
     .sort({ isBalanceForwarded: 1, date: -1, _id: -1 })
     .select('date type quantity customerName endingBalance isBalanceForwarded')
     .lean();
@@ -215,6 +258,7 @@ module.exports = {
   searchItems,
   listTypes,
   listCategories,
+  listFacets,
   createItem,
   importItems,
   exportItems,
