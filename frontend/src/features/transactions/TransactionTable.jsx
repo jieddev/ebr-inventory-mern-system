@@ -9,10 +9,10 @@ export default function TransactionTable({ groups, collapsed, expandedEntries, l
     <div className="txn-table" role="table" aria-label="Transactions grouped by item">
       <div className="txn-row txn-header" role="row">
         <span className="txn-col-main" role="columnheader">
-          Item code / Date
+          Item Description
         </span>
         <span className="txn-col-customer" role="columnheader">
-          Customer name
+          Customer name / Details
         </span>
         <span className="txn-col-type" role="columnheader">
           Transaction type

@@ -17,7 +17,9 @@ const ACTIONS = [
   'transaction.create',
 ];
 
-const RETENTION_SECONDS = 365 * 24 * 60 * 60; // 1 year
+// How long entries are kept. Changing it also updates an existing database's TTL index
+// at startup (services/audit.service.js syncAuditRetention).
+const RETENTION_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 // Who did what, to what, and when. Append-only: entries are never edited or deleted
 // by the app; MongoDB removes them after RETENTION_SECONDS (TTL index below).

@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
+const { RETENTION_SECONDS } = require('../models/AuditLog');
 
 // "ITM-00012 · 2.25-17 TUBE · IZUMI TUBE · TUBE"
 function describe({ code, brand, typeDesign }) {
@@ -57,4 +59,18 @@ function diff(before, after, fields) {
   return Object.keys(changes).length ? changes : null;
 }
 
-module.exports = { record, recordQuietly, diff, describe, itemTarget };
+// MongoDB keeps an existing TTL index's expiry when the code asks for a new one, so a
+// changed RETENTION_SECONDS is applied here at startup. Returns { from, to } when it changed.
+async function syncAuditRetention() {
+  const indexes = await AuditLog.collection.indexes().catch(() => []); // no collection yet
+  const ttl = indexes.find((index) => index.expireAfterSeconds != null);
+  if (!ttl || ttl.expireAfterSeconds === RETENTION_SECONDS) return null;
+
+  await mongoose.connection.db.command({
+    collMod: AuditLog.collection.collectionName,
+    index: { name: ttl.name, expireAfterSeconds: RETENTION_SECONDS },
+  });
+  return { from: ttl.expireAfterSeconds, to: RETENTION_SECONDS };
+}
+
+module.exports = { record, recordQuietly, diff, describe, itemTarget, syncAuditRetention };

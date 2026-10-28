@@ -49,7 +49,7 @@ const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '
 const localDateFormat = new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
 
 // Admin only: the audit log — who did what, to what, and when. Read-only; entries are
-// kept for a year (see backend models/AuditLog.js).
+// kept for 30 days (see backend models/AuditLog.js).
 export default function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => readActivityFilters(searchParams), [searchParams])
@@ -128,7 +128,7 @@ export default function ActivityPage() {
         <header className="page-header">
           <div>
             <h1>Activity</h1>
-            <p className="activity-subtitle">Who did what and when. Entries are kept for one year.</p>
+            <p className="activity-subtitle">Activity logs are displayed here.</p>
           </div>
           <Button variant="secondary" onClick={reload} isLoading={isLoading && Boolean(data)}>
             Refresh
@@ -173,8 +173,8 @@ export default function ActivityPage() {
               <table className="items-table activity-table">
                 <thead>
                   <tr>
-                    <th>When</th>
-                    <th>Who</th>
+                    <th>DATE</th>
+                    <th>USER</th>
                     <th>Action</th>
                     <th>Item / Target</th>
                     <th>Details</th>
