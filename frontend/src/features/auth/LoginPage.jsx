@@ -4,6 +4,8 @@ import Button from '../../components/ui/Button'
 import Logo from '../../components/ui/Logo'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
+import eyeIcon from '../../assets/icons/eye.svg'
+import eyeOffIcon from '../../assets/icons/eye-off.svg'
 import { useAuth } from './useAuth'
 import './LoginPage.css'
 
@@ -45,18 +47,17 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <section className="login-brand" aria-hidden="true">
-        <h2>EBR Inventory System</h2>
-        <p>Track stock in and out, and print daily and transaction reports.</p>
-      </section>
-
       <section className="login-card">
         <div className="login-logo">
-          <Logo />
+          <Logo size="lg" />
+        </div>
+
+        <div className="login-brand">
+          <p className="login-brand-name">EBR Inventory System</p>
+          <p>By EBR IT Solutions</p>
         </div>
 
         <header className="login-titles">
-          <h1>Welcome</h1>
           <p>Sign in to continue</p>
         </header>
 
@@ -92,7 +93,7 @@ export default function LoginPage() {
                 onClick={() => setShowPassword((s) => !s)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? 'Hide' : 'Show'}
+                <img src={showPassword ? eyeOffIcon : eyeIcon} alt="" width="18" height="18" />
               </Button>
             }
           />

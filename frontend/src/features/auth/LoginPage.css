@@ -1,33 +1,31 @@
 .login-page {
   display: grid;
-  grid-template-columns: 1fr minmax(420px, 658px);
-  gap: var(--space-8);
-  align-items: center;
+  place-items: center;
   min-height: 100%;
   padding: var(--space-10);
 }
 
 .login-brand {
   display: grid;
-  gap: var(--space-3);
-  max-width: 480px;
-  justify-self: center;
+  gap: var(--space-2);
+  text-align: center;
 }
 
-.login-brand h2 {
-  font-size: 40px;
+.login-brand-name {
+  font-size: 32px;
   font-weight: var(--weight-bold);
   line-height: 1.15;
 }
 
-.login-brand p {
-  font-size: var(--text-lg);
+.login-brand p:not(.login-brand-name) {
   color: var(--color-text-muted);
 }
 
 .login-card {
   position: relative;
   display: grid;
+  width: 100%;
+  max-width: 520px;
   gap: var(--space-8);
   padding: var(--space-10) 43px;
   background: var(--color-surface);
@@ -37,7 +35,7 @@
 }
 
 .login-logo {
-  justify-self: end;
+  justify-self: center;
 }
 
 .login-titles {
@@ -69,18 +67,17 @@
 
 .login-help {
   font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  color: var(--color-primary);
   text-align: center;
 }
 
 @media (max-width: 900px) {
   .login-page {
-    grid-template-columns: 1fr;
     padding: var(--space-4);
   }
 
-  .login-brand {
-    display: none;
+  .login-brand-name {
+    font-size: var(--text-2xl);
   }
 
   .login-card {

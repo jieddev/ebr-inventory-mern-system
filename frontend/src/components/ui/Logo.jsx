@@ -1,10 +1,6 @@
+import logoImage from '../../assets/images/ebr-logo.png'
 import './Logo.css'
 
-// TODO: swap for the real logo asset from Figma.
 export default function Logo({ size = 'md' }) {
-  return (
-    <span className={`logo logo-${size}`} aria-label="EBR">
-      EBR
-    </span>
-  )
+  return <img className={`logo logo-${size}`} src={logoImage} alt="The EBR Group" />
 }
