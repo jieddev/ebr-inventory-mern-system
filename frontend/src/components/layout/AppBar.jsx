@@ -56,6 +56,9 @@ export default function AppBar() {
             <NavLink to="/items" className="app-nav-link">
               Items
             </NavLink>
+            <NavLink to="/activity" className="app-nav-link">
+              Activity
+            </NavLink>
           </nav>
         )}
       </div>

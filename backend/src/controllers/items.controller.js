@@ -7,6 +7,7 @@ const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
 const { broadcast } = require('../services/events.service');
+const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
@@ -157,6 +158,7 @@ async function createItem(req, res) {
     const [created] = await Item.create([{ itemId, category, code, brand, typeDesign, balanceForwarded, createdBy: req.user._id }], {
       session,
     });
+    await record(req, { action: 'item.create', target: itemTarget(created), details: { category, balanceForwarded } }, session);
     if (balanceForwarded === 0) return created;
 
     await Transaction.create(
@@ -193,9 +195,11 @@ async function updateItem(req, res) {
     if (current.archivedAt) throw new HttpError(409, 'This item is archived. Restore it before editing.');
     await assertKeyIsFree(fields, id);
 
+    const changes = diff(current, fields, ['category', 'code', 'brand', 'typeDesign', 'balanceForwarded']);
     const balanceChanged = current.balanceForwarded !== fields.balanceForwarded;
     current.set(fields);
     await current.save({ session });
+    if (changes) await record(req, { action: 'item.update', target: itemTarget(current), changes }, session);
     if (!balanceChanged) return current;
 
     const opening = await Transaction.findOne({ item: id, isBalanceForwarded: true }).session(session);
@@ -241,24 +245,32 @@ async function archiveItem(req, res) {
   const result = item ?? (await Item.findById(id).select(ITEM_FIELDS).lean());
   if (!result) throw new HttpError(404, 'Item not found');
 
-  if (item) broadcast('item-changed', { itemId: String(id) });
+  if (item) {
+    await record(req, { action: 'item.archive', target: itemTarget(item) });
+    broadcast('item-changed', { itemId: String(id) });
+  }
   res.json({ item: result });
 }
 
 // POST /api/items/:id/restore — bring an archived item back (admin).
 async function restoreItem(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
-  const item = await Item.findByIdAndUpdate(
-    id,
+  const item = await Item.findOneAndUpdate(
+    { _id: id, archivedAt: { $ne: null } },
     { archivedAt: null, $unset: { archivedBy: 1 } },
     { returnDocument: 'after' },
   )
     .select(ITEM_FIELDS)
     .lean();
-  if (!item) throw new HttpError(404, 'Item not found');
+  // Not archived: nothing to do.
+  const result = item ?? (await Item.findById(id).select(ITEM_FIELDS).lean());
+  if (!result) throw new HttpError(404, 'Item not found');
 
-  broadcast('item-changed', { itemId: String(id) });
-  res.json({ item });
+  if (item) {
+    await record(req, { action: 'item.restore', target: itemTarget(item) });
+    broadcast('item-changed', { itemId: String(id) });
+  }
+  res.json({ item: result });
 }
 
 const MAX_BATCH_IDS = 1000;
@@ -285,7 +297,13 @@ async function batchItems(req, res) {
       : { archivedAt: null, $unset: { archivedBy: 1 } };
   const { modifiedCount } = await Item.updateMany(filter, update);
 
-  if (modifiedCount) broadcast('item-changed', { batch: action, count: modifiedCount });
+  if (modifiedCount) {
+    await record(req, {
+      action: `item.batch_${action}`,
+      details: all ? { count: modifiedCount, all: true, query } : { count: modifiedCount, selected: ids.length },
+    });
+    broadcast('item-changed', { batch: action, count: modifiedCount });
+  }
   res.json({ action, count: modifiedCount });
 }
 
@@ -346,6 +364,20 @@ async function importItems(req, res) {
         })),
       { session },
     );
+    await record(
+      req,
+      {
+        action: 'item.import',
+        details: {
+          fileName: fileNameOf(req),
+          added: toAdd.length,
+          skippedExisting: skippedExisting.length,
+          skippedDuplicates: skippedDuplicates.length,
+          invalid: invalid.length,
+        },
+      },
+      session,
+    );
   });
 
   if (toAdd.length) broadcast('item-changed', { imported: toAdd.length });
@@ -363,6 +395,7 @@ async function exportItems(req, res) {
   const items = await Item.find(ACTIVE).sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
   const asOf = today();
   const buffer = await buildSummaryReport(items, asOf);
+  await record(req, { action: 'item.export', details: { count: items.length } });
   res
     .attachment(`EBR_Items_${asOf.toISOString().slice(0, 10)}.xlsx`)
     .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -399,8 +432,13 @@ function pick({ row, code, brand, typeDesign }) {
   return { row, code, brand, typeDesign };
 }
 
-function describe({ code, brand, typeDesign }) {
-  return [code, brand, typeDesign].filter(Boolean).join(' · ');
+// The import's file name, sent by the frontend as X-File-Name (the body is the raw file).
+function fileNameOf(req) {
+  try {
+    return decodeURIComponent(req.get('X-File-Name') ?? '').slice(0, 200) || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 module.exports = {

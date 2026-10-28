@@ -9,6 +9,7 @@ import StatusPage from './features/system/StatusPage'
 import TransactionsPage from './features/transactions/TransactionsPage'
 import CreateUserPage from './features/users/CreateUserPage'
 import ItemsPage from './features/items/ItemsPage'
+import ActivityPage from './features/audit/ActivityPage'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
               <Route element={<AdminRoute />}>
                 <Route path="/users/new" element={<CreateUserPage />} />
                 <Route path="/items" element={<ItemsPage />} />
+                <Route path="/activity" element={<ActivityPage />} />
               </Route>
             </Route>
           </Route>

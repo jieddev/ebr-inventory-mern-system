@@ -4,6 +4,7 @@ const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
+const { record, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
@@ -99,13 +100,22 @@ async function createTransaction(req, res) {
   const customerName = String(body.customerName ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 
   const result = await mongoose.connection.transaction(async (session) => {
-    const target = await Item.findById(itemId).select('archivedAt').session(session).lean();
+    const target = await Item.findById(itemId).select('itemId code brand typeDesign archivedAt').session(session).lean();
     if (!target) throw new HttpError(404, 'Item not found');
     if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
 
     const [transaction] = await Transaction.create(
       [{ item: itemId, date, type, quantity, customerName, createdBy: req.user._id }],
       { session },
+    );
+    await record(
+      req,
+      {
+        action: 'transaction.create',
+        target: itemTarget(target),
+        details: { transactionId: transaction._id, date, type, quantity, customerName },
+      },
+      session,
     );
     const item = await recalculateItem(itemId, session);
     const saved = await Transaction.findById(transaction._id).session(session).lean();

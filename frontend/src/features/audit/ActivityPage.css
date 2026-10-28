@@ -1,0 +1,116 @@
+.activity-subtitle {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.activity-select {
+  height: 40px;
+  max-width: 240px;
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.activity-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.activity-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.activity-dates label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.activity-dates .field-input {
+  width: auto;
+  height: 32px;
+  padding: 0 var(--space-2);
+}
+
+.activity-table td {
+  vertical-align: top;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.activity-when,
+.activity-who {
+  white-space: nowrap;
+}
+
+.activity-when span,
+.activity-who span {
+  display: block;
+}
+
+.activity-when .items-muted,
+.activity-who .items-muted {
+  font-size: var(--text-xs);
+}
+
+.activity-action {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+
+.activity-action-item {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.activity-action-transaction {
+  color: var(--color-in);
+  background: var(--color-in-soft);
+}
+
+.activity-action-user {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.activity-action.is-failed,
+.is-failed-text {
+  color: var(--color-danger);
+}
+
+.activity-action.is-failed {
+  background: var(--color-danger-soft);
+}
+
+.activity-target {
+  min-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+.activity-details {
+  min-width: 200px;
+  font-size: var(--text-sm);
+}
+
+.activity-changes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

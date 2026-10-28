@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const HttpError = require('../utils/httpError');
+const { record } = require('../services/audit.service');
 
 const ROLES = ['admin', 'staff'];
 const MIN_PASSWORD_LENGTH = 8;
@@ -32,6 +33,11 @@ async function createUser(req, res) {
     throw err;
   }
 
+  await record(req, {
+    action: 'user.create',
+    target: { type: 'user', id: user._id, label: `${user.name} (${user.userId})` },
+    details: { userId, name: user.name, role },
+  });
   res.status(201).json({ user });
 }
 

@@ -17,7 +17,8 @@ export async function getItemFacets() {
 // Sends the Excel file as the raw request body.
 export async function importItems(file) {
   const { data } = await api.post('/items/import', file, {
-    headers: { 'Content-Type': 'application/octet-stream' },
+    // The name goes in a header because the body is the file itself (shown in the Activity log).
+    headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
   })
   return data
 }
