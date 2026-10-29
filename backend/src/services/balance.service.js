@@ -5,7 +5,7 @@ const { LEDGER_ORDER } = require('../models/Transaction');
 // Walks an item's ledger in order and rewrites every entry's ending balance, then
 // refreshes the item's balance and last-transaction fields. Running the whole ledger
 // (instead of "previous balance ± quantity") keeps back-dated entries correct.
-// Items have tens of entries, so this stays cheap.
+// Items have tens of entries, so this stays cheap. RESERVE deducts like OUT.
 async function recalculateItem(itemId, session) {
   const entries = await Transaction.find({ item: itemId })
     .sort(LEDGER_ORDER)

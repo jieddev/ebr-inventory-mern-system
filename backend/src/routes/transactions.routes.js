@@ -1,5 +1,13 @@
 const { Router } = require('express');
-const { listTransactions, getTransaction, createTransaction } = require('../controllers/transactions.controller');
+const {
+  listTransactions,
+  getTransaction,
+  createTransaction,
+  listReservations,
+  reservationCounts,
+  releaseReservation,
+  cancelReservation,
+} = require('../controllers/transactions.controller');
 const { requireAuth, requireWarehouse } = require('../middleware/auth');
 
 const router = Router();
@@ -7,6 +15,11 @@ const router = Router();
 router.use(requireAuth, requireWarehouse);
 router.get('/', listTransactions);
 router.post('/', createTransaction);
+// Before /:id, so "reservations" isn't read as a transaction ID.
+router.get('/reservations', listReservations);
+router.get('/reservations/count', reservationCounts);
 router.get('/:id', getTransaction);
+router.post('/:id/release', releaseReservation);
+router.delete('/:id', cancelReservation);
 
 module.exports = router;

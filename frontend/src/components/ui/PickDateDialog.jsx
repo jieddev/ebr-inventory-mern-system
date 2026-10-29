@@ -4,9 +4,19 @@ import { todayInputValue } from '../../utils/format'
 import './ConfirmDialog.css'
 import './TextField.css'
 
-// Modal date picker before opening a report (design screens 05 / 07).
+// Modal date picker, e.g. before opening a report (design screens 05 / 07).
 // Render it only while it should be open. onConfirm gets "YYYY-MM-DD".
-export default function PickDateDialog({ title, subtitle, initialDate, onConfirm, onCancel }) {
+export default function PickDateDialog({
+  title,
+  subtitle,
+  initialDate,
+  label = 'Date',
+  confirmLabel = 'Confirm',
+  isBusy = false,
+  error,
+  onConfirm,
+  onCancel,
+}) {
   const ref = useRef(null)
   const titleId = useId()
   const dateId = useId()
@@ -30,7 +40,7 @@ export default function PickDateDialog({ title, subtitle, initialDate, onConfirm
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
-        onCancel()
+        if (!isBusy) onCancel()
       }}
     >
       <form onSubmit={handleSubmit}>
@@ -38,7 +48,7 @@ export default function PickDateDialog({ title, subtitle, initialDate, onConfirm
         {subtitle && <div className="confirm-dialog-message">{subtitle}</div>}
         <div className="field pick-date-field">
           <label className="field-label" htmlFor={dateId}>
-            Date
+            {label}
           </label>
           <input
             id={dateId}
@@ -49,12 +59,17 @@ export default function PickDateDialog({ title, subtitle, initialDate, onConfirm
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
+        {error && (
+          <p className="confirm-dialog-error" role="alert">
+            {error}
+          </p>
+        )}
         <footer>
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel} disabled={isBusy}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!date}>
-            Confirm
+          <Button type="submit" disabled={!date} isLoading={isBusy}>
+            {confirmLabel}
           </Button>
         </footer>
       </form>

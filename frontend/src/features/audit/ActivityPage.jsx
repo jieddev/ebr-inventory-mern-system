@@ -29,6 +29,8 @@ const ACTION_LABELS = {
   'item.import': 'Imported Excel',
   'item.export': 'Exported Excel',
   'transaction.create': 'Added transaction',
+  'transaction.release': 'Released reservation',
+  'transaction.cancel': 'Cancelled reservation',
   'receiving.create': 'Receiving report',
   'report.export': 'Exported Daily Report',
 }
@@ -320,7 +322,25 @@ function Details({ entry }) {
         </>
       )
     case 'transaction.create':
-      return [`${d.type} ${formatNumber(d.quantity)}`, formatDate(d.date), d.customerName].filter(Boolean).join(' · ')
+      return [
+        `${d.type} ${formatNumber(d.quantity)}`,
+        formatDate(d.date),
+        d.customerName,
+        d.neededBy && `needed by ${formatDate(d.neededBy)}`,
+        d.notes,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    case 'transaction.release':
+      return [
+        `OUT ${formatNumber(d.quantity)}`,
+        `reserved ${formatDate(d.reservedOn)} → out ${formatDate(d.date)}`,
+        d.customerName,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    case 'transaction.cancel':
+      return [`RESERVE ${formatNumber(d.quantity)}`, formatDate(d.date), d.customerName].filter(Boolean).join(' · ')
     case 'item.import':
       return [
         d.fileName,

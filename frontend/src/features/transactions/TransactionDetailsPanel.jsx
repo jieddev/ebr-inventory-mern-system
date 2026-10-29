@@ -5,6 +5,7 @@ import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
 import { getTransaction } from '../../api/transactions'
 import { formatDate, formatNumber } from '../../utils/format'
+import ReservationDialogs from '../reservations/ReservationDialogs'
 import { ROLE_LABELS } from '../../utils/roles'
 import './TransactionDetailsPanel.css'
 
@@ -16,8 +17,9 @@ const dateTime = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 })
 
-// Read-only details of one ledger entry, opened by clicking it in the Transactions table.
-export default function TransactionDetailsPanel({ transactionId, onClose }) {
+// Details of one ledger entry, opened by clicking it in the Transactions table.
+// Reservations also get Confirm out and Cancel reservation; onChanged(itemId) runs after either.
+export default function TransactionDetailsPanel({ transactionId, onClose, onChanged }) {
   // The last finished request; it's loading while that isn't the current one.
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
   const [reloadKey, setReloadKey] = useState(0)
@@ -36,12 +38,33 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
 
   const isLoading = response.key !== requestKey
   const { transaction: t, receiving } = (!isLoading && response.data) || {}
+  const isReserved = t?.type === 'RESERVE'
+
+  const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | null
+
+  // Released: show it again as OUT. Cancelled: the entry is gone, so the panel closes.
+  function handleDone(action) {
+    setDialog(null)
+    onChanged?.(t.item?._id)
+    if (action === 'cancel') onClose()
+    else setReloadKey((k) => k + 1)
+  }
 
   return (
     <SidePanel
       title="Transaction details"
       subtitle={t ? `${t.isBalanceForwarded ? 'Balance forwarded' : t.type} · ${formatDate(t.date)}` : undefined}
       onClose={onClose}
+      footer={
+        isReserved && (
+          <>
+            <Button variant="secondary" onClick={() => setDialog('cancel')}>
+              Cancel reservation
+            </Button>
+            <Button onClick={() => setDialog('release')}>Confirm out</Button>
+          </>
+        )
+      }
     >
       {isLoading && <p className="txn-details-status">Loading…</p>}
 
@@ -87,6 +110,37 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
             </dl>
           </section>
 
+          {(isReserved || t.releasedAt) && (
+            <section className="txn-details-section">
+              <h3>Reservation</h3>
+              {isReserved && (
+                <p className="txn-details-note">
+                  This stock is held for the customer and already deducted from the balance. Confirm it out when it
+                  leaves the warehouse.
+                </p>
+              )}
+              <dl>
+                <div>
+                  <dt>Needed by</dt>
+                  <dd>{t.neededBy ? formatDate(t.neededBy) : '—'}</dd>
+                </div>
+                {t.releasedAt && (
+                  <div>
+                    <dt>Released by</dt>
+                    <dd>
+                      {t.releasedBy?.name ?? '—'}
+                      <span className="txn-details-muted"> · {dateTime.format(new Date(t.releasedAt))}</span>
+                    </dd>
+                  </div>
+                )}
+                <div className="txn-details-wide">
+                  <dt>Notes</dt>
+                  <dd>{t.notes || '—'}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
           {receiving && (
             <section className="txn-details-section">
               <h3>Receiving report</h3>
@@ -129,6 +183,10 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
             </dl>
           </section>
         </>
+      )}
+
+      {dialog && t && (
+        <ReservationDialogs reservation={t} action={dialog} onDone={handleDone} onClose={() => setDialog(null)} />
       )}
     </SidePanel>
   )

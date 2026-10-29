@@ -2,7 +2,7 @@
 // Kept for this browser window only (sessionStorage), and cleared on login and logout.
 // The page number is left out: coming back starts on page 1.
 const STORAGE_KEY = 'ebr.views'
-const REMEMBERED_PATHS = ['/transactions', '/items', '/activity']
+const REMEMBERED_PATHS = ['/transactions', '/reservations', '/items', '/activity']
 
 let views = load()
 

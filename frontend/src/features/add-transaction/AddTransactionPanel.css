@@ -2,6 +2,11 @@
   grid-template-columns: 120px 1fr;
 }
 
+/* The transaction type selector spans the whole row, so IN / OUT / RESERVE fit side by side. */
+.panel-row-full {
+  grid-template-columns: 1fr;
+}
+
 .item-details {
   display: grid;
   gap: var(--space-4);

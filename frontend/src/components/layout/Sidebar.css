@@ -78,6 +78,7 @@
 }
 
 .sidebar-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -126,6 +127,11 @@
   mask-image: url('../../assets/icons/transactions.svg');
 }
 
+.sidebar-icon-reservations {
+  -webkit-mask-image: url('../../assets/icons/reservations.svg');
+  mask-image: url('../../assets/icons/reservations.svg');
+}
+
 .sidebar-icon-items {
   -webkit-mask-image: url('../../assets/icons/items.svg');
   mask-image: url('../../assets/icons/items.svg');
@@ -144,6 +150,34 @@
 .sidebar-panel:hover .sidebar-label,
 .sidebar-panel:focus-within .sidebar-label {
   opacity: 1;
+}
+
+/* Pending count. Collapsed: a bubble on the icon's corner. Expanded: a pill at the end of the link. */
+.sidebar-badge {
+  position: absolute;
+  top: 6px;
+  left: 24px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  line-height: 18px;
+  color: var(--color-accent-text);
+  text-align: center;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+}
+
+.sidebar-badge.is-overdue {
+  color: var(--color-surface);
+  background: var(--color-danger);
+}
+
+.sidebar-panel:hover .sidebar-badge,
+.sidebar-panel:focus-within .sidebar-badge {
+  position: static;
+  margin-left: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

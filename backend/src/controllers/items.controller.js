@@ -443,7 +443,7 @@ async function listItemTransactions(req, res) {
 
   const transactions = await Transaction.find({ item: id, ...match })
     .sort({ isBalanceForwarded: 1, date: -1, _id: -1 })
-    .select('date type quantity customerName endingBalance isBalanceForwarded')
+    .select('date type quantity customerName neededBy notes endingBalance isBalanceForwarded')
     .lean();
 
   res.json({ item, transactions });

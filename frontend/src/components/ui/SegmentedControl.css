@@ -59,3 +59,8 @@
   color: var(--color-out);
   background: var(--color-out-soft);
 }
+
+.segmented-reserve.is-selected {
+  color: var(--color-reserve);
+  background: var(--color-reserve-soft);
+}

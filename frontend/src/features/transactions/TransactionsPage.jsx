@@ -134,6 +134,18 @@ export default function TransactionsPage() {
   })
   const closePanel = useCallback(() => setPanel(null), [])
 
+  // A reservation was confirmed out or cancelled here: re-fetch the page and the item's
+  // "View all" list, if it's open (this tab skips its own live update).
+  function handleEntryChanged(itemId) {
+    reload()
+    if (!expandedIdsRef.current.includes(itemId)) return
+    getItemTransactions(itemId, entryFilters)
+      .then(({ transactions }) =>
+        setExpandedEntries((prev) => (prev.has(itemId) ? new Map(prev).set(itemId, transactions) : prev)),
+      )
+      .catch(() => {})
+  }
+
   const handleItemAdded = useCallback(
     (item) => {
       setItemsAddedThisSession((items) => [item, ...items])
@@ -233,6 +245,12 @@ export default function TransactionsPage() {
               <>
                 <strong>{pluralize(total, 'item')}</strong> · IN total <strong>{formatNumber(data.summary.in)}</strong> ·
                 OUT total <strong>{formatNumber(data.summary.out)}</strong>
+                {data.summary.reserve > 0 && (
+                  <>
+                    {' '}
+                    · Reserved <strong>{formatNumber(data.summary.reserve)}</strong>
+                  </>
+                )}
               </>
             )
           }
@@ -324,7 +342,9 @@ export default function TransactionsPage() {
         <AddItemPanel onClose={closePanel} onAdded={handleItemAdded} addedThisSession={itemsAddedThisSession} />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
-      {panel === 'details' && <TransactionDetailsPanel transactionId={selectedEntryId} onClose={closePanel} />}
+      {panel === 'details' && (
+        <TransactionDetailsPanel transactionId={selectedEntryId} onClose={closePanel} onChanged={handleEntryChanged} />
+      )}
 
       {isPickingReportDate && (
         <PickDateDialog

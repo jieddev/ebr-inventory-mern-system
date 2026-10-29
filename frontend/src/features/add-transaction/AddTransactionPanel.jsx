@@ -16,6 +16,7 @@ import ReceivingReportPanel from './ReceivingReportPanel'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
+import dotReserve from '../../assets/icons/dot-reserve.svg'
 import './AddTransactionPanel.css'
 
 // "2026-10-29" → "10/29/2026"
@@ -36,6 +37,7 @@ function MissingFields({ fields }) {
 const TYPE_OPTIONS = [
   { value: 'IN', label: 'IN', icon: dotIn, tone: 'in' },
   { value: 'OUT', label: 'OUT', icon: dotOut, tone: 'out' },
+  { value: 'RESERVE', label: 'RESERVE', icon: dotReserve, tone: 'reserve' },
 ]
 
 // The item is found by its Item ID (typed in full, or short like "12" + Enter) or picked
@@ -60,6 +62,9 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const [type, setType] = useState('OUT')
   const [quantity, setQuantity] = useState('')
   const [customerName, setCustomerName] = useState('')
+  // Reservations only.
+  const [neededBy, setNeededBy] = useState('')
+  const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -150,6 +155,8 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
 
   const qty = Number(quantity)
   const hasQty = quantity !== '' && Number.isInteger(qty) && qty > 0
+  const isReserve = type === 'RESERVE'
+  // RESERVE deducts like OUT.
   const balanceAfter = item && hasQty ? item.balance + (type === 'IN' ? qty : -qty) : null
   const isBackDated = item?.lastTransactionDate && date && date < item.lastTransactionDate.slice(0, 10)
 
@@ -197,9 +204,16 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
     setIsSaving(true)
     const savedDate = date || todayInputValue()
     try {
-      const { item: updated } = await createTransaction({ itemId: item._id, date: savedDate, type, quantity: qty, customerName })
+      const { item: updated } = await createTransaction({
+        itemId: item._id,
+        date: savedDate,
+        type,
+        quantity: qty,
+        customerName,
+        ...(isReserve && { neededBy, notes }),
+      })
       setSuccessMessage(
-        `Saved ${type} ${formatNumber(qty)} of “${updated.code}”. Ending balance is now ${formatNumber(updated.balance)}.`,
+        `${isReserve ? 'Reserved' : `Saved ${type}`} ${formatNumber(qty)} of “${updated.code}”. Ending balance is now ${formatNumber(updated.balance)}.`,
       )
       setItem(null)
       setIdText('')
@@ -207,6 +221,8 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       setCodeText('')
       setQuantity('')
       setCustomerName('')
+      setNeededBy('')
+      setNotes('')
       onSaved()
       idRef.current?.focus()
     } catch (err) {
@@ -230,7 +246,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
             Cancel
           </Button>
           <Button type="submit" isLoading={isSaving}>
-            Save Transaction
+            {isReserve ? 'Save Reservation' : 'Save Transaction'}
           </Button>
         </>
       }
@@ -297,8 +313,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
         />
       </div>
 
-      <div className="panel-row">
-
+      <div className="panel-row panel-row-full">
         <SegmentedControl label="Transaction type" name="type" options={TYPE_OPTIONS} value={type} onChange={setType} />
       </div>
 
@@ -328,6 +343,20 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
           onChange={(e) => setCustomerName(e.target.value)}
         />
       </div>
+
+      {isReserve && (
+        <div className="panel-row panel-row-quantity">
+          <TextField label="Needed by" type="date" value={neededBy} onChange={(e) => setNeededBy(e.target.value)} />
+          <TextField
+            label="Notes"
+            placeholder="e.g. contact no., job order"
+            autoComplete="off"
+            maxLength={300}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+      )}
 
       <section className="item-details" aria-live="polite">
         <header>

@@ -7,11 +7,13 @@ import FilterPopover from './FilterPopover'
 import { ChecklistSection, DateRangeSection } from './FilterSections'
 import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
+import dotReserve from '../../assets/icons/dot-reserve.svg'
 
 const TYPE_OPTIONS = [
   { value: '', label: 'All' },
   { value: 'IN', label: 'IN', icon: dotIn, tone: 'in' },
   { value: 'OUT', label: 'OUT', icon: dotOut, tone: 'out' },
+  { value: 'RESERVE', label: 'RESERVE', icon: dotReserve, tone: 'reserve' },
 ]
 
 // The item filter of the Transactions and Items pages (see utils/filters.js).

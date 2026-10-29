@@ -50,7 +50,7 @@ const itemSchema = new mongoose.Schema(
     balance: { type: Number, default: 0 },
     transactionCount: { type: Number, default: 0 },
     lastTransactionDate: Date,
-    lastTransactionType: { type: String, enum: ['IN', 'OUT'] },
+    lastTransactionType: { type: String, enum: ['IN', 'OUT', 'RESERVE'] },
 
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 

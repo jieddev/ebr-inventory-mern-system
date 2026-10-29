@@ -157,6 +157,11 @@
   transition: background-color 0.15s;
 }
 
+/* Reservations: stock held for a customer until it's confirmed out. */
+.txn-entry-row.is-reserved {
+  background: var(--color-reserve-soft);
+}
+
 .txn-entry-row:hover {
   background: var(--color-bg-subtle);
 }

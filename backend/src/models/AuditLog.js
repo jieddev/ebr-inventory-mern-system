@@ -15,6 +15,8 @@ const ACTIONS = [
   'item.import',
   'item.export',
   'transaction.create',
+  'transaction.release',
+  'transaction.cancel',
   'receiving.create',
   'report.export',
 ];

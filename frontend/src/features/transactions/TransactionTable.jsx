@@ -89,7 +89,7 @@ export default function TransactionTable({
               shown.map((entry) => (
                 <div
                   key={entry._id}
-                  className={`txn-row txn-entry-row ${entry._id === selectedEntryId ? 'is-selected' : ''}`}
+                  className={`txn-row txn-entry-row ${entry.type === 'RESERVE' ? 'is-reserved' : ''} ${entry._id === selectedEntryId ? 'is-selected' : ''}`}
                   role="row"
                   tabIndex={0}
                   aria-selected={entry._id === selectedEntryId}

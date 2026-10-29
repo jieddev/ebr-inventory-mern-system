@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../features/auth/useAuth'
+import { usePendingReservations } from '../../hooks/usePendingReservations'
 import { viewPath } from '../../utils/rememberedViews'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import '../ui/TextField.css'
@@ -9,6 +10,7 @@ import './Sidebar.css'
 // roles: who can open the page; keep in step with the RoleRoute/AdminRoute wrappers in App.jsx.
 const LINKS = [
   { to: '/transactions', label: 'Transactions', icon: 'transactions', roles: ['admin', 'warehouse'] },
+  { to: '/reservations', label: 'Reservations', icon: 'reservations', roles: ['admin', 'warehouse'] },
   { to: '/items', label: 'Items', icon: 'items', roles: ['admin', 'encoder'] },
   { to: '/activity', label: 'Activity', icon: 'activity', roles: ['admin'] },
 ]
@@ -21,6 +23,7 @@ export default function Sidebar() {
   const { user } = useAuth()
   const { pathname, search } = useLocation()
   const links = LINKS.filter((link) => link.roles.includes(user.role))
+  const reservations = usePendingReservations({ enabled: links.some((link) => link.to === '/reservations') })
   const [branch, setBranch] = useState(BRANCHES[0].value)
   const branchLabel = BRANCHES.find((b) => b.value === branch)?.label ?? ''
 
@@ -58,9 +61,20 @@ export default function Sidebar() {
             to={link.to === pathname ? pathname + search : viewPath(link.to)}
             className="sidebar-link"
             title={link.label}
+            aria-label={
+              link.to === '/reservations' && reservations.pending
+                ? `${link.label}, ${reservations.pending} pending`
+                : undefined
+            }
           >
             <span className={`sidebar-icon sidebar-icon-${link.icon}`} aria-hidden="true" />
             <span className="sidebar-label">{link.label}</span>
+            {link.to === '/reservations' && reservations.pending > 0 && (
+              // Red while any reservation is past its needed-by date.
+              <span className={`sidebar-badge ${reservations.overdue ? 'is-overdue' : ''}`} aria-hidden="true">
+                {reservations.pending > 99 ? '99+' : reservations.pending}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

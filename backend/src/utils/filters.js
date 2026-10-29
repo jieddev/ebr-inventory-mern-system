@@ -1,6 +1,7 @@
 const Item = require('../models/Item');
 const HttpError = require('./httpError');
 const { parseDay } = require('./parse');
+const { TYPES } = require('../models/Transaction');
 
 // Stock status → Item filter. Negative balances are allowed (see balance.service.js).
 const STOCK_FILTERS = {
@@ -31,13 +32,13 @@ function itemConditions(query) {
   return conditions;
 }
 
-// Entry-level filters for the Transactions page: ?type=IN|OUT&from=YYYY-MM-DD&to=YYYY-MM-DD.
+// Entry-level filters for the Transactions page: ?type=IN|OUT|RESERVE&from=YYYY-MM-DD&to=YYYY-MM-DD.
 // Returns a Transaction match, or null when none are set.
 function entryMatch(query) {
   const match = {};
   const type = String(query.type ?? '').toUpperCase();
   if (type) {
-    if (type !== 'IN' && type !== 'OUT') throw new HttpError(400, 'Transaction type must be IN or OUT');
+    if (!TYPES.includes(type)) throw new HttpError(400, 'Transaction type must be IN, OUT or RESERVE');
     match.type = type;
   }
   if (query.from || query.to) {
