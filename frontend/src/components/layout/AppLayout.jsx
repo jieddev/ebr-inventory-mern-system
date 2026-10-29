@@ -1,10 +1,19 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import ActivityToasts from './ActivityToasts'
 import AppBar from './AppBar'
 import Sidebar from './Sidebar'
+import { rememberView } from '../../utils/rememberedViews'
 import './AppLayout.css'
 
 export default function AppLayout() {
+  const location = useLocation()
+
+  // Each list page's filters, for the links that lead back to it (see Sidebar).
+  useEffect(() => {
+    rememberView(location.pathname, location.search)
+  }, [location.pathname, location.search])
+
   return (
     <div className="app-layout">
       <AppBar />

@@ -6,6 +6,7 @@ import PickDateDialog from '../../components/ui/PickDateDialog'
 import { getErrorMessage } from '../../api/auth'
 import { exportDailyReport, getDailyReport } from '../../api/reports'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
+import { viewPath } from '../../utils/rememberedViews'
 import arrowLeftIcon from '../../assets/icons/arrow-left.svg'
 import calendarIcon from '../../assets/icons/calendar.svg'
 import downloadIcon from '../../assets/icons/download.svg'
@@ -75,7 +76,7 @@ export default function DailyReportPage() {
     <div className="workspace">
       <section className="workspace-content report-page">
         <div className="report-toolbar no-print">
-          <Link to="/transactions" className="report-back">
+          <Link to={viewPath('/transactions')} className="report-back">
             <img src={arrowLeftIcon} alt="" width="16" height="16" />
             Back to transactions
           </Link>

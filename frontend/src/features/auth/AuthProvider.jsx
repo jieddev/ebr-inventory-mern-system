@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import api from '../../api/client'
 import * as authApi from '../../api/auth'
+import { forgetViews } from '../../utils/rememberedViews'
 import { AuthContext } from './AuthContext'
 
 export default function AuthProvider({ children }) {
@@ -28,6 +29,8 @@ export default function AuthProvider({ children }) {
 
   const login = useCallback(async (userId, password) => {
     const loggedIn = await authApi.login(userId, password)
+    // The next user starts with no filters.
+    forgetViews()
     setUser(loggedIn)
     return loggedIn
   }, [])
@@ -36,6 +39,7 @@ export default function AuthProvider({ children }) {
     try {
       await authApi.logout()
     } finally {
+      forgetViews()
       setUser(null)
     }
   }, [])

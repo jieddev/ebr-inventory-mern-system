@@ -8,6 +8,7 @@ import userPlusIcon from '../../assets/icons/user-plus.svg'
 import { useAuth } from '../../features/auth/useAuth'
 import { ROLE_LABELS } from '../../utils/roles'
 import { useClickOutside } from '../../hooks/useClickOutside'
+import { viewPath } from '../../utils/rememberedViews'
 import './AppBar.css'
 
 function initials(name) {
@@ -43,7 +44,7 @@ export default function AppBar() {
   return (
     <header className="app-bar">
       <div className="app-bar-start">
-        <Link to="/transactions" className="app-bar-brand">
+        <Link to={viewPath('/transactions')} className="app-bar-brand">
           <Logo size="sm" />
           <span>EBR Inventory System</span>
         </Link>
