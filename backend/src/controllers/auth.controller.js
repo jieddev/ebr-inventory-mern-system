@@ -19,7 +19,7 @@ const cookieOptions = {
 async function login(req, res) {
   const userId = String(req.body?.userId ?? '').trim().toLowerCase();
   const password = String(req.body?.password ?? '');
-  if (!userId || !password) throw new HttpError(400, 'Enter your ID and password');
+  if (!userId || !password) throw new HttpError(400, 'Enter your username and password');
 
   const user = await User.findOne({ userId }).select('+passwordHash');
   const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
@@ -28,7 +28,7 @@ async function login(req, res) {
   if (failure) {
     await recordQuietly(req, { action: 'auth.login_failed', actor: null, details: { userId: userId.slice(0, 64), reason: failure } });
     if (failure === 'disabled') throw new HttpError(403, 'This account is disabled. Contact your administrator.');
-    throw new HttpError(401, 'Incorrect ID or password');
+    throw new HttpError(401, 'Incorrect username or password');
   }
 
   const token = jwt.sign({ sub: user.id, role: user.role }, jwtSecret, { expiresIn: jwtExpiresIn });

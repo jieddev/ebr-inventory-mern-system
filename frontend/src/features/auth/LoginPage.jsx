@@ -27,7 +27,7 @@ export default function LoginPage() {
   async function handleSubmit(event) {
     event.preventDefault()
     const errors = {}
-    if (!userId.trim()) errors.userId = 'Enter your ID'
+    if (!userId.trim()) errors.userId = 'Enter your username'
     if (!password) errors.password = 'Enter your password'
     setFieldErrors(errors)
     setFormError('')
@@ -69,7 +69,7 @@ export default function LoginPage() {
           )}
 
           <TextField
-            label="ID"
+            label="Username"
             name="userId"
             autoComplete="username"
             autoFocus
@@ -103,7 +103,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="login-help">Forgot your ID or password? Contact your administrator.</p>
+        <p className="login-help">Forgot your username or password? Contact your administrator.</p>
       </section>
     </main>
   )
