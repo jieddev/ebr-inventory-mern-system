@@ -53,3 +53,30 @@
   border-radius: var(--radius-sm);
   transform: translateX(-50%);
 }
+
+/* CopyText: the text is the button. Looks like plain text until hovered.
+   :where() keeps these at zero specificity, so the className passed in (font, colour) always
+   wins; index.css already makes buttons inherit font and colour. */
+:where(.copy-text) {
+  position: relative;
+  padding: 0 2px;
+  margin: 0 -2px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+}
+
+/* Beats index.css's button { cursor: pointer }; the className never sets a cursor. */
+.copy-text {
+  cursor: copy;
+}
+
+.copy-text:hover {
+  background: var(--color-primary-soft);
+}
+
+.copy-text:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}

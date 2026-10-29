@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import CopyText from '../../components/ui/CopyText'
 import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
 import { getTransaction } from '../../api/transactions'
@@ -113,7 +114,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
               <dl>
                 <div>
                   <dt>Item ID</dt>
-                  <dd className="txn-details-mono">{item.itemId || '—'}</dd>
+                  <dd className="txn-details-mono">{item.itemId ? <CopyText text={item.itemId} /> : '—'}</dd>
                 </div>
                 <div>
                   <dt>Category</dt>

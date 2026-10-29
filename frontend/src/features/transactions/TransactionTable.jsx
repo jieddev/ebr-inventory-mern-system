@@ -1,4 +1,5 @@
 import Badge from '../../components/ui/Badge'
+import CopyText from '../../components/ui/CopyText'
 import chevronDown from '../../assets/icons/chevron-down-sm.svg'
 import chevronRight from '../../assets/icons/chevron-right-sm.svg'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
@@ -58,7 +59,7 @@ export default function TransactionTable({
                 >
                   <img src={isCollapsed ? chevronRight : chevronDown} alt="" width="16" height="16" />
                 </button>
-                {item.itemId && <span className="txn-group-id">{item.itemId}</span>}
+                {item.itemId && <CopyText text={item.itemId} className="txn-group-id" />}
                 <span className="txn-group-code">{item.code}</span>
                 {details && <span className="txn-group-details">{details}</span>}
               </div>
