@@ -24,7 +24,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomeRedirect />} />
-              <Route element={<RoleRoute roles={['admin', 'staff']} />}>
+              <Route element={<RoleRoute roles={['admin', 'warehouse']} />}>
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/reports/daily" element={<DailyReportPage />} />
               </Route>

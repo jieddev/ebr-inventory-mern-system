@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../api/auth'
 import { createUser } from '../../api/users'
 import './CreateUserPage.css'
 
-const EMPTY_FORM = { userId: '', name: '', password: '', confirmPassword: '', role: 'staff' }
+const EMPTY_FORM = { userId: '', name: '', password: '', confirmPassword: '', role: 'warehouse' }
 
 function validate(form) {
   const errors = {}
@@ -131,7 +131,7 @@ export default function CreateUserPage() {
             Role
           </label>
           <select id={roleId} name="role" className="field-input" value={form.role} onChange={handleChange}>
-            <option value="staff">Staff: items and transactions</option>
+            <option value="warehouse">Warehouse: items and transactions</option>
             <option value="encoder">Encoder: add items only</option>
             <option value="admin">Admin: everything</option>
           </select>

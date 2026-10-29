@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed:admin": "node scripts/seed-admin.js"
+    "seed:admin": "node scripts/seed-admin.js",
+    "migrate:warehouse-role": "node scripts/migrate-staff-to-warehouse.js"
   },
   "keywords": [],
   "type": "commonjs",

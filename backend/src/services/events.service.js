@@ -3,9 +3,9 @@
 const clients = new Map();
 
 // Who may receive an event. Most events carry transaction details (quantities, customers),
-// so by default only staff and admins get them; item-only events go to everyone.
-const STAFF_ROLES = ['admin', 'staff'];
-const ALL_ROLES = ['admin', 'staff', 'encoder'];
+// so by default only warehouse users and admins get them; item-only events go to everyone.
+const WAREHOUSE_ROLES = ['admin', 'warehouse'];
+const ALL_ROLES = ['admin', 'warehouse', 'encoder'];
 const ENCODER_ROLES = ['encoder'];
 
 function addClient(res, role) {
@@ -14,7 +14,7 @@ function addClient(res, role) {
 }
 
 // Sends one event to every connected browser whose user has one of `roles`.
-function broadcast(event, data, { roles = STAFF_ROLES } = {}) {
+function broadcast(event, data, { roles = WAREHOUSE_ROLES } = {}) {
   const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const [res, role] of clients) if (roles.includes(role)) res.write(message);
 }

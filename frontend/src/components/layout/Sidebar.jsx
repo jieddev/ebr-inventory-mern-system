@@ -4,7 +4,7 @@ import './Sidebar.css'
 
 // roles: who can open the page; keep in step with the RoleRoute/AdminRoute wrappers in App.jsx.
 const LINKS = [
-  { to: '/transactions', label: 'Transactions', icon: 'transactions', roles: ['admin', 'staff'] },
+  { to: '/transactions', label: 'Transactions', icon: 'transactions', roles: ['admin', 'warehouse'] },
   { to: '/items', label: 'Items', icon: 'items', roles: ['admin', 'encoder'] },
   { to: '/activity', label: 'Activity', icon: 'activity', roles: ['admin'] },
 ]

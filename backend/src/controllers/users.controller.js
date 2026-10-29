@@ -10,7 +10,7 @@ async function createUser(req, res) {
   const userId = String(req.body?.userId ?? '').trim().toLowerCase();
   const name = String(req.body?.name ?? '').trim();
   const password = String(req.body?.password ?? '');
-  const role = String(req.body?.role ?? 'staff');
+  const role = String(req.body?.role ?? 'warehouse');
 
   if (!userId || !name || !password) throw new HttpError(400, 'Enter an ID, name, and password');
   if (password.length < MIN_PASSWORD_LENGTH) {

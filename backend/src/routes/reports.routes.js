@@ -1,11 +1,11 @@
 const { Router } = require('express');
 const { dailyReport } = require('../controllers/reports.controller');
-const { requireAuth, requireStaff } = require('../middleware/auth');
+const { requireAuth, requireWarehouse } = require('../middleware/auth');
 
 const router = Router();
 
-// Reports show stock and transaction dates: staff and admins only.
-router.use(requireAuth, requireStaff);
+// Reports show stock and transaction dates: warehouse users and admins only.
+router.use(requireAuth, requireWarehouse);
 router.get('/daily', dailyReport);
 
 module.exports = router;
