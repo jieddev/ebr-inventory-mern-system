@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import CopyText from '../../components/ui/CopyText'
 import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
 import { getTransaction } from '../../api/transactions'
@@ -37,7 +36,6 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
 
   const isLoading = response.key !== requestKey
   const { transaction: t, receiving } = (!isLoading && response.data) || {}
-  const item = t?.item
 
   return (
     <SidePanel
@@ -87,9 +85,6 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
                 <dd>{t.customerName || '—'}</dd>
               </div>
             </dl>
-            {t.isBalanceForwarded && (
-              <p className="txn-details-note">Opening stock, created when the item was added.</p>
-            )}
           </section>
 
           {receiving && (
@@ -107,36 +102,6 @@ export default function TransactionDetailsPanel({ transactionId, onClose }) {
               </dl>
             </section>
           )}
-
-          <section className="txn-details-section">
-            <h3>Item</h3>
-            {item ? (
-              <dl>
-                <div>
-                  <dt>Item ID</dt>
-                  <dd className="txn-details-mono">{item.itemId ? <CopyText text={item.itemId} /> : '—'}</dd>
-                </div>
-                <div>
-                  <dt>Category</dt>
-                  <dd>{item.category || '—'}</dd>
-                </div>
-                <div className="txn-details-wide">
-                  <dt>Item code</dt>
-                  <dd>{item.code}</dd>
-                </div>
-                <div>
-                  <dt>Brand name</dt>
-                  <dd>{item.brand || '—'}</dd>
-                </div>
-                <div>
-                  <dt>Type / Design</dt>
-                  <dd>{item.typeDesign || '—'}</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="txn-details-note">This item no longer exists.</p>
-            )}
-          </section>
 
           <section className="txn-details-section">
             <h3>Recorded</h3>

@@ -36,7 +36,7 @@ export default function EditItemPanel({ item, onClose, onSaved }) {
   const balanceDelta = Number.isInteger(newBalanceForwarded) ? newBalanceForwarded - item.balanceForwarded : 0
   const balanceHint = balanceDelta
     ? `Current balance will change from ${formatNumber(item.balance)} to ${formatNumber(item.balance + balanceDelta)}.`
-    : 'Opening stock, saved as the BALANCE FORWARDED entry. Changing it moves the current balance by the same amount.'
+    : ''
 
   async function handleSubmit(event) {
     event.preventDefault()

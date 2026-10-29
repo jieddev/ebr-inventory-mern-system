@@ -295,6 +295,10 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
           }}
           error={errors.date}
         />
+      </div>
+
+      <div className="panel-row">
+
         <SegmentedControl label="Transaction type" name="type" options={TYPE_OPTIONS} value={type} onChange={setType} />
       </div>
 
@@ -317,7 +321,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
         />
         <TextField
           ref={customerRef}
-          label="Customer name"
+          label="Customer name / Details"
           placeholder="e.g. CS-82305/RODERICK DOLOR"
           autoComplete="off"
           value={customerName}
