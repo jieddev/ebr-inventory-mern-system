@@ -2,7 +2,7 @@
   display: grid;
   place-items: center;
   min-height: 100%;
-  padding: var(--space-10);
+  padding: clamp(var(--space-4), 5vw, var(--space-10));
 }
 
 .login-brand {
@@ -12,7 +12,7 @@
 }
 
 .login-brand-name {
-  font-size: 32px;
+  font-size: clamp(var(--text-2xl), 4vw + 12px, 32px);
   font-weight: var(--weight-bold);
   line-height: 1.15;
 }
@@ -25,9 +25,9 @@
   position: relative;
   display: grid;
   width: 100%;
-  max-width: 520px;
-  gap: var(--space-8);
-  padding: var(--space-10) 43px;
+  max-width: clamp(360px, 25vw + 100px, 520px);
+  gap: clamp(var(--space-6), 4vh, var(--space-8));
+  padding: clamp(var(--space-6), 5vw, var(--space-10)) clamp(var(--space-5), 6vw, 43px);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -71,16 +71,32 @@
   text-align: center;
 }
 
-@media (max-width: 900px) {
+/* Phones: drop the card chrome so the form uses the full width. */
+@media (max-width: 480px) {
   .login-page {
-    padding: var(--space-4);
-  }
-
-  .login-brand-name {
-    font-size: var(--text-2xl);
+    align-items: start;
+    background: var(--color-surface);
   }
 
   .login-card {
-    padding: var(--space-8) var(--space-6);
+    padding: var(--space-6) 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .login-logo .logo-lg {
+    height: 88px;
+  }
+}
+
+/* Short windows: tighten vertical spacing so the form fits without scrolling. */
+@media (max-height: 640px) {
+  .login-card {
+    gap: var(--space-5);
+  }
+
+  .login-logo .logo-lg {
+    height: 72px;
   }
 }
