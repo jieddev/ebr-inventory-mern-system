@@ -7,9 +7,13 @@ if (missing.length) {
   process.exit(1);
 }
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+
 module.exports = {
   port: Number(process.env.PORT) || 5000,
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv,
+  // trace, debug, info, warn, error, fatal or silent.
+  logLevel: process.env.LOG_LEVEL || (nodeEnv === 'production' ? 'info' : 'debug'),
   mongoUri: process.env.MONGO_URI,
   mongoDbName: process.env.MONGO_DB_NAME || 'ebr_inventory',
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 const { RETENTION_SECONDS } = require('../models/AuditLog');
+const logger = require('../config/logger');
 
 // "ITM-00012 · 2.25-17 TUBE · IZUMI TUBE · TUBE"
 function describe({ code, brand, typeDesign }) {
@@ -44,7 +45,7 @@ async function recordQuietly(req, entry) {
   try {
     await record(req, entry);
   } catch (err) {
-    console.error('Could not write audit log entry:', entry.action, err.message);
+    logger.error({ err, action: entry.action }, 'Could not write audit log entry');
   }
 }
 

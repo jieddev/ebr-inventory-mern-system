@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const pinoHttp = require('pino-http');
+const logger = require('./config/logger');
 const { clientOrigin } = require('./config/env');
 const healthRoutes = require('./routes/health.routes');
 const authRoutes = require('./routes/auth.routes');
@@ -14,6 +16,23 @@ const reportRoutes = require('./routes/reports.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
+
+// One log line per API request: method, URL, status, time taken and who made it.
+// Skips the health check and the live-updates stream (one long request per open tab).
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: { ignore: (req) => req.url.startsWith('/api/health') || req.url.startsWith('/api/events') },
+    customLogLevel: (req, res, err) => (err || res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info'),
+    customProps: (req) => (req.user ? { user: req.user.userId } : {}),
+    customSuccessMessage: (req, res, ms) => `${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`,
+    customErrorMessage: (req, res, err) => `${req.method} ${req.originalUrl} ${res.statusCode} ${err.message}`,
+    serializers: {
+      req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+      res: (res) => ({ statusCode: res.statusCode }),
+    },
+  }),
+);
 
 app.use(cors({ origin: clientOrigin, credentials: true }));
 app.use(express.json());
