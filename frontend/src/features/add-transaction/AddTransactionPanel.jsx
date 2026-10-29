@@ -40,8 +40,8 @@ const TYPE_OPTIONS = [
 
 // The item is found by its Item ID (typed in full, or short like "12" + Enter) or picked
 // by item code; either way the other fields fill in.
-// After saving, the item, quantity and customer clear for the next entry. Date and
-// IN/OUT are kept, since entries are usually typed in batches from the same day.
+// After saving, the item, quantity and customer clear for the next entry. A date the
+// user picked and IN/OUT are kept, since entries are usually typed in batches from the same day.
 function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const idRef = useRef(null)
   const codeRef = useRef(null)
@@ -55,7 +55,8 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const [idResult, setIdResult] = useState({ attempt: 0, error: '' })
   const [codeText, setCodeText] = useState('')
   const [item, setItem] = useState(null)
-  const [date, setDate] = useState(todayInputValue)
+  // Starts empty; left empty, it saves as today (see handleSubmit).
+  const [date, setDate] = useState('')
   const [type, setType] = useState('OUT')
   const [quantity, setQuantity] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -145,7 +146,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
     ? `Looking up ${lookup.itemId}…`
     : item
       ? `Found ${item.itemId}.`
-      : 'e.g. ITM-00012, or just 12 and press Enter. Or pick the item by its code below.'
+      : ''
 
   const qty = Number(quantity)
   const hasQty = quantity !== '' && Number.isInteger(qty) && qty > 0
@@ -206,7 +207,6 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       setCodeText('')
       setQuantity('')
       setCustomerName('')
-      setDate(savedDate)
       onSaved()
       idRef.current?.focus()
     } catch (err) {
