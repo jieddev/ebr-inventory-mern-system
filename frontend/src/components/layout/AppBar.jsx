@@ -43,7 +43,7 @@ export default function AppBar() {
   return (
     <header className="app-bar">
       <div className="app-bar-start">
-        <Link to="/" className="app-bar-brand">
+        <Link to="/transactions" className="app-bar-brand">
           <Logo size="sm" />
           <span>EBR Inventory System</span>
         </Link>
