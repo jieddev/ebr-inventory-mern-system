@@ -35,6 +35,8 @@ const receivingReportSchema = new mongoose.Schema(
 
 receivingReportSchema.index({ reportNo: 1 });
 receivingReportSchema.index({ date: -1 });
+// Finds the report a transaction came from (transaction details panel).
+receivingReportSchema.index({ 'lines.transaction': 1 });
 
 module.exports = mongoose.model('ReceivingReport', receivingReportSchema);
 module.exports.LINE_LIMIT = LINE_LIMIT;

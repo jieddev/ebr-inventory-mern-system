@@ -11,3 +11,9 @@ export async function createTransaction(transaction) {
   const { data } = await api.post('/transactions', transaction)
   return data
 }
+
+// One entry for the details panel: { transaction, receiving }.
+export async function getTransaction(id, { signal } = {}) {
+  const { data } = await api.get(`/transactions/${id}`, { signal })
+  return data
+}

@@ -4,7 +4,18 @@ import chevronRight from '../../assets/icons/chevron-right-sm.svg'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import './TransactionTable.css'
 
-export default function TransactionTable({ groups, collapsed, expandedEntries, loadingAll, onToggle, onViewAll, onShowLess }) {
+// Clicking an entry (or Enter / Space on it) opens its details; selectedEntryId highlights it.
+export default function TransactionTable({
+  groups,
+  collapsed,
+  expandedEntries,
+  loadingAll,
+  selectedEntryId,
+  onToggle,
+  onViewAll,
+  onShowLess,
+  onSelectEntry,
+}) {
   return (
     <div className="txn-table" role="table" aria-label="Transactions grouped by item">
       <div className="txn-row txn-header" role="row">
@@ -75,7 +86,20 @@ export default function TransactionTable({ groups, collapsed, expandedEntries, l
 
             {!isCollapsed &&
               shown.map((entry) => (
-                <div key={entry._id} className="txn-row txn-entry-row" role="row">
+                <div
+                  key={entry._id}
+                  className={`txn-row txn-entry-row ${entry._id === selectedEntryId ? 'is-selected' : ''}`}
+                  role="row"
+                  tabIndex={0}
+                  aria-selected={entry._id === selectedEntryId}
+                  aria-label={`${entry.type} ${formatNumber(entry.quantity)} on ${formatDate(entry.date)}, view details`}
+                  onClick={() => onSelectEntry(entry._id)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    onSelectEntry(entry._id)
+                  }}
+                >
                   <div className="txn-col-main txn-entry-date" role="cell">
                     <span className="txn-guide" aria-hidden="true" />
                     {formatDate(entry.date)}

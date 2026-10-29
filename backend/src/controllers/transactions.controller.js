@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
+const ReceivingReport = require('../models/ReceivingReport');
 const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId, ENCODER_ROLES } = require('../services/events.service');
 const { record, itemTarget } = require('../services/audit.service');
@@ -88,6 +89,24 @@ async function summarize(itemFilter, match) {
   return { in: byType.IN ?? 0, out: byType.OUT ?? 0 };
 }
 
+// GET /api/transactions/:id — one entry for the details panel: its item, who recorded it
+// and when, and the receiving report (BRR) it came from, if any.
+async function getTransaction(req, res) {
+  const id = parseObjectId(req.params.id, 'Transaction');
+  const [transaction, report] = await Promise.all([
+    Transaction.findById(id)
+      .select('item date type quantity customerName endingBalance isBalanceForwarded createdBy createdAt')
+      .populate('item', 'itemId category code brand typeDesign')
+      .populate('createdBy', 'userId name role')
+      .lean(),
+    ReceivingReport.findOne({ 'lines.transaction': id }).select({ reportNo: 1, receivedBy: 1, 'lines.$': 1 }).lean(),
+  ]);
+  if (!transaction) throw new HttpError(404, 'Transaction not found');
+
+  const receiving = report && { reportNo: report.reportNo, receivedBy: report.receivedBy, unit: report.lines[0]?.unit };
+  res.json({ transaction, receiving: receiving ?? null });
+}
+
 // POST /api/transactions — Add Transaction. Saves the entry and updates the item's
 // balance in one MongoDB transaction; back-dated entries re-run the item's ledger.
 async function createTransaction(req, res) {
@@ -140,4 +159,4 @@ async function createTransaction(req, res) {
   res.status(201).json(result);
 }
 
-module.exports = { listTransactions, createTransaction };
+module.exports = { listTransactions, getTransaction, createTransaction };

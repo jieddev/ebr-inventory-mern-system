@@ -153,6 +153,21 @@
 .txn-entry-row {
   height: 40px;
   line-height: 20px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.txn-entry-row:hover {
+  background: var(--color-bg-subtle);
+}
+
+.txn-entry-row.is-selected {
+  background: var(--color-primary-soft);
+}
+
+.txn-entry-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .txn-entry-date {

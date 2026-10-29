@@ -10,6 +10,7 @@ import { getTransactions } from '../../api/transactions'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
+import TransactionDetailsPanel from './TransactionDetailsPanel'
 import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
@@ -41,7 +42,8 @@ export default function TransactionsPage() {
   const [expandedEntries, setExpandedEntries] = useState(() => new Map())
   const [loadingAll, setLoadingAll] = useState(null)
 
-  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | null
+  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'details' | null
+  const [selectedEntryId, setSelectedEntryId] = useState(null) // the 'details' panel's entry
   const [isPickingReportDate, setIsPickingReportDate] = useState(false)
   const navigate = useNavigate()
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
@@ -255,6 +257,11 @@ export default function TransactionsPage() {
               onToggle={toggleGroup}
               onViewAll={viewAll}
               onShowLess={showLess}
+              selectedEntryId={panel === 'details' ? selectedEntryId : null}
+              onSelectEntry={(id) => {
+                setSelectedEntryId(id)
+                setPanel('details')
+              }}
             />
           )}
 
@@ -317,6 +324,7 @@ export default function TransactionsPage() {
         <AddItemPanel onClose={closePanel} onAdded={handleItemAdded} addedThisSession={itemsAddedThisSession} />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
+      {panel === 'details' && <TransactionDetailsPanel transactionId={selectedEntryId} onClose={closePanel} />}
 
       {isPickingReportDate && (
         <PickDateDialog
