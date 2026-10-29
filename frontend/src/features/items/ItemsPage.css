@@ -55,12 +55,6 @@
   white-space: nowrap;
 }
 
-.items-id-cell {
-  display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
-}
-
 .items-code {
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;

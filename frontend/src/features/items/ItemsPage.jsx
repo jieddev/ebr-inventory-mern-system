@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import CopyButton from '../../components/ui/CopyButton'
+import CopyText from '../../components/ui/CopyText'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
@@ -436,10 +436,7 @@ export default function ItemsPage() {
                         </td>
                       )}
                       <td className="items-id">
-                        <span className="items-id-cell">
-                          {item.itemId}
-                          <CopyButton text={item.itemId} />
-                        </span>
+                        <CopyText text={item.itemId} className="items-id" />
                       </td>
                       <td className="items-muted">{item.category || '—'}</td>
                       <td className="items-code">{item.code}</td>
