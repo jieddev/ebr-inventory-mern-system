@@ -1,4 +1,5 @@
 import api, { cleanParams } from './client'
+import { saveDownload } from './download'
 
 // filters: see utils/filters.js (the item filters: stock, category, typeDesign, brand).
 // archived: true lists the archived items instead.
@@ -26,13 +27,7 @@ export async function importItems(file) {
 // Downloads every item as an Excel file.
 export async function exportItems() {
   const response = await api.get('/items/export', { responseType: 'blob' })
-  const filename = /filename="?([^";]+)"?/.exec(response.headers['content-disposition'] ?? '')?.[1] ?? 'EBR_Items.xlsx'
-  const url = URL.createObjectURL(response.data)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+  saveDownload(response, 'EBR_Items.xlsx')
 }
 
 // Add Transaction's Item ID field. Rejects (404 / 409) for unknown or archived IDs.

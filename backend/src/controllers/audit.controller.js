@@ -11,6 +11,7 @@ const TYPES = [
   { value: 'failed_login', label: 'Failed logins', actions: ['auth.login_failed'] },
   { value: 'item', label: 'Items', actions: ACTIONS.filter((a) => a.startsWith('item.')) },
   { value: 'transaction', label: 'Transactions', actions: ['transaction.create', 'receiving.create'] },
+  { value: 'report', label: 'Reports', actions: ['report.export'] },
   { value: 'user', label: 'Users', actions: ['user.create'] },
 ];
 const DAY_MS = 24 * 60 * 60 * 1000;

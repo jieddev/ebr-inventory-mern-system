@@ -30,6 +30,7 @@ const ACTION_LABELS = {
   'item.export': 'Exported Excel',
   'transaction.create': 'Added transaction',
   'receiving.create': 'Receiving report',
+  'report.export': 'Exported Daily Report',
 }
 
 const FIELD_LABELS = {
@@ -331,6 +332,8 @@ function Details({ entry }) {
         .join(' · ')
     case 'item.export':
       return `${pluralize(d.count, 'item')}`
+    case 'report.export':
+      return `As of ${formatDate(`${d.date}T00:00:00Z`)} · ${pluralize(d.count, 'item')}`
     case 'item.batch_archive':
     case 'item.batch_restore':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`

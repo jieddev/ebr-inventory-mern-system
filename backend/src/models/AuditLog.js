@@ -16,6 +16,7 @@ const ACTIONS = [
   'item.export',
   'transaction.create',
   'receiving.create',
+  'report.export',
 ];
 
 // How long entries are kept. Changing it also updates an existing database's TTL index

@@ -4,10 +4,11 @@ import Button from '../../components/ui/Button'
 import Logo from '../../components/ui/Logo'
 import PickDateDialog from '../../components/ui/PickDateDialog'
 import { getErrorMessage } from '../../api/auth'
-import { getDailyReport } from '../../api/reports'
+import { exportDailyReport, getDailyReport } from '../../api/reports'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import arrowLeftIcon from '../../assets/icons/arrow-left.svg'
 import calendarIcon from '../../assets/icons/calendar.svg'
+import downloadIcon from '../../assets/icons/download.svg'
 import printIcon from '../../assets/icons/print.svg'
 import '../transactions/TransactionsPage.css'
 import './DailyReportPage.css'
@@ -33,6 +34,8 @@ export default function DailyReportPage() {
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
   const [isPickingDate, setIsPickingDate] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const requestKey = `${date}|${reloadKey}`
   useEffect(() => {
@@ -45,6 +48,18 @@ export default function DailyReportPage() {
       })
     return () => controller.abort()
   }, [date, requestKey])
+
+  async function handleExport() {
+    setIsExporting(true)
+    setExportError('')
+    try {
+      await exportDailyReport(date)
+    } catch (err) {
+      setExportError(getErrorMessage(err, 'Could not export the report.'))
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -69,6 +84,10 @@ export default function DailyReportPage() {
               <img src={calendarIcon} alt="" />
               Change date
             </Button>
+            <Button variant="secondary" onClick={handleExport} disabled={!data || isLoading} isLoading={isExporting}>
+              {!isExporting && <img src={downloadIcon} alt="" />}
+              Export Excel
+            </Button>
             <Button onClick={() => window.print()} disabled={!data || isLoading}>
               <img src={printIcon} alt="" />
               Print
@@ -82,6 +101,12 @@ export default function DailyReportPage() {
             <Button variant="secondary" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
               Try again
             </Button>
+          </div>
+        )}
+
+        {exportError && (
+          <div className="page-error no-print" role="alert">
+            {exportError}
           </div>
         )}
 
