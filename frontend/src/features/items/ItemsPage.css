@@ -15,12 +15,12 @@
   font-weight: var(--weight-semibold);
   line-height: 16px;
   letter-spacing: 0.4px;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   text-align: left;
   text-transform: uppercase;
   white-space: nowrap;
-  background: var(--color-bg-subtle);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-primary);
+  border-bottom: 1px solid var(--color-primary);
 }
 
 .items-table td {
@@ -91,6 +91,11 @@
   margin: 0;
   cursor: pointer;
   accent-color: var(--color-primary);
+}
+
+/* Yellow in the blue header, so the checked box doesn't disappear into it. */
+.items-table th.items-select-col input {
+  accent-color: var(--color-accent);
 }
 
 .items-table tr.is-selected td {

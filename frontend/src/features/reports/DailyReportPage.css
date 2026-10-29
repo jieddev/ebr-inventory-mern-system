@@ -104,12 +104,12 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.4px;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   text-align: left;
   text-transform: uppercase;
   white-space: nowrap;
-  background: var(--color-bg-subtle);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-primary);
+  border-bottom: 1px solid var(--color-primary);
 }
 
 .report-table td {
@@ -201,6 +201,13 @@
     height: auto;
     padding-top: 4px;
     padding-bottom: 4px;
+  }
+
+  /* Browsers drop backgrounds when printing, which would leave yellow text on white paper. */
+  .report-table th {
+    color: var(--color-text);
+    background: none;
+    border-bottom-color: var(--color-text);
   }
 
   .print-only {
