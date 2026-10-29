@@ -2,11 +2,11 @@ import { useEffect, useId, useState } from 'react'
 import TextField from '../../components/ui/TextField'
 import { getItemCategories, getItemTypes } from '../../api/items'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
+import TypeDesignPicker from './TypeDesignPicker'
 
 // The Category, Item code, Brand, Type / Design and Balance forwarded fields of
 // Add Item and Edit Item. Loads its own category and type choices.
 export default function ItemFields({ form, errors, onChange, categoryRef, codeRef, balanceHint }) {
-  const typesListId = useId()
   const categoryId = useId()
   const [categories, setCategories] = useState([])
   const [types, setTypes] = useState([])
@@ -79,20 +79,7 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
           value={form.brand}
           onChange={(e) => onChange('brand', e.target.value)}
         />
-        <TextField
-          label="Type / Design"
-          placeholder="Select type"
-          autoComplete="off"
-          list={typesListId}
-          endIcon={chevronIcon}
-          value={form.typeDesign}
-          onChange={(e) => onChange('typeDesign', e.target.value)}
-        />
-        <datalist id={typesListId}>
-          {types.map((type) => (
-            <option key={type} value={type} />
-          ))}
-        </datalist>
+        <TypeDesignPicker value={form.typeDesign} onChange={(value) => onChange('typeDesign', value)} types={types} />
       </div>
 
       <TextField

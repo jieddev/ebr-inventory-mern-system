@@ -62,20 +62,26 @@
   width: 18px;
   height: 18px;
   background: currentColor;
+  -webkit-mask-position: center;
   mask-position: center;
+  -webkit-mask-size: contain;
   mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
 
 .sidebar-icon-transactions {
+  -webkit-mask-image: url('../../assets/icons/transactions.svg');
   mask-image: url('../../assets/icons/transactions.svg');
 }
 
 .sidebar-icon-items {
+  -webkit-mask-image: url('../../assets/icons/items.svg');
   mask-image: url('../../assets/icons/items.svg');
 }
 
 .sidebar-icon-activity {
+  -webkit-mask-image: url('../../assets/icons/activity.svg');
   mask-image: url('../../assets/icons/activity.svg');
 }
 

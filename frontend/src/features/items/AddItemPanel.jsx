@@ -90,7 +90,6 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
         onChange={setField}
         categoryRef={categoryRef}
         codeRef={codeRef}
-        balanceHint="Stock on hand when the item is added. Saved as an IN entry marked BALANCE FORWARDED."
       />
 
       {addedThisSession.length > 0 && (
