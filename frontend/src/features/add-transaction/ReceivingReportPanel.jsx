@@ -205,7 +205,6 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
           setErrors((er) => ({ ...er, date: undefined }))
         }}
         error={errors.date}
-        hint={isFuture ? 'This date is in the future. Check the slip.' : 'The date written on the slip.'}
       />
 
       <TextField
@@ -214,7 +213,6 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
         autoComplete="off"
         value={customerName}
         onChange={(e) => setCustomerName(e.target.value)}
-        hint="The Ref. No. is added after it when saving."
       />
 
       <section className="brr-lines" aria-label="Items received">

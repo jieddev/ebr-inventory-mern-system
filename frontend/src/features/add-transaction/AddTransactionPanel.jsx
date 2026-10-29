@@ -220,7 +220,6 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   return (
     <SidePanel
       title="Add Transaction"
-      subtitle="Record stock coming in or going out."
       // Only the visible mode reacts to Esc and the close button.
       onClose={isActive ? onClose : ignoreClose}
       as="form"
@@ -275,7 +274,6 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
         selected={item}
         onSelect={handleSelect}
         error={errors.item}
-        hint="Pick the item from the list. Brand and type fill in automatically."
       />
 
       <div className="panel-row">
@@ -330,7 +328,6 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       <section className="item-details" aria-live="polite">
         <header>
           <h3>Item details</h3>
-          <p>{item ? 'Current stock for the selected item.' : 'Pick an item to see its current stock.'}</p>
         </header>
         <dl>
           <div>
