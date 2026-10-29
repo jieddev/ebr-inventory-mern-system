@@ -93,3 +93,10 @@
 .entry-mode-slot[hidden] {
   display: none;
 }
+
+/* Divider between the item's details (brand, type) and the transaction fields. */
+.horizontal-line {
+  flex-shrink: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--color-border);
+}

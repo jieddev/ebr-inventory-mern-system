@@ -26,6 +26,57 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Branch picker: a letter badge in the icon column, the select beside it when expanded. */
+.sidebar-branch {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0 0 var(--space-3) var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-branch-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-weight: var(--weight-bold);
+  color: var(--color-primary);
+  background: transparent;
+  border: 2px solid #ccc;
+}
+
+.sidebar-branch-control {
+  flex: 1;
+  min-width: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sidebar-branch-control .field-input {
+  height: 32px;
+  padding-left: var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+.sidebar-panel:hover .sidebar-branch-control,
+.sidebar-panel:focus-within .sidebar-branch-control {
+  opacity: 1;
+}
+
+/* Expanded: the select takes the full width, lined up with the links. */
+.sidebar-panel:hover .sidebar-branch,
+.sidebar-panel:focus-within .sidebar-branch {
+  padding-left: 0;
+}
+
+.sidebar-panel:hover .sidebar-branch-mark,
+.sidebar-panel:focus-within .sidebar-branch-mark {
+  display: none;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -97,7 +148,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar-panel,
-  .sidebar-label {
+  .sidebar-label,
+  .sidebar-branch-control {
     transition: none;
   }
 }

@@ -231,6 +231,8 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
         <TextField label="Type / Design" readOnly tabIndex={-1} placeholder="—" value={item?.typeDesign ?? ''} />
       </div>
 
+      <div className="horizontal-line" aria-hidden="true" />
+
       <div className="panel-row">
         <TextField
           label="Date"
