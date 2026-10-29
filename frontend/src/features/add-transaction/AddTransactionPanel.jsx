@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
@@ -29,6 +30,9 @@ const TYPE_OPTIONS = [
 function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const idRef = useRef(null)
   const codeRef = useRef(null)
+  const dateRef = useRef(null)
+  const quantityRef = useRef(null)
+  const customerRef = useRef(null)
   const [idText, setIdText] = useState('')
   // The ID to look up (attempt changes on every request, so asking again retries),
   // and the result of the last finished lookup.
@@ -44,6 +48,8 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  // The warning shown on Save: { missing: [{ label, message, ref }] } or { noCustomer: true }.
+  const [warning, setWarning] = useState(null)
 
   useEffect(() => {
     if (isActive) idRef.current?.focus()
@@ -131,18 +137,40 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const balanceAfter = item && hasQty ? item.balance + (type === 'IN' ? qty : -qty) : null
   const isBackDated = item?.lastTransactionDate && date && date < item.lastTransactionDate.slice(0, 10)
 
-  async function handleSubmit(event) {
+  // Save checks the fields first: anything required that's missing or wrong opens a
+  // warning listing it; an empty customer name asks before saving.
+  function handleSubmit(event) {
     event.preventDefault()
-    const nextErrors = {}
+    const missing = []
     if (!item) {
-      nextErrors.item = codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item code'
+      missing.push({
+        key: 'item',
+        label: 'Item',
+        message: codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item code',
+        ref: codeText.trim() ? codeRef : idRef,
+      })
     }
-    if (!date) nextErrors.date = 'Pick a date'
-    if (!hasQty) nextErrors.quantity = 'Enter a whole number, 1 or more'
-    setErrors(nextErrors)
+    if (!date) missing.push({ key: 'date', label: 'Date', message: 'Pick a date', ref: dateRef })
+    if (!hasQty) {
+      missing.push({ key: 'quantity', label: 'Quantity', message: 'Enter a whole number, 1 or more', ref: quantityRef })
+    }
+    setErrors(Object.fromEntries(missing.map(({ key, message }) => [key, message])))
     setFormError('')
-    if (Object.keys(nextErrors).length) return
 
+    if (missing.length) setWarning({ missing })
+    else if (!customerName.trim()) setWarning({ noCustomer: true })
+    else save()
+  }
+
+  function closeWarning() {
+    const field = warning?.missing?.[0]?.ref
+    setWarning(null)
+    // After the dialog has closed and handed focus back to the Save button.
+    requestAnimationFrame(() => field?.current?.focus())
+  }
+
+  async function save() {
+    setWarning(null)
     setIsSaving(true)
     try {
       const { item: updated } = await createTransaction({ itemId: item._id, date, type, quantity: qty, customerName })
@@ -236,6 +264,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       <div className="panel-row">
         <TextField
           label="Date"
+          ref={dateRef}
           type="date"
           required
           value={date}
@@ -250,6 +279,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
 
       <div className="panel-row panel-row-quantity">
         <TextField
+          ref={quantityRef}
           label="Quantity"
           type="number"
           inputMode="numeric"
@@ -265,6 +295,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
           error={errors.quantity}
         />
         <TextField
+          ref={customerRef}
           label="Customer name"
           placeholder="e.g. CS-82305/RODERICK DOLOR"
           autoComplete="off"
@@ -317,6 +348,40 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
           </p>
         )}
       </section>
+
+      {warning?.missing && (
+        <ConfirmDialog
+          title="Fill in the required fields"
+          message={
+            <>
+              <p>This transaction can't be saved yet:</p>
+              <ul className="missing-fields">
+                {warning.missing.map(({ key, label, message }) => (
+                  <li key={key}>
+                    <strong>{label}</strong>: {message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          }
+          cancelLabel="OK"
+          onCancel={closeWarning}
+        />
+      )}
+      {warning?.noCustomer && (
+        <ConfirmDialog
+          title="Save without a customer name?"
+          message="The customer name is empty. You can add it now, or save the transaction without it."
+          cancelLabel="Add customer name"
+          confirmLabel="Save anyway"
+          tone="primary"
+          onCancel={() => {
+            setWarning(null)
+            requestAnimationFrame(() => customerRef.current?.focus())
+          }}
+          onConfirm={save}
+        />
+      )}
     </SidePanel>
   )
 }

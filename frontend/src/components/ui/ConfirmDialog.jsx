@@ -4,10 +4,12 @@ import './ConfirmDialog.css'
 
 // Modal "Are you sure?" built on the native <dialog>, which traps focus and closes on Esc.
 // Render it only while it should be open. tone: 'danger' (red confirm button) or 'primary'.
+// Without onConfirm it's a plain warning with one button (cancelLabel) that closes it.
 export default function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   tone = 'danger',
   onConfirm,
   onCancel,
@@ -42,12 +44,14 @@ export default function ConfirmDialog({
         </p>
       )}
       <footer>
-        <Button variant="secondary" onClick={onCancel} disabled={isBusy}>
-          Cancel
+        <Button variant={onConfirm ? 'secondary' : 'primary'} onClick={onCancel} disabled={isBusy}>
+          {cancelLabel}
         </Button>
-        <Button variant={tone} onClick={onConfirm} isLoading={isBusy}>
-          {confirmLabel}
-        </Button>
+        {onConfirm && (
+          <Button variant={tone} onClick={onConfirm} isLoading={isBusy}>
+            {confirmLabel}
+          </Button>
+        )}
       </footer>
     </dialog>
   )
