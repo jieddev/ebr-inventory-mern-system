@@ -18,6 +18,21 @@ import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
 import './AddTransactionPanel.css'
 
+// "2026-10-29" → "10/29/2026"
+const formatDay = (value) => formatDate(`${value}T00:00:00Z`)
+
+function MissingFields({ fields }) {
+  return (
+    <ul className="missing-fields">
+      {fields.map(({ key, label, message }) => (
+        <li key={key}>
+          <strong>{label}</strong>: {message}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const TYPE_OPTIONS = [
   { value: 'IN', label: 'IN', icon: dotIn, tone: 'in' },
   { value: 'OUT', label: 'OUT', icon: dotOut, tone: 'out' },
@@ -48,7 +63,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  // The warning shown on Save: { missing: [{ label, message, ref }] } or { noCustomer: true }.
+  // The Save warning's empty fields: { required: [...], optional: [...] }, each { key, label, message, ref }.
   const [warning, setWarning] = useState(null)
 
   useEffect(() => {
@@ -137,33 +152,40 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   const balanceAfter = item && hasQty ? item.balance + (type === 'IN' ? qty : -qty) : null
   const isBackDated = item?.lastTransactionDate && date && date < item.lastTransactionDate.slice(0, 10)
 
-  // Save checks the fields first: anything required that's missing or wrong opens a
-  // warning listing it; an empty customer name asks before saving.
+  // Save checks the fields first. Empty fields open one warning that lists them: Item and
+  // Quantity have to be filled in before saving (they block it); an empty customer name or
+  // date can be saved anyway (the date then saves as today).
   function handleSubmit(event) {
     event.preventDefault()
-    const missing = []
+    const required = []
     if (!item) {
-      missing.push({
+      required.push({
         key: 'item',
         label: 'Item',
         message: codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item code',
         ref: codeText.trim() ? codeRef : idRef,
       })
     }
-    if (!date) missing.push({ key: 'date', label: 'Date', message: 'Pick a date', ref: dateRef })
     if (!hasQty) {
-      missing.push({ key: 'quantity', label: 'Quantity', message: 'Enter a whole number, 1 or more', ref: quantityRef })
+      required.push({ key: 'quantity', label: 'Quantity', message: 'Enter a whole number, 1 or more', ref: quantityRef })
     }
-    setErrors(Object.fromEntries(missing.map(({ key, message }) => [key, message])))
+    const optional = []
+    if (!date) {
+      optional.push({ key: 'date', label: 'Date', message: `Will be saved as today (${formatDay(todayInputValue())})`, ref: dateRef })
+    }
+    if (!customerName.trim()) {
+      optional.push({ key: 'customer', label: 'Customer name', message: 'Will be saved blank', ref: customerRef })
+    }
+    setErrors(Object.fromEntries(required.map(({ key, message }) => [key, message])))
     setFormError('')
 
-    if (missing.length) setWarning({ missing })
-    else if (!customerName.trim()) setWarning({ noCustomer: true })
+    if (required.length || optional.length) setWarning({ required, optional })
     else save()
   }
 
+  // Back to the form, in the first field the warning listed.
   function closeWarning() {
-    const field = warning?.missing?.[0]?.ref
+    const field = (warning.required[0] ?? warning.optional[0])?.ref
     setWarning(null)
     // After the dialog has closed and handed focus back to the Save button.
     requestAnimationFrame(() => field?.current?.focus())
@@ -172,8 +194,9 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
   async function save() {
     setWarning(null)
     setIsSaving(true)
+    const savedDate = date || todayInputValue()
     try {
-      const { item: updated } = await createTransaction({ itemId: item._id, date, type, quantity: qty, customerName })
+      const { item: updated } = await createTransaction({ itemId: item._id, date: savedDate, type, quantity: qty, customerName })
       setSuccessMessage(
         `Saved ${type} ${formatNumber(qty)} of “${updated.code}”. Ending balance is now ${formatNumber(updated.balance)}.`,
       )
@@ -183,6 +206,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       setCodeText('')
       setQuantity('')
       setCustomerName('')
+      setDate(savedDate)
       onSaved()
       idRef.current?.focus()
     } catch (err) {
@@ -266,7 +290,6 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
           label="Date"
           ref={dateRef}
           type="date"
-          required
           value={date}
           onChange={(e) => {
             setDate(e.target.value)
@@ -349,37 +372,31 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
         )}
       </section>
 
-      {warning?.missing && (
+      {warning && (
         <ConfirmDialog
-          title="Fill in the required fields"
+          warning
+          title={warning.required.length ? 'Fill in the required fields' : 'Some fields are empty'}
           message={
             <>
-              <p>This transaction can't be saved yet:</p>
-              <ul className="missing-fields">
-                {warning.missing.map(({ key, label, message }) => (
-                  <li key={key}>
-                    <strong>{label}</strong>: {message}
-                  </li>
-                ))}
-              </ul>
+              {warning.required.length > 0 && (
+                <>
+                  <p>These have to be filled in before the transaction can be saved:</p>
+                  <MissingFields fields={warning.required} />
+                </>
+              )}
+              {warning.optional.length > 0 && (
+                <>
+                  <p>{warning.required.length ? 'Also left empty:' : 'You can still save the transaction:'}</p>
+                  <MissingFields fields={warning.optional} />
+                </>
+              )}
             </>
           }
-          cancelLabel="OK"
-          onCancel={closeWarning}
-        />
-      )}
-      {warning?.noCustomer && (
-        <ConfirmDialog
-          title="Save without a customer name?"
-          message="The customer name is empty. You can add it now, or save the transaction without it."
-          cancelLabel="Add customer name"
+          cancelLabel={warning.required.length ? 'OK' : 'Go back'}
           confirmLabel="Save anyway"
           tone="primary"
-          onCancel={() => {
-            setWarning(null)
-            requestAnimationFrame(() => customerRef.current?.focus())
-          }}
-          onConfirm={save}
+          onCancel={closeWarning}
+          onConfirm={warning.required.length ? undefined : save}
         />
       )}
     </SidePanel>
