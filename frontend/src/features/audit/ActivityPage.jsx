@@ -131,9 +131,6 @@ export default function ActivityPage() {
             <h1>Activity</h1>
             <p className="activity-subtitle">Activity logs are displayed here.</p>
           </div>
-          <Button variant="secondary" onClick={reload} isLoading={isLoading && Boolean(data)}>
-            Refresh
-          </Button>
         </header>
 
         <div className="toolbar">
