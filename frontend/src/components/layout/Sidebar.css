@@ -1,0 +1,97 @@
+/* Holds the collapsed width in the layout; the panel expands over the page without moving it. */
+.sidebar {
+  position: relative;
+  z-index: 15;
+  flex-shrink: 0;
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--sidebar-width-collapsed);
+  padding: var(--space-4) var(--space-2);
+  overflow: hidden;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  transition: width 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sidebar-panel:hover,
+.sidebar-panel:focus-within {
+  width: var(--sidebar-width-expanded);
+  box-shadow: var(--shadow-md);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 44px;
+  padding: 0 var(--space-3);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.sidebar-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.sidebar-link.active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-left-color: var(--color-primary);
+}
+
+.sidebar-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Masked so the icon takes the link's text colour, including the active blue. */
+.sidebar-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+.sidebar-icon-transactions {
+  mask-image: url('../../assets/icons/transactions.svg');
+}
+
+.sidebar-icon-items {
+  mask-image: url('../../assets/icons/items.svg');
+}
+
+.sidebar-icon-activity {
+  mask-image: url('../../assets/icons/activity.svg');
+}
+
+.sidebar-label {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sidebar-panel:hover .sidebar-label,
+.sidebar-panel:focus-within .sidebar-label {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-panel,
+  .sidebar-label {
+    transition: none;
+  }
+}

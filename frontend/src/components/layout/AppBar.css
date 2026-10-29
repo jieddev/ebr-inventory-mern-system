@@ -30,39 +30,6 @@
   text-decoration: none;
 }
 
-.app-nav {
-  display: flex;
-  gap: var(--space-1);
-  align-self: stretch;
-}
-
-.app-nav-link {
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-3);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  /* Sits on the bar's bottom edge, so the active line covers the yellow accent. */
-  margin-bottom: -3px;
-  border-bottom: 3px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.app-nav-link:hover {
-  color: var(--color-text);
-}
-
-.app-nav-link.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.app-nav-link:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-}
-
 .app-bar-user {
   display: flex;
   align-items: center;

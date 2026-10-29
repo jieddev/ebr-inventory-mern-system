@@ -4,9 +4,16 @@
   height: 100%;
 }
 
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Pages own their padding and scrolling, so a side panel can sit beside the content. */
 .app-content {
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
 }

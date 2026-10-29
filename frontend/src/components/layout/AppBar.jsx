@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../ui/Button'
 import Logo from '../ui/Logo'
 import logoutIcon from '../../assets/icons/logout.svg'
@@ -47,21 +47,6 @@ export default function AppBar() {
           <Logo size="sm" />
           <span>EBR Inventory System</span>
         </Link>
-
-        {/* Staff only have the Transactions page, so the tabs show for admins only. */}
-        {user.role === 'admin' && (
-          <nav className="app-nav" aria-label="Main">
-            <NavLink to="/transactions" className="app-nav-link">
-              Transactions
-            </NavLink>
-            <NavLink to="/items" className="app-nav-link">
-              Items
-            </NavLink>
-            <NavLink to="/activity" className="app-nav-link">
-              Activity
-            </NavLink>
-          </nav>
-        )}
       </div>
 
       <div className="app-bar-user">
