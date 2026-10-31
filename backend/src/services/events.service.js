@@ -1,5 +1,5 @@
-// Open Server-Sent Events connections, one per browser tab, with the signed-in user's role
-// and cost center (none for admins).
+// Open Server-Sent Events connections, one per browser tab, with the signed-in user's ID,
+// role and cost center (none for admins).
 // Kept in memory, which is fine while there is a single API process.
 const clients = new Map();
 
@@ -9,9 +9,16 @@ const WAREHOUSE_ROLES = ['admin', 'warehouse'];
 const ALL_ROLES = ['admin', 'warehouse', 'encoder'];
 const ENCODER_ROLES = ['encoder'];
 
-function addClient(res, { role, costCenter }) {
-  clients.set(res, { role, costCenter });
+function addClient(res, { userId, role, costCenter }) {
+  clients.set(res, { userId: String(userId), role, costCenter });
   return () => clients.delete(res);
+}
+
+// Ends a user's open connections, e.g. when their account is disabled, so they stop getting
+// live updates at once. Their browser's reconnect is refused (401), and their next request
+// signs them out.
+function disconnectUser(userId) {
+  for (const [res, client] of clients) if (client.userId === String(userId)) res.end();
 }
 
 // Sends one event about `costCenter`'s data to every connected browser whose user has one of
@@ -32,4 +39,4 @@ function sourceClientId(req) {
   return String(req.get('X-Client-Id') ?? '').slice(0, 64);
 }
 
-module.exports = { addClient, broadcast, sourceClientId, ALL_ROLES, ENCODER_ROLES };
+module.exports = { addClient, broadcast, disconnectUser, sourceClientId, ALL_ROLES, ENCODER_ROLES };

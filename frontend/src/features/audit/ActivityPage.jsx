@@ -372,8 +372,13 @@ function Details({ entry }) {
     case 'item.batch_restore':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`
     case 'user.update': {
-      const { from, to } = entry.changes?.costCenter ?? {}
-      return `Cost center: ${costCenterLabel(from) || '(not set)'} → ${costCenterLabel(to)}`
+      const { costCenter, isActive } = entry.changes ?? {}
+      return [
+        costCenter && `Cost center: ${costCenterLabel(costCenter.from) || '(not set)'} → ${costCenterLabel(costCenter.to)}`,
+        isActive && (isActive.to ? 'Enabled account' : 'Disabled account'),
+      ]
+        .filter(Boolean)
+        .join(' · ')
     }
     case 'user.create':
       return [`Role: ${d.role}`, d.costCenter && `Cost center: ${costCenterLabel(d.costCenter)}`].filter(Boolean).join(' · ')

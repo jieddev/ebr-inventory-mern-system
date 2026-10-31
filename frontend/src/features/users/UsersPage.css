@@ -37,6 +37,26 @@
   border-radius: var(--radius-sm);
 }
 
+.users-status {
+  font-size: var(--text-sm);
+  color: var(--color-success);
+}
+
+.users-status.is-disabled {
+  font-weight: var(--weight-medium);
+  color: var(--color-danger);
+}
+
+/* Disabled accounts are dimmed, apart from their status. */
+.users-row.is-disabled td:not(:last-child) {
+  color: var(--color-text-muted);
+}
+
+/* Edit user: the note under Account status while Disabled is picked. */
+.field-hint.users-disabled-hint {
+  color: var(--color-danger);
+}
+
 .users-empty {
   padding: var(--space-6);
   color: var(--color-text-muted);

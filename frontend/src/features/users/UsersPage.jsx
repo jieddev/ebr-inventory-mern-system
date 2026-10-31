@@ -36,7 +36,9 @@ export default function UsersPage() {
   }, [reloadKey])
 
   function handleSaved(saved) {
-    setUsers((list) => list.map((u) => (u._id === saved._id ? { ...u, costCenter: saved.costCenter } : u)))
+    setUsers((list) =>
+      list.map((u) => (u._id === saved._id ? { ...u, costCenter: saved.costCenter, isActive: saved.isActive } : u)),
+    )
     setSelectedId(null)
   }
 
@@ -47,7 +49,7 @@ export default function UsersPage() {
           <div>
             <h1>User management</h1>
             <p className="users-subtitle">
-              Click a user to assign the cost center they work in. Admins see every cost center.
+              Click a user to assign their cost center or disable their account. Admins see every cost center.
             </p>
           </div>
           <Button onClick={() => navigate('/users/new')}>
@@ -85,7 +87,7 @@ export default function UsersPage() {
                     return (
                       <tr
                         key={user._id}
-                        className={`users-row ${isSelected ? 'is-selected' : ''}`}
+                        className={`users-row ${isSelected ? 'is-selected' : ''} ${user.isActive ? '' : 'is-disabled'}`}
                         tabIndex={0}
                         aria-selected={isSelected}
                         aria-label={`${user.name}, edit user`}
@@ -109,7 +111,11 @@ export default function UsersPage() {
                           )}
                         </td>
                         <td className="items-muted">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}</td>
-                        <td className={user.isActive ? '' : 'items-muted'}>{user.isActive ? 'Active' : 'Disabled'}</td>
+                        <td>
+                          <span className={`users-status ${user.isActive ? '' : 'is-disabled'}`}>
+                            {user.isActive ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
                       </tr>
                     )
                   })}

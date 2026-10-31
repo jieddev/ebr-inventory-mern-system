@@ -5,6 +5,7 @@ const { COST_CENTERS, isCostCenter } = require('../config/costCenters');
 const HttpError = require('../utils/httpError');
 const { record } = require('../services/audit.service');
 const { parseObjectId } = require('../utils/parse');
+const { disconnectUser } = require('../services/events.service');
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -17,29 +18,46 @@ async function listUsers(req, res) {
   res.json({ users });
 }
 
-// PATCH /api/users/:id { costCenter } — moves a warehouse user or encoder to another cost
-// center (admin). It applies from their next request, since every request reloads the user.
-// Admins have no cost center: they switch between all of them.
+// PATCH /api/users/:id { costCenter?, isActive? } — Edit user (admin). Both apply from the
+// user's next request, since every request reloads the user: a new cost center switches the
+// data they see, and a disabled account is signed out (middleware/auth.js) and can't sign in.
+// Admins have no cost center (they switch between all), and no one can disable themselves,
+// so there is always an active admin.
 async function updateUser(req, res) {
   const id = parseObjectId(req.params.id, 'User');
-  const costCenter = String(req.body?.costCenter ?? '');
-  if (!isCostCenter(costCenter)) {
-    throw new HttpError(400, `Cost center must be one of: ${COST_CENTERS.map((c) => c.label).join(', ')}`);
-  }
-
+  const body = req.body ?? {};
   const user = await User.findById(id);
   if (!user) throw new HttpError(404, 'User not found');
-  if (user.role === 'admin') throw new HttpError(409, 'Admins switch between every cost center, so they have none to set.');
 
-  const from = user.costCenter ?? '';
-  if (from !== costCenter) {
-    user.costCenter = costCenter;
+  const updates = {};
+  if (body.costCenter !== undefined) {
+    const costCenter = String(body.costCenter);
+    if (!isCostCenter(costCenter)) {
+      throw new HttpError(400, `Cost center must be one of: ${COST_CENTERS.map((c) => c.label).join(', ')}`);
+    }
+    if (user.role === 'admin') throw new HttpError(409, 'Admins switch between every cost center, so they have none to set.');
+    updates.costCenter = costCenter;
+  }
+  if (body.isActive !== undefined) {
+    if (typeof body.isActive !== 'boolean') throw new HttpError(400, 'isActive must be true or false');
+    if (!body.isActive && user._id.equals(req.user._id)) throw new HttpError(409, "You can't disable your own account.");
+    updates.isActive = body.isActive;
+  }
+
+  const changes = {};
+  for (const [field, to] of Object.entries(updates)) {
+    const from = user[field] ?? '';
+    if (from !== to) changes[field] = { from, to };
+  }
+  if (Object.keys(changes).length) {
+    user.set(updates);
     await user.save();
     await record(req, {
       action: 'user.update',
       target: { type: 'user', id: user._id, label: `${user.name} (${user.userId})` },
-      changes: { costCenter: { from, to: costCenter } },
+      changes,
     });
+    if (changes.isActive?.to === false) disconnectUser(user._id);
   }
   res.json({ user });
 }

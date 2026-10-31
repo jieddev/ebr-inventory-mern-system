@@ -64,3 +64,13 @@
   color: var(--color-reserve);
   background: var(--color-reserve-soft);
 }
+
+/* A destructive choice, e.g. disabling an account: red even before it's picked. */
+.segmented-danger {
+  color: var(--color-danger);
+}
+
+.segmented-danger.is-selected {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}

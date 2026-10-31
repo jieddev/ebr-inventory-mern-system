@@ -1,10 +1,8 @@
 import { useId, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { createUser } from '../../api/users'
-import { viewPath } from '../../utils/rememberedViews'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
 import { useCostCenter } from '../costCenter/useCostCenter'
 import './CreateUserPage.css'
@@ -25,7 +23,6 @@ function validate(form) {
 }
 
 export default function CreateUserPage() {
-  const navigate = useNavigate()
   const roleId = useId()
   const costCenterId = useId()
   const { costCenter } = useCostCenter()
@@ -75,9 +72,6 @@ export default function CreateUserPage() {
     <section className="create-user-page">
       <header className="create-user-header">
         <h1>Create user</h1>
-        <Button variant="secondary" onClick={() => navigate(viewPath('/transactions'))}>
-          Go to Transactions
-        </Button>
       </header>
 
       <form className="create-user-card" onSubmit={handleSubmit} noValidate>

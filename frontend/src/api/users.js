@@ -12,8 +12,9 @@ export async function getUsers({ signal } = {}) {
   return data.users
 }
 
-// Moves a warehouse user or encoder to another cost center. Returns the saved user.
-export async function setUserCostCenter(id, costCenter) {
-  const { data } = await api.patch(`/users/${id}`, { costCenter })
+// Edit user: { costCenter?, isActive? }. Only warehouse users and encoders have a cost
+// center, and admins can't disable themselves. Returns the saved user.
+export async function updateUser(id, changes) {
+  const { data } = await api.patch(`/users/${id}`, changes)
   return data.user
 }

@@ -1,20 +1,31 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import Button from '../../components/ui/Button'
+import SegmentedControl from '../../components/ui/SegmentedControl'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
-import { setUserCostCenter } from '../../api/users'
+import { updateUser } from '../../api/users'
 import { COST_CENTERS } from '../../utils/costCenters'
 import { ROLE_LABELS } from '../../utils/roles'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
+import { useAuth } from '../auth/useAuth'
+
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Enable' },
+  { value: 'disabled', label: 'Disable', tone: 'danger' },
+]
 
 // Opened by clicking a row on User management. Warehouse users and encoders get a cost
-// center; it applies from their next request. Admins have none (they switch between all).
+// center (admins have none: they switch between all), and any account but your own can be
+// disabled. Both apply from the user's next request.
 export default function EditUserPanel({ user, onClose, onSaved }) {
+  const { user: me } = useAuth()
   const costCenterId = useId()
   const costCenterRef = useRef(null)
   const isAdmin = user.role === 'admin'
+  const isMe = user._id === me._id
   const [costCenter, setCostCenter] = useState(user.costCenter ?? '')
+  const [isActive, setIsActive] = useState(user.isActive)
   const [error, setError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -26,12 +37,15 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
   async function handleSubmit(event) {
     event.preventDefault()
     setFormError('')
-    if (!costCenter) return setError('Select a cost center')
-    if (costCenter === user.costCenter) return onClose()
+    if (!isAdmin && !costCenter) return setError('Select a cost center')
+    const changes = {}
+    if (!isAdmin && costCenter !== user.costCenter) changes.costCenter = costCenter
+    if (isActive !== user.isActive) changes.isActive = isActive
+    if (!Object.keys(changes).length) return onClose()
 
     setIsSaving(true)
     try {
-      onSaved(await setUserCostCenter(user._id, costCenter))
+      onSaved(await updateUser(user._id, changes))
     } catch (err) {
       setFormError(getErrorMessage(err))
       setIsSaving(false)
@@ -46,7 +60,7 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
       as="form"
       bodyProps={{ onSubmit: handleSubmit, noValidate: true }}
       footer={
-        isAdmin ? (
+        isAdmin && isMe ? (
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
@@ -118,6 +132,26 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
           <p id={`${costCenterId}-help`} className={error ? 'field-error' : 'field-hint'}>
             {error || "They'll only see this cost center's items, transactions and reports."}
           </p>
+        </div>
+      )}
+
+      {isMe ? (
+        <TextField
+          label="Account status"
+          readOnly
+          tabIndex={-1}
+          value="Active"
+          hint="You can't disable your own account."
+        />
+      ) : (
+        <div className="field">
+          <SegmentedControl
+            label="Account status"
+            name="status"
+            options={STATUS_OPTIONS}
+            value={isActive ? 'active' : 'disabled'}
+            onChange={(value) => setIsActive(value === 'active')}
+          />
         </div>
       )}
     </SidePanel>
