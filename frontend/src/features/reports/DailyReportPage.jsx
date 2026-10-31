@@ -142,7 +142,7 @@ export default function DailyReportPage() {
                 <tr>
                   <th>Item code</th>
                   <th>Brand name</th>
-                  <th>Type / Design</th>
+                  <th>Category</th>
                   <th className="is-number">Ending balance</th>
                   <th className="is-number">Last transaction date</th>
                 </tr>
@@ -153,7 +153,7 @@ export default function DailyReportPage() {
                   <tr key={row._id} className={index >= first && index < last ? '' : 'screen-hidden'}>
                     <td className="report-code">{row.code}</td>
                     <td>{row.brand || '—'}</td>
-                    <td>{row.typeDesign || '—'}</td>
+                    <td>{row.category || '—'}</td>
                     <td className={`is-number report-balance ${row.endingBalance < 0 ? 'is-negative' : ''}`}>
                       {formatNumber(row.endingBalance)}
                     </td>

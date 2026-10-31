@@ -38,7 +38,7 @@ async function listTransactions(req, res) {
       .sort({ lastTransactionDate: -1, updatedAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit)
-      .select('itemId code brand typeDesign balance transactionCount lastTransactionDate lastTransactionType')
+      .select('itemId category code brand typeDesign balance transactionCount lastTransactionDate lastTransactionType')
       .lean(),
   ]);
 
@@ -177,7 +177,7 @@ async function listReservations(req, res) {
   const ids = ordered.map((r) => r._id);
   const found = await Transaction.find({ _id: { $in: ids } })
     .select('item date quantity customerName neededBy notes createdBy createdAt')
-    .populate('item', 'itemId code brand typeDesign balance')
+    .populate('item', 'itemId category code brand typeDesign balance')
     .populate('createdBy', 'name')
     .lean();
   const byId = new Map(found.map((r) => [String(r._id), r]));

@@ -1,7 +1,7 @@
 import api, { cleanParams } from './client'
 import { saveDownload } from './download'
 
-// filters: see utils/filters.js (the item filters: stock, category, typeDesign, brand).
+// filters: see utils/filters.js (the item filters: stock, category, brand).
 // archived: true lists the archived items instead.
 export async function getItems({ search, page, limit, filters, archived } = {}, { signal } = {}) {
   const params = cleanParams({ search, page, limit, archived: archived ? '1' : '', ...filters })
@@ -39,11 +39,6 @@ export async function getItemByItemId(itemId, { signal } = {}) {
 export async function searchItems(q, { signal } = {}) {
   const { data } = await api.get('/items/search', { params: { q }, signal })
   return data.items
-}
-
-export async function getItemTypes() {
-  const { data } = await api.get('/items/types')
-  return data.types
 }
 
 export async function getItemCategories() {

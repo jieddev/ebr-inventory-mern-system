@@ -1,23 +1,18 @@
 import { useEffect, useId, useState } from 'react'
 import TextField from '../../components/ui/TextField'
-import { getItemCategories, getItemTypes } from '../../api/items'
+import { getItemCategories } from '../../api/items'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
-import TypeDesignPicker from './TypeDesignPicker'
 
-// The Category, Item code, Brand, Type / Design and Balance forwarded fields of
-// Add Item and Edit Item. Loads its own category and type choices.
+// The Category, Item code, Brand and Balance forwarded fields of Add Item and
+// Edit Item. Loads its own category choices.
 export default function ItemFields({ form, errors, onChange, categoryRef, codeRef, balanceHint }) {
   const categoryId = useId()
   const [categories, setCategories] = useState([])
-  const [types, setTypes] = useState([])
 
   useEffect(() => {
     getItemCategories()
       .then(setCategories)
       .catch(() => setCategories([]))
-    getItemTypes()
-      .then(setTypes)
-      .catch(() => setTypes([]))
   }, [])
 
   return (
@@ -71,16 +66,13 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
         error={errors.code}
       />
 
-      <div className="panel-row">
-        <TextField
-          label="Brand name"
-          placeholder="e.g. DUNLOP"
-          autoComplete="off"
-          value={form.brand}
-          onChange={(e) => onChange('brand', e.target.value)}
-        />
-        <TypeDesignPicker value={form.typeDesign} onChange={(value) => onChange('typeDesign', value)} types={types} />
-      </div>
+      <TextField
+        label="Brand name"
+        placeholder="e.g. DUNLOP"
+        autoComplete="off"
+        value={form.brand}
+        onChange={(e) => onChange('brand', e.target.value)}
+      />
 
       <TextField
         label="Balance forwarded"

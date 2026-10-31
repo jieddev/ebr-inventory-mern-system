@@ -37,7 +37,7 @@
   overflow-wrap: anywhere;
 }
 
-.added-item-type,
+.added-item-category,
 .added-item-balance {
   flex-shrink: 0;
   font-size: var(--text-xs);
@@ -45,7 +45,7 @@
   white-space: nowrap;
 }
 
-.added-item-type {
+.added-item-category {
   color: var(--color-text-muted);
 }
 

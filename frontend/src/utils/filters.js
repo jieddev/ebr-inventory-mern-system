@@ -2,12 +2,11 @@ import { formatDate } from './format'
 
 // Filters live in the URL query string, so a filtered view survives a refresh and can be shared.
 // Entry filters (type, from, to) only apply on the Transactions page.
-export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', category: [], typeDesign: [], brand: [] }
+export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', category: [], brand: [] }
 
 // facet: where the dropdown finds the choices in GET /api/items/facets.
 export const LIST_FILTERS = [
   { key: 'category', label: 'Category', facet: 'categories' },
-  { key: 'typeDesign', label: 'Type / Design', facet: 'typeDesigns' },
   { key: 'brand', label: 'Brand', facet: 'brands' },
 ]
 
@@ -25,7 +24,6 @@ export function readFilters(searchParams) {
     to: searchParams.get('to') ?? '',
     stock: searchParams.get('stock') ?? '',
     category: searchParams.getAll('category'),
-    typeDesign: searchParams.getAll('typeDesign'),
     brand: searchParams.getAll('brand'),
   }
 }

@@ -16,6 +16,7 @@ export default function EditItemPanel({ item, onClose, onSaved }) {
     category: item.category ?? '',
     code: item.code,
     brand: item.brand ?? '',
+    // No longer editable, but sent back unchanged so saving doesn't clear it.
     typeDesign: item.typeDesign ?? '',
     balanceForwarded: String(item.balanceForwarded ?? 0),
   }))

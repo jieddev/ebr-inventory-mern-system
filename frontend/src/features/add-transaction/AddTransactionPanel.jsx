@@ -294,7 +294,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
 
       <div className="panel-row">
         <TextField label="Brand name" readOnly tabIndex={-1} placeholder="—" value={item?.brand ?? ''} />
-        <TextField label="Type / Design" readOnly tabIndex={-1} placeholder="—" value={item?.typeDesign ?? ''} />
+        <TextField label="Category" readOnly tabIndex={-1} placeholder="—" value={item?.category ?? ''} />
       </div>
 
       <div className="horizontal-line" aria-hidden="true" />

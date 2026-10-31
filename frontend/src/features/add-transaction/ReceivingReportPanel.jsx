@@ -274,7 +274,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
               </div>
               {line.item && (
                 <p className="brr-line-details">
-                  {[line.item.itemId, line.item.brand, line.item.typeDesign].filter(Boolean).join(' · ')} · Bal.{' '}
+                  {[line.item.itemId, line.item.brand, line.item.category].filter(Boolean).join(' · ')} · Bal.{' '}
                   {formatNumber(line.item.balance)}
                   {Number(line.qty) > 0 && ` → ${formatNumber(line.item.balance + Number(line.qty))}`}
                 </p>

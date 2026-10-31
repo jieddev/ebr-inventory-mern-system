@@ -1,5 +1,5 @@
 // Shared by Add Item and Edit Item (see ItemFields.jsx).
-export const EMPTY_ITEM_FORM = { category: '', code: '', brand: '', typeDesign: '', balanceForwarded: '' }
+export const EMPTY_ITEM_FORM = { category: '', code: '', brand: '', balanceForwarded: '' }
 
 // Checks the form the same way the API does. Returns the errors and the parsed balance.
 export function validateItemForm(form) {

@@ -99,7 +99,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
             {addedThisSession.map((item) => (
               <li key={item._id}>
                 <span className="added-item-code">{item.code}</span>
-                {item.typeDesign && <span className="added-item-type">{item.typeDesign}</span>}
+                {item.category && <span className="added-item-category">{item.category}</span>}
                 <span className="added-item-balance">Bal. fwd. {formatNumber(item.balanceForwarded)}</span>
               </li>
             ))}

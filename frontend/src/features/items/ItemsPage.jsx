@@ -44,10 +44,10 @@ export default function ItemsPage() {
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const isArchivedView = isAdmin && searchParams.get('archived') === '1'
-  // The Items page only uses the item filters (stock, category, type / design, brand).
+  // The Items page only uses the item filters (stock, category, brand).
   const filters = useMemo(() => {
-    const { stock, category, typeDesign, brand } = readFilters(searchParams)
-    return { ...EMPTY_FILTERS, stock, category, typeDesign, brand }
+    const { stock, category, brand } = readFilters(searchParams)
+    return { ...EMPTY_FILTERS, stock, category, brand }
   }, [searchParams])
 
   const [searchText, setSearchText] = useState(search)
@@ -210,11 +210,11 @@ export default function ItemsPage() {
     const action = isArchivedView ? 'restore' : 'archive'
     setConfirmBatch({ isBusy: true, error: '' })
     try {
-      const { stock, category, typeDesign, brand } = filters
+      const { stock, category, brand } = filters
       const count = await batchItems(
         action,
         selection.all
-          ? { all: true, query: { search, stock, category, typeDesign, brand } }
+          ? { all: true, query: { search, stock, category, brand } }
           : { ids: [...selection.ids] },
       )
       setConfirmBatch(null)
@@ -412,7 +412,6 @@ export default function ItemsPage() {
                     <th>Category</th>
                     <th>Item code</th>
                     <th>Brand name</th>
-                    <th>Type / Design</th>
                     <th className="is-number">Balance</th>
                     {isAdmin && (
                       <>
@@ -441,7 +440,6 @@ export default function ItemsPage() {
                       <td className="items-muted">{item.category || '—'}</td>
                       <td className="items-code">{item.code}</td>
                       <td>{item.brand || '—'}</td>
-                      <td className="items-muted">{item.typeDesign || '—'}</td>
                       <td className={`is-number ${item.balance < 0 ? 'is-negative' : ''}`}>
                         {formatNumber(item.balance)}
                       </td>

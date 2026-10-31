@@ -44,7 +44,7 @@ export default function TransactionTable({
         const shown = allEntries ?? entries
         // matchCount is less than transactionCount when a type or date filter is on.
         const canViewAll = !allEntries && matchCount > entries.length
-        const details = [item.brand, item.typeDesign].filter(Boolean).join(' · ')
+        const details = [item.brand, item.category].filter(Boolean).join(' · ')
 
         return (
           <div key={id} className="txn-group" role="rowgroup">

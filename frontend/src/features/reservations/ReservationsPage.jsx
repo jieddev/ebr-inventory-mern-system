@@ -208,7 +208,7 @@ function ReservationCard({ reservation: r, today, onAction }) {
 
       <div>
         <p className="reservation-card-code">{item.code}</p>
-        <p className="reservation-card-muted">{[item.brand, item.typeDesign].filter(Boolean).join(' · ') || '—'}</p>
+        <p className="reservation-card-muted">{[item.brand, item.category].filter(Boolean).join(' · ') || '—'}</p>
       </div>
 
       <div className="reservation-card-qty">
