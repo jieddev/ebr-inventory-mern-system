@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -47,6 +49,14 @@ app.use('/api/events', eventRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/receiving-reports', receivingRoutes);
 app.use('/api/reports', reportRoutes);
+
+// Serve the built frontend (npm run build in frontend/) so one port hosts the whole app.
+// Any non-API path gets index.html and React Router takes it from there.
+const clientDist = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get(/^(?!\/api).*/, (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+}
 
 app.use(notFound);
 app.use(errorHandler);
