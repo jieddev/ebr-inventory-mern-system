@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
-import { getTransaction } from '../../api/transactions'
+import { getTransaction, rollbackTransaction } from '../../api/transactions'
 import { formatDate, formatNumber } from '../../utils/format'
 import ReservationDialogs from '../reservations/ReservationDialogs'
+import { useAuth } from '../auth/useAuth'
 import { ROLE_LABELS } from '../../utils/roles'
 import './TransactionDetailsPanel.css'
 
@@ -18,8 +20,10 @@ const dateTime = new Intl.DateTimeFormat('en-US', {
 })
 
 // Details of one ledger entry, opened by clicking it in the Transactions table.
-// Reservations also get Confirm out and Cancel reservation; onChanged(itemId) runs after either.
+// Reservations also get Confirm out and Cancel reservation, and admins get Rollback on any entry
+// but the balance forwarded. onChanged(itemId) runs after each.
 export default function TransactionDetailsPanel({ transactionId, onClose, onChanged }) {
+  const { user } = useAuth()
   // The last finished request; it's loading while that isn't the current one.
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
   const [reloadKey, setReloadKey] = useState(0)
@@ -39,15 +43,32 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   const isLoading = response.key !== requestKey
   const { transaction: t, receiving } = (!isLoading && response.data) || {}
   const isReserved = t?.type === 'RESERVE'
+  const canRollback = user.role === 'admin' && t && !t.isBalanceForwarded
 
-  const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | null
+  const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | null
+  const [rollback, setRollback] = useState({ isBusy: false, error: '' })
 
-  // Released: show it again as OUT. Cancelled: the entry is gone, so the panel closes.
+  // Released: show it again as OUT. Cancelled or rolled back: the entry is gone, so the panel closes.
   function handleDone(action) {
     setDialog(null)
     onChanged?.(t.item?._id)
-    if (action === 'cancel') onClose()
-    else setReloadKey((k) => k + 1)
+    if (action === 'release') setReloadKey((k) => k + 1)
+    else onClose()
+  }
+
+  async function handleRollback() {
+    setRollback({ isBusy: true, error: '' })
+    try {
+      await rollbackTransaction(t._id)
+      handleDone('rollback')
+    } catch (err) {
+      setRollback({ isBusy: false, error: getErrorMessage(err) })
+    }
+  }
+
+  function closeRollback() {
+    setDialog(null)
+    setRollback({ isBusy: false, error: '' })
   }
 
   return (
@@ -56,12 +77,21 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
       subtitle={t ? `${t.isBalanceForwarded ? 'Balance forwarded' : t.type} · ${formatDate(t.date)}` : undefined}
       onClose={onClose}
       footer={
-        isReserved && (
+        (isReserved || canRollback) && (
           <>
-            <Button variant="secondary" onClick={() => setDialog('cancel')}>
-              Cancel reservation
-            </Button>
-            <Button onClick={() => setDialog('release')}>Confirm out</Button>
+            {canRollback && (
+              <Button variant="danger" className="txn-details-rollback" onClick={() => setDialog('rollback')}>
+                Rollback
+              </Button>
+            )}
+            {isReserved && (
+              <>
+                <Button variant="secondary" onClick={() => setDialog('cancel')}>
+                  Cancel reservation
+                </Button>
+                <Button onClick={() => setDialog('release')}>Confirm out</Button>
+              </>
+            )}
           </>
         )
       }
@@ -185,7 +215,20 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
         </>
       )}
 
-      {dialog && t && (
+      {dialog === 'rollback' && t && (
+        <ConfirmDialog
+          title="Roll back this transaction?"
+          message={`The ${t.type} of ${formatNumber(t.quantity)} ${t.item?.code ?? ''} on ${formatDate(t.date)} will be removed as if it was never recorded${receiving ? ', including its line on the receiving report' : ''}. The item's balance will be recalculated. This can't be undone.`}
+          cancelLabel="Keep it"
+          confirmLabel="Rollback"
+          isBusy={rollback.isBusy}
+          error={rollback.error}
+          onConfirm={handleRollback}
+          onCancel={closeRollback}
+        />
+      )}
+
+      {(dialog === 'release' || dialog === 'cancel') && t && (
         <ReservationDialogs reservation={t} action={dialog} onDone={handleDone} onClose={() => setDialog(null)} />
       )}
     </SidePanel>

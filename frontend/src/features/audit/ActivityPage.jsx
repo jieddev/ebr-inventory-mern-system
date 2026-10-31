@@ -31,6 +31,7 @@ const ACTION_LABELS = {
   'transaction.create': 'Added transaction',
   'transaction.release': 'Released reservation',
   'transaction.cancel': 'Cancelled reservation',
+  'transaction.rollback': 'Rolled back transaction',
   'receiving.create': 'Receiving report',
   'report.export': 'Exported Daily Report',
 }
@@ -341,6 +342,16 @@ function Details({ entry }) {
         .join(' · ')
     case 'transaction.cancel':
       return [`RESERVE ${formatNumber(d.quantity)}`, formatDate(d.date), d.customerName].filter(Boolean).join(' · ')
+    case 'transaction.rollback':
+      return [
+        `${d.type} ${formatNumber(d.quantity)}`,
+        formatDate(d.date),
+        d.customerName,
+        d.wasReserved && 'was a reservation',
+        d.reportNo && `BRR ${d.reportNo}`,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'item.import':
       return [
         d.fileName,

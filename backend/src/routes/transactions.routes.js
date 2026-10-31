@@ -7,8 +7,9 @@ const {
   reservationCounts,
   releaseReservation,
   cancelReservation,
+  rollbackTransaction,
 } = require('../controllers/transactions.controller');
-const { requireAuth, requireWarehouse } = require('../middleware/auth');
+const { requireAuth, requireRole, requireWarehouse } = require('../middleware/auth');
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.get('/reservations', listReservations);
 router.get('/reservations/count', reservationCounts);
 router.get('/:id', getTransaction);
 router.post('/:id/release', releaseReservation);
+router.post('/:id/rollback', requireRole('admin'), rollbackTransaction);
 router.delete('/:id', cancelReservation);
 
 module.exports = router;

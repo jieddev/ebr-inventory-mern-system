@@ -297,6 +297,58 @@ async function cancelReservation(req, res) {
   res.json({ item: result.item });
 }
 
+// POST /api/transactions/:id/rollback — admin only. Removes any entry except the balance
+// forwarded (changed with Edit Item) as if it was never recorded: its line comes off the
+// receiving report it came from (the report goes when it has no lines left) and the item's
+// ledger is re-run. Only the Activity log keeps a record of it.
+async function rollbackTransaction(req, res) {
+  const id = parseObjectId(req.params.id, 'Transaction');
+
+  const result = await mongoose.connection.transaction(async (session) => {
+    const entry = await Transaction.findById(id)
+      .select('item date type quantity customerName neededBy notes isBalanceForwarded releasedAt')
+      .session(session)
+      .lean();
+    if (!entry) throw new HttpError(404, 'Transaction not found');
+    if (entry.isBalanceForwarded) {
+      throw new HttpError(409, 'The balance forwarded can only be changed with Edit Item on the Items page.');
+    }
+    const target = await Item.findById(entry.item).select('itemId code brand typeDesign archivedAt').session(session).lean();
+    if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
+
+    await Transaction.deleteOne({ _id: id }, { session });
+    const report = await ReceivingReport.findOneAndUpdate(
+      { 'lines.transaction': id },
+      { $pull: { lines: { transaction: id } } },
+      { returnDocument: 'after', session },
+    ).lean();
+    if (report && !report.lines.length) await ReceivingReport.deleteOne({ _id: report._id }, { session });
+
+    await record(
+      req,
+      {
+        action: 'transaction.rollback',
+        target: itemTarget(target),
+        details: {
+          transactionId: id,
+          date: entry.date,
+          type: entry.type,
+          quantity: entry.quantity,
+          customerName: entry.customerName,
+          ...(entry.releasedAt && { wasReserved: true }),
+          ...(report && { reportNo: report.reportNo }),
+        },
+      },
+      session,
+    );
+    const item = await recalculateItem(entry.item, session);
+    return { item, type: entry.type, quantity: entry.quantity };
+  });
+
+  announce(req, result.item, { kind: 'rollback', type: result.type, quantity: result.quantity });
+  res.json({ item: result.item });
+}
+
 // The reservation and its item; 404 if it's gone, 409 if it's not a reservation (any more).
 async function loadReservation(id, session) {
   const entry = await Transaction.findById(id).select('item date type quantity customerName neededBy notes').session(session).lean();
@@ -326,4 +378,5 @@ module.exports = {
   reservationCounts,
   releaseReservation,
   cancelReservation,
+  rollbackTransaction,
 };

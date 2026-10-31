@@ -30,6 +30,12 @@ export async function cancelReservation(id) {
   return data
 }
 
+// Admin: removes the entry as if it was never recorded; the item's balance is recalculated. { item }.
+export async function rollbackTransaction(id) {
+  const { data } = await api.post(`/transactions/${id}/rollback`)
+  return data
+}
+
 // Pending reservations for the Reservations page: { reservations, counts, today }.
 // due: '' | 'overdue' | 'today' | 'upcoming'.
 export async function getReservations({ search, due } = {}, { signal } = {}) {

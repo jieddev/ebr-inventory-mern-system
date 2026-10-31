@@ -69,3 +69,8 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
+/* Kept apart from the reservation actions, on the left of the footer. */
+.txn-details-rollback {
+  margin-right: auto;
+}
