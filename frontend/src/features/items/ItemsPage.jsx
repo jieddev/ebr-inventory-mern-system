@@ -410,7 +410,7 @@ export default function ItemsPage() {
                     )}
                     <th>Item ID</th>
                     <th>Category</th>
-                    <th>Item code</th>
+                    <th>Item Description</th>
                     <th>Brand name</th>
                     <th className="is-number">Balance</th>
                     {isAdmin && (
