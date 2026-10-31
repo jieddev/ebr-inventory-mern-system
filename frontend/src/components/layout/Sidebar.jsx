@@ -1,8 +1,9 @@
-import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../features/auth/useAuth'
+import { useCostCenter } from '../../features/costCenter/useCostCenter'
 import { usePendingReservations } from '../../hooks/usePendingReservations'
 import { viewPath } from '../../utils/rememberedViews'
+import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import '../ui/TextField.css'
 import './Sidebar.css'
@@ -13,10 +14,8 @@ const LINKS = [
   { to: '/reservations', label: 'Reservations', icon: 'reservations', roles: ['admin', 'warehouse'] },
   { to: '/items', label: 'Items', icon: 'items', roles: ['admin', 'encoder'] },
   { to: '/activity', label: 'Activity', icon: 'activity', roles: ['admin'] },
+  { to: '/users', label: 'User management', icon: 'users', roles: ['admin'] },
 ]
-
-// Servitek is the only branch for now; the choice isn't used anywhere yet.
-const BRANCHES = [{ value: 'servitek', label: 'Servitek' }]
 
 // Shows icons only, and expands over the page on hover or keyboard focus.
 export default function Sidebar() {
@@ -24,34 +23,41 @@ export default function Sidebar() {
   const { pathname, search } = useLocation()
   const links = LINKS.filter((link) => link.roles.includes(user.role))
   const reservations = usePendingReservations({ enabled: links.some((link) => link.to === '/reservations') })
-  const [branch, setBranch] = useState(BRANCHES[0].value)
-  const branchLabel = BRANCHES.find((b) => b.value === branch)?.label ?? ''
+  const { costCenter, canSwitch, setCostCenter } = useCostCenter()
+  const label = costCenterLabel(costCenter)
 
   return (
     <aside className="sidebar">
       <nav className="sidebar-panel" aria-label="Main">
-        {/* Collapsed: the branch's initial. Expanded: the dropdown. */}
-        <div className="sidebar-branch" title={branchLabel}>
+        {/* Collapsed: the cost center's initial. Expanded: the dropdown (admins) or its name. */}
+        <div className="sidebar-branch" title={`Cost center: ${label}`}>
           <span className="sidebar-branch-mark" aria-hidden="true">
-            {branchLabel.charAt(0)}
+            {label.charAt(0)}
           </span>
-          <div className="field-control sidebar-branch-control">
-            <select
-              className="field-input field-select"
-              aria-label="Branch"
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-            >
-              {BRANCHES.map((b) => (
-                <option key={b.value} value={b.value}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-            <div className="field-adornment field-adornment-icon" aria-hidden="true">
-              <img src={chevronIcon} alt="" width="16" height="16" />
+          {canSwitch ? (
+            <div className="field-control sidebar-branch-control">
+              <select
+                className="field-input field-select"
+                aria-label="Cost center"
+                value={costCenter}
+                onChange={(e) => setCostCenter(e.target.value)}
+              >
+                {COST_CENTERS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <div className="field-adornment field-adornment-icon" aria-hidden="true">
+                <img src={chevronIcon} alt="" width="16" height="16" />
+              </div>
             </div>
-          </div>
+          ) : (
+            <span className="sidebar-branch-control sidebar-branch-name">
+              <span className="visually-hidden">Cost center: </span>
+              {label}
+            </span>
+          )}
         </div>
 
         {links.map((link) => (

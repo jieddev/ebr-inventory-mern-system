@@ -6,6 +6,7 @@ const ACTIONS = [
   'auth.login_failed',
   'auth.logout',
   'user.create',
+  'user.update',
   'item.create',
   'item.update',
   'item.archive',
@@ -45,6 +46,8 @@ const auditLogSchema = new mongoose.Schema(
       id: mongoose.Schema.Types.ObjectId,
       label: String,
     },
+    // The cost center the item, transaction or report belongs to. Empty for logins and users.
+    costCenter: String,
     // Edits: { field: { from, to } } for the fields that changed.
     changes: mongoose.Schema.Types.Mixed,
     details: mongoose.Schema.Types.Mixed,

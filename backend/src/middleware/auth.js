@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const HttpError = require('../utils/httpError');
 const { jwtSecret } = require('../config/env');
+const { DEFAULT_COST_CENTER, isCostCenter } = require('../config/costCenters');
 
 const AUTH_COOKIE = 'ebr_token';
 
@@ -30,7 +31,22 @@ function requireRole(...roles) {
   };
 }
 
+// Sets req.costCenter, the cost center whose data the request reads and writes. Warehouse users
+// and encoders always get their own; admins pick one with the X-Cost-Center header (frontend
+// api/client.js), Servitek when it's missing.
+function resolveCostCenter(req, res, next) {
+  if (req.user.role !== 'admin') {
+    if (!isCostCenter(req.user.costCenter)) throw new HttpError(403, 'Your account has no cost center. Ask an admin to set one.');
+    req.costCenter = req.user.costCenter;
+    return next();
+  }
+  const requested = req.get('X-Cost-Center');
+  if (requested && !isCostCenter(requested)) throw new HttpError(400, `Unknown cost center: ${requested}`);
+  req.costCenter = requested || DEFAULT_COST_CENTER;
+  next();
+}
+
 // Everyone but encoders, who may only add items (see routes/items.routes.js).
 const requireWarehouse = requireRole('admin', 'warehouse');
 
-module.exports = { AUTH_COOKIE, requireAuth, requireRole, requireWarehouse };
+module.exports = { AUTH_COOKIE, requireAuth, requireRole, requireWarehouse, resolveCostCenter };

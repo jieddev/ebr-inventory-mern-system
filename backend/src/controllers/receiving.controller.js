@@ -19,11 +19,11 @@ function customerText(customerName, reportNo) {
   return reportNo ? `No. ${reportNo}` : customerName;
 }
 
-// GET /api/receiving-reports/check?reportNo= — has this slip been saved before?
+// GET /api/receiving-reports/check?reportNo= — has this slip been saved before in the cost center?
 async function checkReportNo(req, res) {
   const reportNo = String(req.query.reportNo ?? '').trim();
   if (!reportNo) return res.json({ existing: null });
-  const existing = await ReceivingReport.findOne({ reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
+  const existing = await ReceivingReport.findOne({ costCenter: req.costCenter, reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
   res.json({ existing: existing && { savedAt: existing.createdAt } });
 }
 
@@ -57,7 +57,7 @@ async function createReceivingReport(req, res) {
   });
 
   if (reportNo && !body.allowDuplicate) {
-    const existing = await ReceivingReport.findOne({ reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
+    const existing = await ReceivingReport.findOne({ costCenter: req.costCenter, reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
     if (existing) {
       return res.status(409).json({
         code: 'DUPLICATE_REPORT',
@@ -70,7 +70,7 @@ async function createReceivingReport(req, res) {
   const custText = customerText(customerName, reportNo);
   const result = await mongoose.connection.transaction(async (session) => {
     const itemIds = [...new Set(lines.map((line) => String(line.item)))];
-    const items = await Item.find({ _id: { $in: itemIds } }).select('itemId code brand typeDesign archivedAt').session(session).lean();
+    const items = await Item.find({ _id: { $in: itemIds }, costCenter: req.costCenter }).select('itemId code brand typeDesign archivedAt').session(session).lean();
     const byId = new Map(items.map((item) => [String(item._id), item]));
     lines.forEach((line, i) => {
       const item = byId.get(String(line.item));
@@ -94,7 +94,7 @@ async function createReceivingReport(req, res) {
     });
 
     const [report] = await ReceivingReport.create(
-      [{ reportNo, date, customerName, receivedBy, lines, createdBy: req.user._id }],
+      [{ costCenter: req.costCenter, reportNo, date, customerName, receivedBy, lines, createdBy: req.user._id }],
       { session },
     );
     for (const id of itemIds) await recalculateItem(id, session);
@@ -129,7 +129,7 @@ async function createReceivingReport(req, res) {
   // After the commit: other PCs re-fetch each item, and see one notification for the slip.
   // The per-item refreshes carry no transaction details, so encoders get them too (balances).
   for (const itemId of result.itemIds) {
-    broadcast('item-changed', { itemId, sourceClientId: sourceClientId(req) }, { roles: ALL_ROLES });
+    broadcast('item-changed', { itemId, sourceClientId: sourceClientId(req) }, { roles: ALL_ROLES, costCenter: req.costCenter });
   }
   broadcast('item-changed', {
     activity: {
@@ -140,7 +140,7 @@ async function createReceivingReport(req, res) {
       itemCode: `${result.itemIds.length} item${result.itemIds.length === 1 ? '' : 's'}${reportNo ? ` (receiving report No. ${reportNo})` : ''}`,
     },
     sourceClientId: sourceClientId(req),
-  });
+  }, { costCenter: req.costCenter });
 
   res.status(201).json({ report: result.report, customerName: custText, totalQuantity: result.totalQuantity });
 }

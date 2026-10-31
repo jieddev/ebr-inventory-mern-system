@@ -11,6 +11,7 @@ const { record, diff, describe, itemTarget } = require('../services/audit.servic
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
+const { costCenterLabel } = require('../config/costCenters');
 
 // What encoders see of an item: its details and current ending balance, but nothing about
 // its transactions (no last transaction date or type, no count).
@@ -19,14 +20,14 @@ const ITEM_FIELDS =
   'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
 
 // GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&page=&limit=
-// Every item, by item ID (admin Items page). See utils/filters.js for the filters.
+// Every item in the cost center, by item ID (Items page). See utils/filters.js for the filters.
 // ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
   const isEncoder = req.user.role === 'encoder';
   if (req.query.archived === '1' && req.user.role !== 'admin') throw new HttpError(403, 'You do not have access to this action');
   // Encoders don't see stock (it comes from transactions), so they can't filter by it either.
-  const filter = itemsPageFilter(isEncoder ? { ...req.query, stock: '' } : req.query);
+  const filter = itemsPageFilter(req.costCenter, isEncoder ? { ...req.query, stock: '' } : req.query);
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
@@ -40,10 +41,10 @@ async function listItems(req, res) {
   res.json({ items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
 
-// The Items page's search, filters and Active / Archived view as one Item filter.
+// The Items page's cost center, search, filters and Active / Archived view as one Item filter.
 // Shared by the list and the batch actions, so "all matching" means what the page shows.
-function itemsPageFilter(query) {
-  const conditions = itemConditions(query);
+function itemsPageFilter(costCenter, query) {
+  const conditions = [{ costCenter }, ...itemConditions(query)];
   conditions.push(query.archived === '1' ? { archivedAt: { $ne: null } } : ACTIVE);
   const search = String(query.search ?? '').trim();
   if (search) {
@@ -59,7 +60,7 @@ async function searchItems(req, res) {
   if (!q) return res.json({ items: [] });
 
   const rx = containsRegex(q);
-  const items = await Item.find({ ...ACTIVE, $or: [{ code: rx }, { itemId: rx }] })
+  const items = await Item.find({ costCenter: req.costCenter, ...ACTIVE, $or: [{ code: rx }, { itemId: rx }] })
     .select(ITEM_FIELDS)
     .sort({ code: 1, brand: 1, typeDesign: 1 })
     .limit(20)
@@ -74,15 +75,15 @@ async function searchItems(req, res) {
 async function findByItemId(req, res) {
   const itemId = parseItemId(req.params.itemId);
   if (!itemId) throw new HttpError(400, 'Enter an item ID like ITM-00012');
-  const item = await Item.findOne({ itemId }).select(ITEM_FIELDS).lean();
-  if (!item) throw new HttpError(404, `No item has the ID ${itemId}`);
+  const item = await Item.findOne({ costCenter: req.costCenter, itemId }).select(ITEM_FIELDS).lean();
+  if (!item) throw new HttpError(404, `No item has the ID ${itemId} in this cost center`);
   if (item.archivedAt) throw new HttpError(409, `${itemId} is archived. Restore it on the Items page first.`);
   res.json({ item });
 }
 
 // GET /api/items/types — Type / Design choices for Add Item.
 async function listTypes(req, res) {
-  const used = await Item.distinct('typeDesign');
+  const used = await Item.distinct('typeDesign', { costCenter: req.costCenter });
   const types = [...new Set([...DEFAULT_TYPES, ...used.filter(Boolean)])].sort();
   res.json({ types });
 }
@@ -97,7 +98,7 @@ async function listFacets(req, res) {
   ];
   const whenBalance = (condition) => ({ $sum: { $cond: [condition, 1, 0] } });
   const [facets] = await Item.aggregate([
-    { $match: ACTIVE },
+    { $match: { costCenter: req.costCenter, ...ACTIVE } },
     {
       $facet: {
         categories: countBy('category'),
@@ -147,9 +148,9 @@ function parseItemFields(body = {}) {
   return fields;
 }
 
-// 409 when another item already has this code + brand + type / design.
-async function assertKeyIsFree(key, exceptId) {
-  const filter = { code: key.code, brand: key.brand, typeDesign: key.typeDesign };
+// 409 when another item in the cost center already has this code + brand + type / design.
+async function assertKeyIsFree(costCenter, key, exceptId) {
+  const filter = { costCenter, code: key.code, brand: key.brand, typeDesign: key.typeDesign };
   if (exceptId) filter._id = { $ne: exceptId };
   const other = await Item.findOne(filter).select('itemId archivedAt').lean();
   if (!other) return;
@@ -163,13 +164,15 @@ async function assertKeyIsFree(key, exceptId) {
 // marked BALANCE FORWARDED, like the opening row of each item in the Excel sheet.
 async function createItem(req, res) {
   const { category, code, brand, typeDesign, balanceForwarded } = parseItemFields(req.body);
-  await assertKeyIsFree({ code, brand, typeDesign });
+  const { costCenter } = req;
+  await assertKeyIsFree(costCenter, { code, brand, typeDesign });
 
   const item = await mongoose.connection.transaction(async (session) => {
     const [itemId] = await nextItemIds(1, session);
-    const [created] = await Item.create([{ itemId, category, code, brand, typeDesign, balanceForwarded, createdBy: req.user._id }], {
-      session,
-    });
+    const [created] = await Item.create(
+      [{ costCenter, itemId, category, code, brand, typeDesign, balanceForwarded, createdBy: req.user._id }],
+      { session },
+    );
     await record(req, { action: 'item.create', target: itemTarget(created), details: { category, balanceForwarded } }, session);
     if (balanceForwarded === 0) return created;
 
@@ -199,7 +202,7 @@ async function createItem(req, res) {
       activity: { kind: 'item', actorName: req.user.name, itemId: item.itemId, itemCode: describe(item) },
       sourceClientId: sourceClientId(req),
     },
-    { roles: ALL_ROLES },
+    { roles: ALL_ROLES, costCenter: req.costCenter },
   );
   res.status(201).json({ item });
 }
@@ -211,10 +214,10 @@ async function updateItem(req, res) {
   const fields = parseItemFields(req.body);
 
   const item = await mongoose.connection.transaction(async (session) => {
-    const current = await Item.findById(id).session(session);
+    const current = await Item.findOne({ _id: id, costCenter: req.costCenter }).session(session);
     if (!current) throw new HttpError(404, 'Item not found');
     if (current.archivedAt) throw new HttpError(409, 'This item is archived. Restore it before editing.');
-    await assertKeyIsFree(fields, id);
+    await assertKeyIsFree(req.costCenter, fields, id);
 
     const changes = diff(current, fields, ['category', 'code', 'brand', 'typeDesign', 'balanceForwarded']);
     const balanceChanged = current.balanceForwarded !== fields.balanceForwarded;
@@ -248,7 +251,7 @@ async function updateItem(req, res) {
     return recalculateItem(id, session);
   });
 
-  broadcast('item-changed', { itemId: String(item._id) }, { roles: ALL_ROLES });
+  broadcast('item-changed', { itemId: String(item._id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
   res.json({ item: pickFields(item) });
 }
 
@@ -256,19 +259,19 @@ async function updateItem(req, res) {
 async function archiveItem(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
   const item = await Item.findOneAndUpdate(
-    { _id: id, ...ACTIVE },
+    { _id: id, costCenter: req.costCenter, ...ACTIVE },
     { archivedAt: new Date(), archivedBy: req.user._id },
     { returnDocument: 'after' },
   )
     .select(ITEM_FIELDS)
     .lean();
   // Already archived: nothing to do.
-  const result = item ?? (await Item.findById(id).select(ITEM_FIELDS).lean());
+  const result = item ?? (await Item.findOne({ _id: id, costCenter: req.costCenter }).select(ITEM_FIELDS).lean());
   if (!result) throw new HttpError(404, 'Item not found');
 
   if (item) {
     await record(req, { action: 'item.archive', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES });
+    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
   }
   res.json({ item: result });
 }
@@ -277,19 +280,19 @@ async function archiveItem(req, res) {
 async function restoreItem(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
   const item = await Item.findOneAndUpdate(
-    { _id: id, archivedAt: { $ne: null } },
+    { _id: id, costCenter: req.costCenter, archivedAt: { $ne: null } },
     { archivedAt: null, $unset: { archivedBy: 1 } },
     { returnDocument: 'after' },
   )
     .select(ITEM_FIELDS)
     .lean();
   // Not archived: nothing to do.
-  const result = item ?? (await Item.findById(id).select(ITEM_FIELDS).lean());
+  const result = item ?? (await Item.findOne({ _id: id, costCenter: req.costCenter }).select(ITEM_FIELDS).lean());
   if (!result) throw new HttpError(404, 'Item not found');
 
   if (item) {
     await record(req, { action: 'item.restore', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES });
+    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
   }
   res.json({ item: result });
 }
@@ -305,7 +308,7 @@ async function batchItems(req, res) {
   if (action !== 'archive' && action !== 'restore') throw new HttpError(400, 'Action must be archive or restore');
 
   // Archive acts on active items, restore on archived ones: the view the action comes from.
-  const filter = itemsPageFilter({ ...(all ? query : {}), archived: action === 'restore' ? '1' : '' });
+  const filter = itemsPageFilter(req.costCenter, { ...(all ? query : {}), archived: action === 'restore' ? '1' : '' });
   if (!all) {
     if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, 'Select at least one item');
     if (ids.length > MAX_BATCH_IDS) throw new HttpError(400, `Select at most ${MAX_BATCH_IDS} items, or use "Select all"`);
@@ -323,19 +326,19 @@ async function batchItems(req, res) {
       action: `item.batch_${action}`,
       details: all ? { count: modifiedCount, all: true, query } : { count: modifiedCount, selected: ids.length },
     });
-    broadcast('item-changed', { batch: action, count: modifiedCount }, { roles: ALL_ROLES });
+    broadcast('item-changed', { batch: action, count: modifiedCount }, { roles: ALL_ROLES, costCenter: req.costCenter });
   }
   res.json({ action, count: modifiedCount });
 }
 
 // POST /api/items/import — body is an Excel file in the Summary Report format.
-// Adds every new item with its ending balance as BALANCE FORWARDED. Items that already
+// Adds every new item to the cost center with its ending balance as BALANCE FORWARDED. Items that already
 // exist, repeats within the file and invalid rows are skipped and reported back.
 async function importItems(req, res) {
   if (!Buffer.isBuffer(req.body) || !req.body.length) throw new HttpError(400, 'Choose an Excel file to import');
   const { rows, invalid, asOf } = await readSummaryReport(req.body);
 
-  const existing = await Item.find().select('code brand typeDesign').lean();
+  const existing = await Item.find({ costCenter: req.costCenter }).select('code brand typeDesign').lean();
   const keys = new Set(existing.map(itemKey));
   const toAdd = [];
   const skippedExisting = [];
@@ -355,6 +358,7 @@ async function importItems(req, res) {
     const itemIds = await nextItemIds(toAdd.length, session);
     const items = await Item.insertMany(
       toAdd.map((row, i) => ({
+        costCenter: req.costCenter,
         itemId: itemIds[i],
         category: row.category,
         code: row.code,
@@ -409,7 +413,7 @@ async function importItems(req, res) {
         activity: { kind: 'import', actorName: req.user.name, count: toAdd.length },
         sourceClientId: sourceClientId(req),
       },
-      { roles: ALL_ROLES },
+      { roles: ALL_ROLES, costCenter: req.costCenter },
     );
   }
   res.status(201).json({
@@ -421,14 +425,14 @@ async function importItems(req, res) {
   });
 }
 
-// GET /api/items/export — every item as an Excel file in the Summary Report layout.
+// GET /api/items/export — every item in the cost center as an Excel file in the Summary Report layout.
 async function exportItems(req, res) {
-  const items = await Item.find(ACTIVE).sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
+  const items = await Item.find({ costCenter: req.costCenter, ...ACTIVE }).sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
   const asOf = today();
   const buffer = await buildSummaryReport(items, asOf);
   await record(req, { action: 'item.export', details: { count: items.length } });
   res
-    .attachment(`EBR_Items_${asOf.toISOString().slice(0, 10)}.xlsx`)
+    .attachment(`EBR_Items_${costCenterLabel(req.costCenter).replace(/\s+/g, '_')}_${asOf.toISOString().slice(0, 10)}.xlsx`)
     .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     .send(Buffer.from(buffer));
 }
@@ -438,7 +442,7 @@ async function exportItems(req, res) {
 async function listItemTransactions(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
   const match = entryMatch(req.query);
-  const item = await Item.findById(id).select(ITEM_FIELDS).lean();
+  const item = await Item.findOne({ _id: id, costCenter: req.costCenter }).select(ITEM_FIELDS).lean();
   if (!item) throw new HttpError(404, 'Item not found');
 
   const transactions = await Transaction.find({ item: id, ...match })

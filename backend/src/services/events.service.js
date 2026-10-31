@@ -1,4 +1,5 @@
-// Open Server-Sent Events connections, one per browser tab, with the signed-in user's role.
+// Open Server-Sent Events connections, one per browser tab, with the signed-in user's role
+// and cost center (none for admins).
 // Kept in memory, which is fine while there is a single API process.
 const clients = new Map();
 
@@ -8,15 +9,21 @@ const WAREHOUSE_ROLES = ['admin', 'warehouse'];
 const ALL_ROLES = ['admin', 'warehouse', 'encoder'];
 const ENCODER_ROLES = ['encoder'];
 
-function addClient(res, role) {
-  clients.set(res, role);
+function addClient(res, { role, costCenter }) {
+  clients.set(res, { role, costCenter });
   return () => clients.delete(res);
 }
 
-// Sends one event to every connected browser whose user has one of `roles`.
-function broadcast(event, data, { roles = WAREHOUSE_ROLES } = {}) {
-  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const [res, role] of clients) if (roles.includes(role)) res.write(message);
+// Sends one event about `costCenter`'s data to every connected browser whose user has one of
+// `roles` and works in that cost center. Admins get every cost center's events, tagged with
+// costCenter, and skip the ones for a cost center they aren't viewing (frontend useLiveUpdates.js).
+function broadcast(event, data, { roles = WAREHOUSE_ROLES, costCenter }) {
+  const message = `event: ${event}\ndata: ${JSON.stringify({ ...data, costCenter })}\n\n`;
+  for (const [res, client] of clients) {
+    if (!roles.includes(client.role)) continue;
+    if (client.role !== 'admin' && client.costCenter !== costCenter) continue;
+    res.write(message);
+  }
 }
 
 // The browser tab that made a request (see frontend api/client.js), so that tab can

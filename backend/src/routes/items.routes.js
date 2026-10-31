@@ -15,12 +15,13 @@ const {
   exportItems,
   listItemTransactions,
 } = require('../controllers/items.controller');
-const { requireAuth, requireRole, requireWarehouse } = require('../middleware/auth');
+const { requireAuth, requireRole, requireWarehouse, resolveCostCenter } = require('../middleware/auth');
 
 const router = express.Router();
 const adminOnly = requireRole('admin');
 
-router.use(requireAuth);
+// Every request works on one cost center's items (req.costCenter).
+router.use(requireAuth, resolveCostCenter);
 // Encoders: only what Add Item needs.
 router.get('/types', listTypes);
 router.get('/categories', listCategories);

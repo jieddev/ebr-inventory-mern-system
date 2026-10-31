@@ -13,6 +13,23 @@ const api = axios.create({
   paramsSerializer: { indexes: null },
 })
 
+// The cost center the pages show (features/costCenter/CostCenterProvider.jsx). The server
+// only follows it for admins; everyone else always gets their own cost center.
+let costCenter = null
+
+export function setRequestCostCenter(value) {
+  costCenter = value
+}
+
+export function getRequestCostCenter() {
+  return costCenter
+}
+
+api.interceptors.request.use((config) => {
+  if (costCenter) config.headers['X-Cost-Center'] = costCenter
+  return config
+})
+
 // Drops empty strings and empty lists, so they don't show up in the query string.
 export function cleanParams(params) {
   return Object.fromEntries(

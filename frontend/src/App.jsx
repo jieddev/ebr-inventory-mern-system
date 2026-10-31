@@ -9,6 +9,7 @@ import LoginPage from './features/auth/LoginPage'
 import StatusPage from './features/system/StatusPage'
 import TransactionsPage from './features/transactions/TransactionsPage'
 import CreateUserPage from './features/users/CreateUserPage'
+import UsersPage from './features/users/UsersPage'
 import ItemsPage from './features/items/ItemsPage'
 import ActivityPage from './features/audit/ActivityPage'
 import DailyReportPage from './features/reports/DailyReportPage'
@@ -35,6 +36,7 @@ export default function App() {
               </Route>
 
               <Route element={<AdminRoute />}>
+                <Route path="/users" element={<UsersPage />} />
                 <Route path="/users/new" element={<CreateUserPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
               </Route>

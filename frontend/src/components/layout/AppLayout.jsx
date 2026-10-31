@@ -4,6 +4,8 @@ import ActivityToasts from './ActivityToasts'
 import AppBar from './AppBar'
 import Sidebar from './Sidebar'
 import { rememberView } from '../../utils/rememberedViews'
+import CostCenterProvider from '../../features/costCenter/CostCenterProvider'
+import { useCostCenter } from '../../features/costCenter/useCostCenter'
 import './AppLayout.css'
 
 export default function AppLayout() {
@@ -15,16 +17,24 @@ export default function AppLayout() {
   }, [location.pathname, location.search])
 
   return (
-    <div className="app-layout">
-      <AppBar />
-      <div className="app-body">
-        <Sidebar />
-        <main className="app-content">
-          <Outlet />
-        </main>
+    <CostCenterProvider>
+      <div className="app-layout">
+        <AppBar />
+        <div className="app-body">
+          <Sidebar />
+          <main className="app-content">
+            <CostCenterPage />
+          </main>
+        </div>
+        {/* Live notices. The server only sends each one to the roles allowed to see it. */}
+        <ActivityToasts />
       </div>
-      {/* Live notices. The server only sends each one to the roles allowed to see it. */}
-      <ActivityToasts />
-    </div>
+    </CostCenterProvider>
   )
+}
+
+// The current page, started over (and so re-fetched) when an admin switches cost center.
+function CostCenterPage() {
+  const { costCenter } = useCostCenter()
+  return <Outlet key={costCenter} />
 }

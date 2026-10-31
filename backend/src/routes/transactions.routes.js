@@ -9,11 +9,11 @@ const {
   cancelReservation,
   rollbackTransaction,
 } = require('../controllers/transactions.controller');
-const { requireAuth, requireRole, requireWarehouse } = require('../middleware/auth');
+const { requireAuth, requireRole, requireWarehouse, resolveCostCenter } = require('../middleware/auth');
 
 const router = Router();
 
-router.use(requireAuth, requireWarehouse);
+router.use(requireAuth, requireWarehouse, resolveCostCenter);
 router.get('/', listTransactions);
 router.post('/', createTransaction);
 // Before /:id, so "reservations" isn't read as a transaction ID.

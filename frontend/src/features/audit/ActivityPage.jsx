@@ -5,6 +5,7 @@ import ActiveFilters from '../../components/filters/ActiveFilters'
 import { getErrorMessage } from '../../api/auth'
 import { getAuditLog } from '../../api/audit'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
+import { costCenterLabel } from '../../utils/costCenters'
 import ActivityFilter from './ActivityFilter'
 import { EMPTY_ACTIVITY_FILTERS, activityChips, countActivityFilters, readActivityFilters } from './activityFilters'
 import searchIcon from '../../assets/icons/search.svg'
@@ -20,6 +21,7 @@ const ACTION_LABELS = {
   'auth.login_failed': 'Failed login',
   'auth.logout': 'Logged out',
   'user.create': 'Created user',
+  'user.update': 'Edited user',
   'item.create': 'Added item',
   'item.update': 'Edited item',
   'item.archive': 'Archived item',
@@ -206,6 +208,7 @@ export default function ActivityPage() {
                       </td>
                       <td className="activity-target">
                         <Target target={entry.target} />
+                        {entry.costCenter && <span className="activity-cost-center">{costCenterLabel(entry.costCenter)}</span>}
                       </td>
                       <td className="activity-details">
                         <Details entry={entry} />
@@ -368,8 +371,12 @@ function Details({ entry }) {
     case 'item.batch_archive':
     case 'item.batch_restore':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`
+    case 'user.update': {
+      const { from, to } = entry.changes?.costCenter ?? {}
+      return `Cost center: ${costCenterLabel(from) || '(not set)'} → ${costCenterLabel(to)}`
+    }
     case 'user.create':
-      return `Role: ${d.role}`
+      return [`Role: ${d.role}`, d.costCenter && `Cost center: ${costCenterLabel(d.costCenter)}`].filter(Boolean).join(' · ')
     default:
       return entry.ip ? <span className="items-muted">from {entry.ip.replace(/^::ffff:/, '')}</span> : null
   }

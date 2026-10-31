@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { COST_CENTER_VALUES } = require('../config/costCenters');
 
 const SALT_ROUNDS = 12;
 const ROLES = ['admin', 'warehouse', 'encoder'];
@@ -20,6 +21,9 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true, select: false },
     // admin: everything. warehouse: items and transactions. encoder: the Items page and Add Item.
     role: { type: String, enum: ROLES, default: 'warehouse' },
+    // The only cost center a warehouse user or encoder sees. Admins have none: they switch
+    // between all of them (see middleware/auth.js resolveCostCenter).
+    costCenter: { type: String, enum: [...COST_CENTER_VALUES, null], default: null },
     isActive: { type: Boolean, default: true },
     lastLoginAt: Date,
   },

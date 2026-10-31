@@ -12,7 +12,7 @@ const TYPES = [
   { value: 'item', label: 'Items', actions: ACTIONS.filter((a) => a.startsWith('item.')) },
   { value: 'transaction', label: 'Transactions', actions: ['transaction.create', 'transaction.release', 'transaction.cancel', 'transaction.rollback', 'receiving.create'] },
   { value: 'report', label: 'Reports', actions: ['report.export'] },
-  { value: 'user', label: 'Users', actions: ['user.create'] },
+  { value: 'user', label: 'Users', actions: ['user.create', 'user.update'] },
 ];
 const DAY_MS = 24 * 60 * 60 * 1000;
 

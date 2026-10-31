@@ -7,6 +7,8 @@ import { getErrorMessage } from '../../api/auth'
 import { exportDailyReport, getDailyReport } from '../../api/reports'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import { viewPath } from '../../utils/rememberedViews'
+import { costCenterLabel } from '../../utils/costCenters'
+import { useCostCenter } from '../costCenter/useCostCenter'
 import arrowLeftIcon from '../../assets/icons/arrow-left.svg'
 import calendarIcon from '../../assets/icons/calendar.svg'
 import downloadIcon from '../../assets/icons/download.svg'
@@ -29,6 +31,7 @@ const dateTime = new Intl.DateTimeFormat('en-US', {
 // from /reports/daily?date=YYYY-MM-DD. Pages on screen; Print prints every item.
 export default function DailyReportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { costCenter } = useCostCenter()
   const date = searchParams.get('date') || todayInputValue()
   const [page, setPage] = useState({ date, number: 1 })
   // The last finished request; it's loading while that isn't the current request.
@@ -114,7 +117,7 @@ export default function DailyReportPage() {
         <article className={`report-card ${isLoading && data ? 'is-loading' : ''}`} aria-busy={isLoading}>
           <header className="report-header">
             <div>
-              <p className="report-eyebrow">EBR Inventory System · Servitek</p>
+              <p className="report-eyebrow">EBR Inventory System · {costCenterLabel(costCenter)}</p>
               <h1>Daily Report</h1>
               <p className="report-as-of">As of {asOfText}</p>
             </div>

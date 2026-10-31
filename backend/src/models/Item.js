@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { COST_CENTER_VALUES, DEFAULT_COST_CENTER } = require('../config/costCenters');
 
 // Type / Design values used in the Excel workbook. New ones can still be typed in.
 const DEFAULT_TYPES = [
@@ -33,7 +34,10 @@ const normalize = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toU
 
 const itemSchema = new mongoose.Schema(
   {
-    // Permanent, human-readable ID such as ITM-00001. Set by services/itemId.service.js.
+    // The cost center the item (and so its ledger) belongs to. Set when the item is added; never changes.
+    costCenter: { type: String, enum: COST_CENTER_VALUES, required: true, default: DEFAULT_COST_CENTER },
+    // Permanent, human-readable ID such as ITM-00001, unique across all cost centers.
+    // Set by services/itemId.service.js.
     itemId: { type: String },
     category: { type: String, enum: ['', ...CATEGORIES], default: '' },
     code: { type: String, required: true, maxlength: 80, set: normalize },
@@ -62,10 +66,12 @@ const itemSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// One item = ITEM CODE + BRAND NAME + TYPE / DESIGN, the same key the Excel macros use.
-// The same code can belong to different items, e.g. "2.25-17" is a STAR tire, a CHAMP tire and an IZUMI tube.
-itemSchema.index({ code: 1, brand: 1, typeDesign: 1 }, { unique: true });
-itemSchema.index({ lastTransactionDate: -1, updatedAt: -1 });
+// One item = ITEM CODE + BRAND NAME + TYPE / DESIGN in a cost center, the same key the Excel macros use.
+// The same code can belong to different items, e.g. "2.25-17" is a STAR tire, a CHAMP tire and an IZUMI tube,
+// and each cost center can have its own item with the same key.
+itemSchema.index({ costCenter: 1, code: 1, brand: 1, typeDesign: 1 }, { unique: true });
+itemSchema.index({ costCenter: 1, lastTransactionDate: -1, updatedAt: -1 });
+itemSchema.index({ costCenter: 1, itemId: 1 });
 // Sparse, so items saved before IDs existed don't clash until the startup backfill runs.
 itemSchema.index({ itemId: 1 }, { unique: true, sparse: true });
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { COST_CENTER_VALUES, DEFAULT_COST_CENTER } = require('../config/costCenters');
 
 // Bodega Receiving Report (BRR): the paper receiving slip, entered from Add Transaction's
 // "BRR template". Each line is also saved as an IN transaction; this record keeps what the
@@ -19,6 +20,7 @@ const lineSchema = new mongoose.Schema(
 
 const receivingReportSchema = new mongoose.Schema(
   {
+    costCenter: { type: String, enum: COST_CENTER_VALUES, required: true, default: DEFAULT_COST_CENTER },
     // The red number printed on the slip. Optional; digits only.
     reportNo: { type: String, default: '' },
     date: { type: Date, required: true },
@@ -33,7 +35,7 @@ const receivingReportSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-receivingReportSchema.index({ reportNo: 1 });
+receivingReportSchema.index({ costCenter: 1, reportNo: 1 });
 receivingReportSchema.index({ date: -1 });
 // Finds the report a transaction came from (transaction details panel).
 receivingReportSchema.index({ 'lines.transaction': 1 });

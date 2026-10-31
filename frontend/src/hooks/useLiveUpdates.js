@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { getRequestCostCenter } from '../api/client'
 
 const EVENTS_URL = `${import.meta.env.VITE_API_URL || '/api'}/events`
 
@@ -18,6 +19,8 @@ function connect() {
   }
   source.addEventListener('item-changed', (event) => {
     const change = JSON.parse(event.data)
+    // Admins hear about every cost center; only the one on screen matters.
+    if (change.costCenter && change.costCenter !== getRequestCostCenter()) return
     listeners.forEach((listener) => listener(change))
   })
 }

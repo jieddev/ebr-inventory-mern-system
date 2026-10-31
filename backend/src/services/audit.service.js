@@ -28,6 +28,7 @@ async function record(req, { action, target, changes, details, actor = req.user 
       {
         action,
         actor: actorOf(actor),
+        costCenter: req.costCenter,
         target,
         changes,
         details,

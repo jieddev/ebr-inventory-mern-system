@@ -5,9 +5,12 @@ import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { createUser } from '../../api/users'
 import { viewPath } from '../../utils/rememberedViews'
+import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
+import { useCostCenter } from '../costCenter/useCostCenter'
 import './CreateUserPage.css'
 
-const EMPTY_FORM = { userId: '', name: '', password: '', confirmPassword: '', role: 'warehouse' }
+// costCenter starts as the one on screen (see CreateUserPage).
+const EMPTY_FORM = { userId: '', name: '', password: '', confirmPassword: '', role: 'warehouse', costCenter: '' }
 
 function validate(form) {
   const errors = {}
@@ -24,8 +27,12 @@ function validate(form) {
 export default function CreateUserPage() {
   const navigate = useNavigate()
   const roleId = useId()
+  const costCenterId = useId()
+  const { costCenter } = useCostCenter()
+  const emptyForm = { ...EMPTY_FORM, costCenter }
 
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(emptyForm)
+  const isAdminRole = form.role === 'admin'
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -51,9 +58,12 @@ export default function CreateUserPage() {
         name: form.name.trim(),
         password: form.password,
         role: form.role,
+        // Admins switch between every cost center.
+        costCenter: isAdminRole ? undefined : form.costCenter,
       })
-      setSuccessMessage(`User "${created.userId}" (${created.role}) created.`)
-      setForm(EMPTY_FORM)
+      const where = created.costCenter ? `, ${costCenterLabel(created.costCenter)}` : ''
+      setSuccessMessage(`User "${created.userId}" (${created.role}${where}) created.`)
+      setForm(emptyForm)
     } catch (err) {
       setFormError(getErrorMessage(err))
     } finally {
@@ -137,6 +147,30 @@ export default function CreateUserPage() {
             <option value="admin">Admin: everything</option>
           </select>
         </div>
+
+        {isAdminRole ? (
+          <p className="field-hint">Admins can switch between every cost center.</p>
+        ) : (
+          <div className="field">
+            <label className="field-label" htmlFor={costCenterId}>
+              Cost center
+            </label>
+            <select
+              id={costCenterId}
+              name="costCenter"
+              className="field-input"
+              value={form.costCenter}
+              onChange={handleChange}
+            >
+              {COST_CENTERS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">They will only see this cost center&apos;s items and transactions.</p>
+          </div>
+        )}
 
         <Button type="submit" size="lg" block isLoading={isSubmitting}>
           {isSubmitting ? 'Creating…' : 'Create user'}

@@ -23,7 +23,7 @@ async function listTransactions(req, res) {
   const search = String(req.query.search ?? '').trim();
   const match = entryMatch(req.query);
 
-  const conditions = [ACTIVE, ...itemConditions(req.query)];
+  const conditions = [{ costCenter: req.costCenter }, ACTIVE, ...itemConditions(req.query)];
   if (search) {
     const rx = containsRegex(search);
     const customerItemIds = await Transaction.distinct('item', { customerName: rx });
@@ -80,10 +80,10 @@ async function listTransactions(req, res) {
   });
 }
 
-// IN and OUT quantity totals of the entries behind a filtered list.
+// IN and OUT quantity totals of the entries behind a filtered list. itemFilter always
+// includes the cost center, so only its entries are counted.
 async function summarize(itemFilter, match) {
-  const entryFilter = { ...match };
-  if (Object.keys(itemFilter).length) entryFilter.item = { $in: await Item.distinct('_id', itemFilter) };
+  const entryFilter = { ...match, item: { $in: await Item.distinct('_id', itemFilter) } };
   const totals = await Transaction.aggregate([
     { $match: entryFilter },
     { $group: { _id: '$type', quantity: { $sum: '$quantity' } } },
@@ -101,13 +101,14 @@ async function getTransaction(req, res) {
       .select(
         'item date type quantity customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt releasedAt releasedBy',
       )
-      .populate('item', 'itemId category code brand typeDesign')
+      .populate('item', 'costCenter itemId category code brand typeDesign')
       .populate('createdBy', 'userId name role')
       .populate('releasedBy', 'userId name role')
       .lean(),
     ReceivingReport.findOne({ 'lines.transaction': id }).select({ reportNo: 1, receivedBy: 1, 'lines.$': 1 }).lean(),
   ]);
-  if (!transaction) throw new HttpError(404, 'Transaction not found');
+  // Another cost center's entry is answered like a missing one.
+  if (!transaction || transaction.item?.costCenter !== req.costCenter) throw new HttpError(404, 'Transaction not found');
 
   const receiving = report && { reportNo: report.reportNo, receivedBy: report.receivedBy, unit: report.lines[0]?.unit };
   res.json({ transaction, receiving: receiving ?? null });
@@ -117,9 +118,10 @@ async function getTransaction(req, res) {
 const MAX_RESERVATIONS = 500;
 const DUE_FILTERS = ['overdue', 'today', 'upcoming'];
 
-// Pending reservations on active items, optionally narrowed by item ID, code, brand or customer.
-async function reservationMatch(search) {
-  const itemFilter = { ...ACTIVE };
+// Pending reservations on the cost center's active items, optionally narrowed by item ID,
+// code, brand or customer.
+async function reservationMatch(costCenter, search) {
+  const itemFilter = { costCenter, ...ACTIVE };
   const match = { type: 'RESERVE' };
   if (search) {
     const rx = containsRegex(search);
@@ -159,7 +161,7 @@ async function listReservations(req, res) {
   if (due && !DUE_FILTERS.includes(due)) throw new HttpError(400, 'Due must be overdue, today or upcoming');
 
   const day = today();
-  const match = await reservationMatch(search);
+  const match = await reservationMatch(req.costCenter, search);
   const filter = due ? { $and: [match, dueConditions(day)[due]] } : match;
 
   const [ordered, counts] = await Promise.all([
@@ -187,7 +189,7 @@ async function listReservations(req, res) {
 
 // GET /api/transactions/reservations/count — for the sidebar badge.
 async function reservationCounts(req, res) {
-  const { all, overdue } = await countReservations(await reservationMatch(''), today());
+  const { all, overdue } = await countReservations(await reservationMatch(req.costCenter, ''), today());
   res.json({ pending: all, overdue });
 }
 
@@ -207,7 +209,10 @@ async function createTransaction(req, res) {
   const notes = isReserve ? String(body.notes ?? '').trim().slice(0, 300) : '';
 
   const result = await mongoose.connection.transaction(async (session) => {
-    const target = await Item.findById(itemId).select('itemId code brand typeDesign archivedAt').session(session).lean();
+    const target = await Item.findOne({ _id: itemId, costCenter: req.costCenter })
+      .select('itemId code brand typeDesign archivedAt')
+      .session(session)
+      .lean();
     if (!target) throw new HttpError(404, 'Item not found');
     if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
 
@@ -241,7 +246,7 @@ async function releaseReservation(req, res) {
   const date = req.body?.date ? parseDay(req.body.date, 'Release date') : today();
 
   const result = await mongoose.connection.transaction(async (session) => {
-    const { entry, target } = await loadReservation(id, session);
+    const { entry, target } = await loadReservation(req, id, session);
     await Transaction.updateOne(
       { _id: id },
       { type: 'OUT', date, releasedAt: new Date(), releasedBy: req.user._id },
@@ -271,7 +276,7 @@ async function cancelReservation(req, res) {
   const id = parseObjectId(req.params.id, 'Transaction');
 
   const result = await mongoose.connection.transaction(async (session) => {
-    const { entry, target } = await loadReservation(id, session);
+    const { entry, target } = await loadReservation(req, id, session);
     await Transaction.deleteOne({ _id: id }, { session });
     await record(
       req,
@@ -313,7 +318,11 @@ async function rollbackTransaction(req, res) {
     if (entry.isBalanceForwarded) {
       throw new HttpError(409, 'The balance forwarded can only be changed with Edit Item on the Items page.');
     }
-    const target = await Item.findById(entry.item).select('itemId code brand typeDesign archivedAt').session(session).lean();
+    const target = await Item.findOne({ _id: entry.item, costCenter: req.costCenter })
+      .select('itemId code brand typeDesign archivedAt')
+      .session(session)
+      .lean();
+    if (!target) throw new HttpError(404, 'Transaction not found');
     if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
 
     await Transaction.deleteOne({ _id: id }, { session });
@@ -349,12 +358,15 @@ async function rollbackTransaction(req, res) {
   res.json({ item: result.item });
 }
 
-// The reservation and its item; 404 if it's gone, 409 if it's not a reservation (any more).
-async function loadReservation(id, session) {
+// The reservation and its item; 404 if it's gone or in another cost center, 409 if it's not
+// a reservation (any more).
+async function loadReservation(req, id, session) {
   const entry = await Transaction.findById(id).select('item date type quantity customerName neededBy notes').session(session).lean();
-  if (!entry) throw new HttpError(404, 'Transaction not found');
+  const target =
+    entry &&
+    (await Item.findOne({ _id: entry.item, costCenter: req.costCenter }).select('itemId code brand typeDesign').session(session).lean());
+  if (!target) throw new HttpError(404, 'Transaction not found');
   if (entry.type !== 'RESERVE') throw new HttpError(409, 'This entry is not a reservation (it may already be out).');
-  const target = await Item.findById(entry.item).select('itemId code brand typeDesign').session(session).lean();
   return { entry, target };
 }
 
@@ -365,9 +377,9 @@ function announce(req, item, activity) {
     itemId: String(item._id),
     activity: { ...activity, actorName: req.user.name, itemCode: item.code },
     sourceClientId: sourceClientId(req),
-  });
+  }, { costCenter: req.costCenter });
   // Encoders only learn that the item changed (its balance), not the transaction.
-  broadcast('item-changed', { itemId: String(item._id) }, { roles: ENCODER_ROLES });
+  broadcast('item-changed', { itemId: String(item._id) }, { roles: ENCODER_ROLES, costCenter: req.costCenter });
 }
 
 module.exports = {

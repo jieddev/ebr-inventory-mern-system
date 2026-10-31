@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getReservationCounts } from '../api/transactions'
+import { useCostCenter } from '../features/costCenter/useCostCenter'
 import { useLiveUpdates } from './useLiveUpdates'
 
 // Changes that land within this window cause a single re-fetch.
@@ -9,6 +10,7 @@ const REFRESH_DELAY_MS = 500
 // which also reaches the tab that made the change. Pass enabled: false for roles that
 // can't see reservations; the counts then stay at 0.
 export function usePendingReservations({ enabled = true } = {}) {
+  const { costCenter } = useCostCenter()
   const [counts, setCounts] = useState({ pending: 0, overdue: 0 })
   const [refreshKey, setRefreshKey] = useState(0)
   const timer = useRef(null)
@@ -20,7 +22,7 @@ export function usePendingReservations({ enabled = true } = {}) {
       .then(setCounts)
       .catch(() => {}) // the badge keeps its last numbers; the next change retries
     return () => controller.abort()
-  }, [enabled, refreshKey])
+  }, [enabled, refreshKey, costCenter])
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
