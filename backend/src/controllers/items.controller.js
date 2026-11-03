@@ -6,16 +6,17 @@ const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
-const { broadcast, sourceClientId, ALL_ROLES } = require('../services/events.service');
+const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
 const { costCenterLabel } = require('../config/costCenters');
+const { can } = require('../config/permissions');
 
-// What encoders see of an item: its details and current ending balance, but nothing about
-// its transactions (no last transaction date or type, no count).
-const ENCODER_ITEM_FIELDS = 'itemId category code brand typeDesign balance';
+// What users without viewItemStock see of an item: its details and current ending balance,
+// but nothing about its transactions (no last transaction date or type, no count).
+const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance';
 const ITEM_FIELDS =
   'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
 
@@ -24,10 +25,10 @@ const ITEM_FIELDS =
 // ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
-  const isEncoder = req.user.role === 'encoder';
+  const seesStock = can(req.user, 'viewItemStock');
   if (req.query.archived === '1' && req.user.role !== 'admin') throw new HttpError(403, 'You do not have access to this action');
-  // Encoders don't see stock (it comes from transactions), so they can't filter by it either.
-  const filter = itemsPageFilter(req.costCenter, isEncoder ? { ...req.query, stock: '' } : req.query);
+  // Without stock details they can't filter by stock either.
+  const filter = itemsPageFilter(req.costCenter, seesStock ? req.query : { ...req.query, stock: '' });
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
@@ -35,7 +36,7 @@ async function listItems(req, res) {
       .sort({ itemId: 1, _id: 1 })
       .skip(skip)
       .limit(limit)
-      .select(isEncoder ? ENCODER_ITEM_FIELDS : ITEM_FIELDS)
+      .select(seesStock ? ITEM_FIELDS : BASIC_ITEM_FIELDS)
       .lean(),
   ]);
   res.json({ items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
@@ -125,7 +126,7 @@ async function listFacets(req, res) {
     categories: CATEGORIES.map((value) => ({ value, count: categoryCounts.get(value) ?? 0 })),
     typeDesigns: facets.typeDesigns,
     brands: facets.brands,
-    ...(req.user.role !== 'encoder' && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
+    ...((can(req.user, 'viewItemStock') || can(req.user, 'addTransactions')) && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
   });
 }
 
@@ -202,7 +203,7 @@ async function createItem(req, res) {
       activity: { kind: 'item', actorName: req.user.name, itemId: item.itemId, itemCode: describe(item) },
       sourceClientId: sourceClientId(req),
     },
-    { roles: ALL_ROLES, costCenter: req.costCenter },
+    { permission: EVERYONE, costCenter: req.costCenter },
   );
   res.status(201).json({ item });
 }
@@ -251,7 +252,7 @@ async function updateItem(req, res) {
     return recalculateItem(id, session);
   });
 
-  broadcast('item-changed', { itemId: String(item._id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
+  broadcast('item-changed', { itemId: String(item._id) }, { permission: EVERYONE, costCenter: req.costCenter });
   res.json({ item: pickFields(item) });
 }
 
@@ -271,7 +272,7 @@ async function archiveItem(req, res) {
 
   if (item) {
     await record(req, { action: 'item.archive', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
+    broadcast('item-changed', { itemId: String(id) }, { permission: EVERYONE, costCenter: req.costCenter });
   }
   res.json({ item: result });
 }
@@ -292,7 +293,7 @@ async function restoreItem(req, res) {
 
   if (item) {
     await record(req, { action: 'item.restore', target: itemTarget(item) });
-    broadcast('item-changed', { itemId: String(id) }, { roles: ALL_ROLES, costCenter: req.costCenter });
+    broadcast('item-changed', { itemId: String(id) }, { permission: EVERYONE, costCenter: req.costCenter });
   }
   res.json({ item: result });
 }
@@ -326,7 +327,7 @@ async function batchItems(req, res) {
       action: `item.batch_${action}`,
       details: all ? { count: modifiedCount, all: true, query } : { count: modifiedCount, selected: ids.length },
     });
-    broadcast('item-changed', { batch: action, count: modifiedCount }, { roles: ALL_ROLES, costCenter: req.costCenter });
+    broadcast('item-changed', { batch: action, count: modifiedCount }, { permission: EVERYONE, costCenter: req.costCenter });
   }
   res.json({ action, count: modifiedCount });
 }
@@ -413,7 +414,7 @@ async function importItems(req, res) {
         activity: { kind: 'import', actorName: req.user.name, count: toAdd.length },
         sourceClientId: sourceClientId(req),
       },
-      { roles: ALL_ROLES, costCenter: req.costCenter },
+      { permission: EVERYONE, costCenter: req.costCenter },
     );
   }
   res.status(201).json({

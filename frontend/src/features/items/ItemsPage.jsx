@@ -20,6 +20,7 @@ import closeIcon from '../../assets/icons/close.svg'
 import EditItemPanel from './EditItemPanel'
 import AddItemPanel from './AddItemPanel'
 import { useAuth } from '../auth/useAuth'
+import { can } from '../../utils/permissions'
 import '../transactions/TransactionsPage.css'
 import './ItemsPage.css'
 
@@ -32,14 +33,16 @@ const SEARCH_DELAY_MS = 300
 // all: every item matching the current search, filters and view, on every page.
 const NO_SELECTION = { scope: null, ids: new Set(), all: false }
 
-// Every unique item with its item ID, and Add Item. Admins and encoders.
-// Everyone sees the current ending balance. Admins also get: the last transaction date,
-// Excel import and export, Edit / Archive per item, the Archived view (with Restore), and
-// ticked rows (or "Select all N matching") archived or restored in one go.
-// Encoders see item details and balance only; the API leaves out the rest.
+// Every unique item with its item ID, for users with viewItems; Add Item with addItems.
+// Everyone sees the current ending balance. With viewItemStock: the stock filter and the last
+// transaction date (the API leaves them out otherwise). Admins also get: Excel import and
+// export, Edit / Archive per item, the Archived view (with Restore), and ticked rows
+// (or "Select all N matching") archived or restored in one go.
 export default function ItemsPage() {
   const { user } = useAuth()
   const isAdmin = user.role === 'admin'
+  const canAddItems = can(user, 'addItems')
+  const seesStock = can(user, 'viewItemStock')
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
@@ -268,18 +271,20 @@ export default function ItemsPage() {
       <section className="workspace-content">
         <header className="page-header">
           <h1>All Items</h1>
-          {!isArchivedView && (
+          {!isArchivedView && (canAddItems || isAdmin) && (
             <div className="page-actions">
-              <Button
-                onClick={() => {
-                  setEditing(null)
-                  setIsAdding(true)
-                }}
-                aria-pressed={isAdding}
-              >
-                <img src={plusIcon} alt="" />
-                Add Item
-              </Button>
+              {canAddItems && (
+                <Button
+                  onClick={() => {
+                    setEditing(null)
+                    setIsAdding(true)
+                  }}
+                  aria-pressed={isAdding}
+                >
+                  <img src={plusIcon} alt="" />
+                  Add Item
+                </Button>
+              )}
               {isAdmin && (
                 <>
                   <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" hidden onChange={handleFileChosen} />
@@ -310,7 +315,7 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
-            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={isAdmin} />
+            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={seesStock} />
 
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
@@ -413,12 +418,8 @@ export default function ItemsPage() {
                     <th>Item Description</th>
                     <th>Brand name</th>
                     <th className="is-number">Balance</th>
-                    {isAdmin && (
-                      <>
-                        <th>Last transaction</th>
-                        <th className="items-actions-col" aria-label="Actions" />
-                      </>
-                    )}
+                    {seesStock && <th>Last transaction</th>}
+                    {isAdmin && <th className="items-actions-col" aria-label="Actions" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -443,53 +444,51 @@ export default function ItemsPage() {
                       <td className={`is-number ${item.balance < 0 ? 'is-negative' : ''}`}>
                         {formatNumber(item.balance)}
                       </td>
+                      {seesStock && <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>}
                       {isAdmin && (
-                        <>
-                          <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>
-                          <td className="items-actions">
-                            {isArchivedView ? (
+                        <td className="items-actions">
+                          {isArchivedView ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestore(item)}
+                              isLoading={restoringId === item._id}
+                              aria-label={`Restore ${item.itemId}`}
+                            >
+                              Restore
+                            </Button>
+                          ) : (
+                            <>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleRestore(item)}
-                                isLoading={restoringId === item._id}
-                                aria-label={`Restore ${item.itemId}`}
+                                onClick={() => {
+                                  setIsAdding(false)
+                                  setEditing(item)
+                                }}
+                                aria-pressed={editing?._id === item._id}
+                                aria-label={`Edit ${item.itemId}`}
                               >
-                                Restore
+                                Edit
                               </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setIsAdding(false)
-                                    setEditing(item)
-                                  }}
-                                  aria-pressed={editing?._id === item._id}
-                                  aria-label={`Edit ${item.itemId}`}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="items-archive-btn"
-                                  onClick={() =>
-                                    setConfirmArchive({
-                                      item,
-                                      isBusy: false,
-                                      error: '',
-                                    })
-                                  }
-                                  aria-label={`Archive ${item.itemId}`}
-                                >
-                                  Archive
-                                </Button>
-                              </>
-                            )}
-                          </td>
-                        </>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="items-archive-btn"
+                                onClick={() =>
+                                  setConfirmArchive({
+                                    item,
+                                    isBusy: false,
+                                    error: '',
+                                  })
+                                }
+                                aria-label={`Archive ${item.itemId}`}
+                              >
+                                Archive
+                              </Button>
+                            </>
+                          )}
+                        </td>
                       )}
                     </tr>
                   ))}
@@ -566,7 +565,7 @@ export default function ItemsPage() {
       {editing && (
         <EditItemPanel key={editing._id} item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
       )}
-      {isAdding && !editing && (
+      {isAdding && !editing && canAddItems && (
         <AddItemPanel
           onClose={() => setIsAdding(false)}
           onAdded={(item) => {

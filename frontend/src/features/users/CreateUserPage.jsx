@@ -4,11 +4,21 @@ import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { createUser } from '../../api/users'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
+import { ROLE_DEFAULTS } from '../../utils/permissions'
 import { useCostCenter } from '../costCenter/useCostCenter'
+import PermissionChecklist from './PermissionChecklist'
 import './CreateUserPage.css'
 
-// costCenter starts as the one on screen (see CreateUserPage).
-const EMPTY_FORM = { userId: '', name: '', password: '', confirmPassword: '', role: 'warehouse', costCenter: '' }
+// costCenter starts as the one on screen (see CreateUserPage); permissions as the role's defaults.
+const EMPTY_FORM = {
+  userId: '',
+  name: '',
+  password: '',
+  confirmPassword: '',
+  role: 'warehouse',
+  costCenter: '',
+  permissions: ROLE_DEFAULTS.warehouse,
+}
 
 function validate(form) {
   const errors = {}
@@ -37,7 +47,8 @@ export default function CreateUserPage() {
 
   function handleChange(event) {
     const { name, value } = event.target
-    setForm((f) => ({ ...f, [name]: value }))
+    // Picking a role ticks its default permissions; the admin can change them after.
+    setForm((f) => ({ ...f, [name]: value, ...(name === 'role' && { permissions: ROLE_DEFAULTS[value] ?? [] }) }))
   }
 
   async function handleSubmit(event) {
@@ -55,8 +66,9 @@ export default function CreateUserPage() {
         name: form.name.trim(),
         password: form.password,
         role: form.role,
-        // Admins switch between every cost center.
+        // Admins switch between every cost center and can do everything.
         costCenter: isAdminRole ? undefined : form.costCenter,
+        permissions: isAdminRole ? undefined : form.permissions,
       })
       const where = created.costCenter ? `, ${costCenterLabel(created.costCenter)}` : ''
       setSuccessMessage(`User "${created.userId}" (${created.role}${where}) created.`)
@@ -136,11 +148,20 @@ export default function CreateUserPage() {
             Role
           </label>
           <select id={roleId} name="role" className="field-input" value={form.role} onChange={handleChange}>
-            <option value="warehouse">Warehouse: items and transactions</option>
-            <option value="encoder">Encoder: add items only</option>
+            <option value="warehouse">Warehouse: transactions</option>
+            <option value="encoder">Encoder: items</option>
             <option value="admin">Admin: everything</option>
           </select>
         </div>
+
+        {isAdminRole ? (
+          <p className="field-hint">Admins can do everything, so they have no permissions to set.</p>
+        ) : (
+          <PermissionChecklist
+            value={form.permissions}
+            onChange={(permissions) => setForm((f) => ({ ...f, permissions }))}
+          />
+        )}
 
         {isAdminRole ? (
           <p className="field-hint">Admins can switch between every cost center.</p>

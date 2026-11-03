@@ -3,6 +3,7 @@ const User = require('../models/User');
 const HttpError = require('../utils/httpError');
 const { jwtSecret } = require('../config/env');
 const { DEFAULT_COST_CENTER, isCostCenter } = require('../config/costCenters');
+const { can } = require('../config/permissions');
 
 const AUTH_COOKIE = 'ebr_token';
 
@@ -46,7 +47,12 @@ function resolveCostCenter(req, res, next) {
   next();
 }
 
-// Everyone but encoders, who may only add items (see routes/items.routes.js).
-const requireWarehouse = requireRole('admin', 'warehouse');
+// Lets the request through when the user has any of `permissions` (admins always do).
+function requirePermission(...permissions) {
+  return (req, res, next) => {
+    if (!permissions.some((p) => can(req.user, p))) throw new HttpError(403, 'You do not have access to this action');
+    next();
+  };
+}
 
-module.exports = { AUTH_COOKIE, requireAuth, requireRole, requireWarehouse, resolveCostCenter };
+module.exports = { AUTH_COOKIE, requireAuth, requireRole, requirePermission, resolveCostCenter };

@@ -7,8 +7,10 @@ import { getErrorMessage } from '../../api/auth'
 import { updateUser } from '../../api/users'
 import { COST_CENTERS } from '../../utils/costCenters'
 import { ROLE_LABELS } from '../../utils/roles'
+import { permissionsOf } from '../../utils/permissions'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
 import { useAuth } from '../auth/useAuth'
+import PermissionChecklist from './PermissionChecklist'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Enable' },
@@ -16,8 +18,9 @@ const STATUS_OPTIONS = [
 ]
 
 // Opened by clicking a row on User management. Warehouse users and encoders get a cost
-// center (admins have none: they switch between all), and any account but your own can be
-// disabled. Both apply from the user's next request.
+// center and permissions (admins have neither: they switch between all cost centers and can
+// do everything), and any account but your own can be disabled. All apply from the user's
+// next request.
 export default function EditUserPanel({ user, onClose, onSaved }) {
   const { user: me } = useAuth()
   const costCenterId = useId()
@@ -25,6 +28,7 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
   const isAdmin = user.role === 'admin'
   const isMe = user._id === me._id
   const [costCenter, setCostCenter] = useState(user.costCenter ?? '')
+  const [permissions, setPermissions] = useState(() => permissionsOf(user))
   const [isActive, setIsActive] = useState(user.isActive)
   const [error, setError] = useState('')
   const [formError, setFormError] = useState('')
@@ -40,6 +44,9 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
     if (!isAdmin && !costCenter) return setError('Select a cost center')
     const changes = {}
     if (!isAdmin && costCenter !== user.costCenter) changes.costCenter = costCenter
+    if (!isAdmin && [...permissions].sort().join() !== [...permissionsOf(user)].sort().join()) {
+      changes.permissions = permissions
+    }
     if (isActive !== user.isActive) changes.isActive = isActive
     if (!Object.keys(changes).length) return onClose()
 
@@ -133,6 +140,18 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
             {error || "They'll only see this cost center's items, transactions and reports."}
           </p>
         </div>
+      )}
+
+      {isAdmin ? (
+        <TextField
+          label="Permissions"
+          readOnly
+          tabIndex={-1}
+          value="Everything"
+          hint="Admins can do everything, so they have no permissions to set."
+        />
+      ) : (
+        <PermissionChecklist value={permissions} onChange={setPermissions} />
       )}
 
       {isMe ? (

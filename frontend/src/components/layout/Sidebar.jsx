@@ -3,25 +3,27 @@ import { useAuth } from '../../features/auth/useAuth'
 import { useCostCenter } from '../../features/costCenter/useCostCenter'
 import { usePendingReservations } from '../../hooks/usePendingReservations'
 import { viewPath } from '../../utils/rememberedViews'
+import { can } from '../../utils/permissions'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
 import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
 import '../ui/TextField.css'
 import './Sidebar.css'
 
-// roles: who can open the page; keep in step with the RoleRoute/AdminRoute wrappers in App.jsx.
+// permission: who can open the page (admins can open all); keep in step with the
+// PermissionRoute/AdminRoute wrappers in App.jsx.
 const LINKS = [
-  { to: '/transactions', label: 'Transactions', icon: 'transactions', roles: ['admin', 'warehouse'] },
-  { to: '/reservations', label: 'Reservations', icon: 'reservations', roles: ['admin', 'warehouse'] },
-  { to: '/items', label: 'Items', icon: 'items', roles: ['admin', 'encoder'] },
-  { to: '/activity', label: 'Activity', icon: 'activity', roles: ['admin'] },
-  { to: '/users', label: 'User management', icon: 'users', roles: ['admin'] },
+  { to: '/transactions', label: 'Transactions', icon: 'transactions', permission: 'addTransactions' },
+  { to: '/reservations', label: 'Reservations', icon: 'reservations', permission: 'addTransactions' },
+  { to: '/items', label: 'Items', icon: 'items', permission: 'viewItems' },
+  { to: '/activity', label: 'Activity', icon: 'activity', adminOnly: true },
+  { to: '/users', label: 'User management', icon: 'users', adminOnly: true },
 ]
 
 // Shows icons only, and expands over the page on hover or keyboard focus.
 export default function Sidebar() {
   const { user } = useAuth()
   const { pathname, search } = useLocation()
-  const links = LINKS.filter((link) => link.roles.includes(user.role))
+  const links = LINKS.filter((link) => (link.adminOnly ? user.role === 'admin' : can(user, link.permission)))
   const reservations = usePendingReservations({ enabled: links.some((link) => link.to === '/reservations') })
   const { costCenter, canSwitch, setCostCenter } = useCostCenter()
   const label = costCenterLabel(costCenter)

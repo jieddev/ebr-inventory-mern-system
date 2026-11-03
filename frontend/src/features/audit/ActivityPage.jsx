@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../api/auth'
 import { getAuditLog } from '../../api/audit'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import { costCenterLabel } from '../../utils/costCenters'
+import { permissionShortLabel } from '../../utils/permissions'
 import ActivityFilter from './ActivityFilter'
 import { EMPTY_ACTIVITY_FILTERS, activityChips, countActivityFilters, readActivityFilters } from './activityFilters'
 import searchIcon from '../../assets/icons/search.svg'
@@ -372,16 +373,26 @@ function Details({ entry }) {
     case 'item.batch_restore':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`
     case 'user.update': {
-      const { costCenter, isActive } = entry.changes ?? {}
+      const { costCenter, permissions, isActive } = entry.changes ?? {}
+      const added = permissions?.to.filter((p) => !permissions.from.includes(p)) ?? []
+      const removed = permissions?.from.filter((p) => !permissions.to.includes(p)) ?? []
       return [
         costCenter && `Cost center: ${costCenterLabel(costCenter.from) || '(not set)'} → ${costCenterLabel(costCenter.to)}`,
+        added.length && `Allowed: ${added.map(permissionShortLabel).join(', ')}`,
+        removed.length && `Removed: ${removed.map(permissionShortLabel).join(', ')}`,
         isActive && (isActive.to ? 'Enabled account' : 'Disabled account'),
       ]
         .filter(Boolean)
         .join(' · ')
     }
     case 'user.create':
-      return [`Role: ${d.role}`, d.costCenter && `Cost center: ${costCenterLabel(d.costCenter)}`].filter(Boolean).join(' · ')
+      return [
+        `Role: ${d.role}`,
+        d.costCenter && `Cost center: ${costCenterLabel(d.costCenter)}`,
+        d.permissions?.length && `Permissions: ${d.permissions.map(permissionShortLabel).join(', ')}`,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     default:
       return entry.ip ? <span className="items-muted">from {entry.ip.replace(/^::ffff:/, '')}</span> : null
   }

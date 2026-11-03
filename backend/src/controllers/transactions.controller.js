@@ -5,7 +5,7 @@ const Transaction = require('../models/Transaction');
 const { TYPES } = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
 const { recalculateItem } = require('../services/balance.service');
-const { broadcast, sourceClientId, ENCODER_ROLES } = require('../services/events.service');
+const { broadcast, sourceClientId } = require('../services/events.service');
 const { record, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
@@ -378,8 +378,12 @@ function announce(req, item, activity) {
     activity: { ...activity, actorName: req.user.name, itemCode: item.code },
     sourceClientId: sourceClientId(req),
   }, { costCenter: req.costCenter });
-  // Encoders only learn that the item changed (its balance), not the transaction.
-  broadcast('item-changed', { itemId: String(item._id) }, { roles: ENCODER_ROLES, costCenter: req.costCenter });
+  // Items page users who don't add transactions only learn that the item changed (its balance).
+  broadcast('item-changed', { itemId: String(item._id) }, {
+    permission: 'viewItems',
+    unless: 'addTransactions',
+    costCenter: req.costCenter,
+  });
 }
 
 module.exports = {

@@ -8,12 +8,14 @@ import { getErrorMessage } from '../../api/auth'
 import { getItemTransactions } from '../../api/items'
 import { getTransactions } from '../../api/transactions'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
+import { useAuth } from '../auth/useAuth'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
 import TransactionDetailsPanel from './TransactionDetailsPanel'
 import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
+import { can } from '../../utils/permissions'
 import plusIcon from '../../assets/icons/plus.svg'
 import searchIcon from '../../assets/icons/search.svg'
 import reportIcon from '../../assets/icons/report.svg'
@@ -46,6 +48,8 @@ export default function TransactionsPage() {
   const [selectedEntryId, setSelectedEntryId] = useState(null) // the 'details' panel's entry
   const [isPickingReportDate, setIsPickingReportDate] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canAddItems = can(user, 'addItems')
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
 
   const updateParams = useCallback(
@@ -225,10 +229,12 @@ export default function TransactionsPage() {
             <FilterDropdown filters={filters} onApply={applyFilters} withEntryFilters />
           </div>
           <div className="toolbar-reports">
-            <Button variant="secondary" onClick={() => setIsPickingReportDate(true)}>
-              <img src={reportIcon} alt="" />
-              Generate Daily Report
-            </Button>
+            {can(user, 'viewDailyReport') && (
+              <Button variant="secondary" onClick={() => setIsPickingReportDate(true)}>
+                <img src={reportIcon} alt="" />
+                Generate Daily Report
+              </Button>
+            )}
             <Button variant="secondary" disabled title="Coming soon">
               <img src={reportIcon} alt="" />
               Generate Transaction Report
@@ -294,11 +300,17 @@ export default function TransactionsPage() {
                 </>
               ) : (
                 <>
-                  <p>No items yet. Add your first item to start recording transactions.</p>
-                  <Button size="sm" onClick={() => setPanel('item')}>
-                    <img src={plusIcon} alt="" />
-                    Add Item
-                  </Button>
+                  <p>
+                    {canAddItems
+                      ? 'No items yet. Add your first item to start recording transactions.'
+                      : 'No items yet. Ask an admin to add items before recording transactions.'}
+                  </p>
+                  {canAddItems && (
+                    <Button size="sm" onClick={() => setPanel('item')}>
+                      <img src={plusIcon} alt="" />
+                      Add Item
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -338,7 +350,7 @@ export default function TransactionsPage() {
         </div>
       </section>
 
-      {panel === 'item' && (
+      {panel === 'item' && canAddItems && (
         <AddItemPanel onClose={closePanel} onAdded={handleItemAdded} addedThisSession={itemsAddedThisSession} />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}

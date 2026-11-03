@@ -8,7 +8,8 @@
     "start": "node server.js",
     "seed:admin": "node scripts/seed-admin.js",
     "migrate:warehouse-role": "node scripts/migrate-staff-to-warehouse.js",
-    "migrate:cost-centers": "node scripts/migrate-cost-centers.js"
+    "migrate:cost-centers": "node scripts/migrate-cost-centers.js",
+    "migrate:permissions": "node scripts/migrate-permissions.js"
   },
   "keywords": [],
   "type": "commonjs",

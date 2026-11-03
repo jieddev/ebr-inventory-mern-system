@@ -6,6 +6,7 @@ import { getUsers } from '../../api/users'
 import { costCenterLabel } from '../../utils/costCenters'
 import { formatDate } from '../../utils/format'
 import { ROLE_LABELS } from '../../utils/roles'
+import { permissionShortLabel, permissionsOf } from '../../utils/permissions'
 import userPlusIcon from '../../assets/icons/user-plus.svg'
 import '../transactions/TransactionsPage.css'
 import '../items/ItemsPage.css'
@@ -77,6 +78,7 @@ export default function UsersPage() {
                     <th>User ID</th>
                     <th>Role</th>
                     <th>Cost center</th>
+                    <th>Permissions</th>
                     <th>Last login</th>
                     <th>Status</th>
                   </tr>
@@ -109,6 +111,11 @@ export default function UsersPage() {
                           ) : (
                             <span className="items-muted">Not set</span>
                           )}
+                        </td>
+                        <td className="items-muted">
+                          {user.role === 'admin'
+                            ? 'Everything'
+                            : permissionsOf(user).map(permissionShortLabel).join(', ') || 'None'}
                         </td>
                         <td className="items-muted">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}</td>
                         <td>
