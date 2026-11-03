@@ -8,7 +8,9 @@ const HEARTBEAT_MS = 25_000;
 function streamEvents(req, res) {
   res.set({
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    // no-transform: stops Cloudflare (tunnels) from compressing the stream, which holds
+    // events back until enough data piles up.
+    'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no', // stops nginx, if ever put in front, from buffering the stream
   });
