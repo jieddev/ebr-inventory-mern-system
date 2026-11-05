@@ -20,15 +20,21 @@ const DEFAULT_TYPES = [
 // Item categories for Add Item. Items added before categories existed have ''.
 const CATEGORIES = [
   'TIRES',
+  'MOTORCYCLE TIRES',
+  'RECAP TIRES',
   'TUBES',
   'FLAPS',
   'BATTERIES',
+  'JUNK BATTERIES',
   'OIL',
   'LUBRICANT',
   'CHEMICAL',
   'FLUID',
+  'GASES',
+  'WELDING ROD',
   'PARTS & ACCESSORIES',
   'BOSCH PRODUCT',
+  'SERVICES',
   'OTHERS',
 ];
 
