@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
+import SortSelect from '../../components/filters/SortSelect'
 import { getErrorMessage } from '../../api/auth'
 import { getItemTransactions } from '../../api/items'
 import { getTransactions } from '../../api/transactions'
@@ -15,6 +16,7 @@ import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
 import { can } from '../../utils/permissions'
+import { TRANSACTION_SORTS, readSort } from '../../utils/sorts'
 import plusIcon from '../../assets/icons/plus.svg'
 import searchIcon from '../../assets/icons/search.svg'
 import './TransactionsPage.css'
@@ -29,6 +31,7 @@ export default function TransactionsPage() {
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const filters = useMemo(() => readFilters(searchParams), [searchParams])
+  const sort = readSort(searchParams, TRANSACTION_SORTS)
   const entryFilters = useMemo(() => ({ type: filters.type, from: filters.from, to: filters.to }), [filters])
   const activeFilterCount = countActiveFilters(filters)
 
@@ -80,7 +83,7 @@ export default function TransactionsPage() {
   const requestKey = `${view}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getTransactions({ search, page, limit: PAGE_SIZE, filters }, { signal: controller.signal })
+    getTransactions({ search, page, limit: PAGE_SIZE, filters, sort }, { signal: controller.signal })
       .then((data) => {
         setResponse({ key: requestKey, view, data, error: '' })
         setError('')
@@ -91,7 +94,7 @@ export default function TransactionsPage() {
         setResponse((prev) => ({ key: requestKey, view, data: prev.data, error: message }))
       })
     return () => controller.abort()
-  }, [search, page, filters, view, requestKey])
+  }, [search, page, filters, sort, view, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -223,6 +226,7 @@ export default function TransactionsPage() {
             </label>
             <FilterDropdown filters={filters} onApply={applyFilters} withEntryFilters />
           </div>
+          <SortSelect options={TRANSACTION_SORTS} value={sort} onChange={(next) => updateParams({ sort: next, page: null })} />
         </div>
 
         <ActiveFilters
@@ -304,8 +308,8 @@ export default function TransactionsPage() {
           {data && total > 0 && (
             <footer className="table-footer">
               <span>
-                Showing {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)} items · most recent
-                activity first
+                Showing {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)} items ·{' '}
+                {sort ? `by ${TRANSACTION_SORTS.find((o) => o.value === sort).label.toLowerCase()}` : 'most recent activity first'}
               </span>
               <div className="table-pager">
                 <span className="table-page-count">

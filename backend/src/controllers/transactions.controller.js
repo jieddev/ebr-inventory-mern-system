@@ -9,13 +9,13 @@ const { broadcast, sourceClientId } = require('../services/events.service');
 const { record, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
-const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
+const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 
 // Entries shown under each item group before "View all".
 const PREVIEW_ENTRIES = 2;
 
-// GET /api/transactions?search=&page=&limit= plus the filters in utils/filters.js.
-// One group per item, most recent activity first, each with its latest entries.
+// GET /api/transactions?search=&page=&limit=&sort= plus the filters in utils/filters.js.
+// One group per item, most recent activity first (or ?sort=, see itemSort), each with its latest entries.
 // With a type or date filter, only items with matching entries are listed, and only
 // those entries are shown. `summary` totals the matching entries across all pages.
 async function listTransactions(req, res) {
@@ -31,11 +31,13 @@ async function listTransactions(req, res) {
   }
   if (match) conditions.push({ _id: { $in: await Transaction.distinct('item', match) } });
   const filter = andFilter(conditions);
+  const { sort, collation } = itemSort(req.query, { lastTransactionDate: -1, updatedAt: -1, _id: -1 });
 
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
     Item.find(filter)
-      .sort({ lastTransactionDate: -1, updatedAt: -1, _id: -1 })
+      .sort(sort)
+      .collation(collation)
       .skip(skip)
       .limit(limit)
       .select('itemId category code brand typeDesign balance transactionCount lastTransactionDate lastTransactionType')

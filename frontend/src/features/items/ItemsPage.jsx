@@ -6,6 +6,7 @@ import CopyText from '../../components/ui/CopyText'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
+import SortSelect from '../../components/filters/SortSelect'
 import { getErrorMessage } from '../../api/auth'
 import { archiveItem, batchItems, exportItems, getItems, importItems, restoreItem } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
@@ -21,6 +22,7 @@ import EditItemPanel from './EditItemPanel'
 import AddItemPanel from './AddItemPanel'
 import { useAuth } from '../auth/useAuth'
 import { can } from '../../utils/permissions'
+import { ITEM_SORTS, readSort } from '../../utils/sorts'
 import '../transactions/TransactionsPage.css'
 import './ItemsPage.css'
 
@@ -52,6 +54,7 @@ export default function ItemsPage() {
     const { stock, category, brand } = readFilters(searchParams)
     return { ...EMPTY_FILTERS, stock, category, brand }
   }, [searchParams])
+  const sort = readSort(searchParams, ITEM_SORTS)
 
   const [searchText, setSearchText] = useState(search)
   const [reloadKey, setReloadKey] = useState(0)
@@ -114,7 +117,7 @@ export default function ItemsPage() {
   const requestKey = `${searchParams.toString()}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getItems({ search, page, limit: PAGE_SIZE, filters, archived: isArchivedView }, { signal: controller.signal })
+    getItems({ search, page, limit: PAGE_SIZE, filters, archived: isArchivedView, sort }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
@@ -126,7 +129,7 @@ export default function ItemsPage() {
         }))
       })
     return () => controller.abort()
-  }, [search, page, filters, isArchivedView, requestKey])
+  }, [search, page, filters, isArchivedView, sort, requestKey])
 
   const { data } = response
   const isLoading = response.key !== requestKey
@@ -328,6 +331,7 @@ export default function ItemsPage() {
               />
             </label>
           </div>
+          <SortSelect options={ITEM_SORTS} value={sort} onChange={(next) => updateParams({ sort: next, page: null })} />
           {isAdmin && (
             <SegmentedControl
               label="Show"

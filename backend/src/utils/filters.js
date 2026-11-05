@@ -54,4 +54,25 @@ function entryMatch(query) {
 
 const andFilter = (conditions) => (conditions.length ? { $and: conditions } : {});
 
-module.exports = { itemConditions, entryMatch, andFilter };
+// Alphabetical item orders shared by the Transactions and Items pages (?sort=). Each ends on _id
+// so pages don't overlap. Keep in step with frontend utils/sorts.js.
+const ALPHABETICAL_SORTS = {
+  description: { code: 1, brand: 1, typeDesign: 1, _id: 1 },
+  'description-desc': { code: -1, brand: -1, typeDesign: -1, _id: -1 },
+  brand: { brand: 1, code: 1, typeDesign: 1, _id: 1 },
+};
+
+// "Natural" order: numbers inside the text sort by value, so "2" comes before "10", and
+// "23.5-25" before "155 R12". Case doesn't matter (codes and brands are uppercase anyway).
+const NATURAL_ORDER = { locale: 'en', numericOrdering: true };
+
+// ?sort= → { sort, collation } for Item.find(). An empty sort is the page's own default order.
+// The default collation (simple binary order) is passed for it, so callers can always chain both.
+function itemSort(query, defaultSort) {
+  const value = String(query.sort ?? '');
+  if (!value) return { sort: defaultSort, collation: { locale: 'simple' } };
+  if (!ALPHABETICAL_SORTS[value]) throw new HttpError(400, 'Sort must be description, description-desc or brand');
+  return { sort: ALPHABETICAL_SORTS[value], collation: NATURAL_ORDER };
+}
+
+module.exports = { itemConditions, entryMatch, andFilter, itemSort };

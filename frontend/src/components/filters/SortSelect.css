@@ -1,0 +1,43 @@
+/* Sized and bordered like the toolbar's search box and Filter button. */
+.sort-select {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  align-items: center;
+  height: 40px;
+  padding-left: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sort-select:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.sort-select-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.sort-select select {
+  height: 100%;
+  padding: 0 36px 0 0;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  outline: none;
+  appearance: none;
+}
+
+.sort-select-chevron {
+  position: absolute;
+  right: var(--space-3);
+  pointer-events: none;
+}

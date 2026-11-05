@@ -10,7 +10,7 @@ const { broadcast, sourceClientId, EVERYONE } = require('../services/events.serv
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
-const { itemConditions, entryMatch, andFilter } = require('../utils/filters');
+const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 const { costCenterLabel } = require('../config/costCenters');
 const { can } = require('../config/permissions');
 
@@ -20,8 +20,8 @@ const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance';
 const ITEM_FIELDS =
   'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
 
-// GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&page=&limit=
-// Every item in the cost center, by item ID (Items page). See utils/filters.js for the filters.
+// GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&sort=&page=&limit=
+// Every item in the cost center, by item ID or ?sort= (see utils/filters.js itemSort) (Items page). See utils/filters.js for the filters.
 // ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
@@ -30,10 +30,13 @@ async function listItems(req, res) {
   // Without stock details they can't filter by stock either.
   const filter = itemsPageFilter(req.costCenter, seesStock ? req.query : { ...req.query, stock: '' });
 
+  const { sort, collation } = itemSort(req.query, { itemId: 1, _id: 1 });
+
   const [total, items] = await Promise.all([
     Item.countDocuments(filter),
     Item.find(filter)
-      .sort({ itemId: 1, _id: 1 })
+      .sort(sort)
+      .collation(collation)
       .skip(skip)
       .limit(limit)
       .select(seesStock ? ITEM_FIELDS : BASIC_ITEM_FIELDS)
