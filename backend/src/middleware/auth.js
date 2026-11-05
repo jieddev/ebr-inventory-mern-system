@@ -34,7 +34,7 @@ function requireRole(...roles) {
 
 // Sets req.costCenter, the cost center whose data the request reads and writes. Warehouse users
 // and encoders always get their own; admins pick one with the X-Cost-Center header (frontend
-// api/client.js), Servitek when it's missing.
+// api/client.js), the default cost center (Servitek) when it's missing.
 function resolveCostCenter(req, res, next) {
   if (req.user.role !== 'admin') {
     if (!isCostCenter(req.user.costCenter)) throw new HttpError(403, 'Your account has no cost center. Ask an admin to set one.');

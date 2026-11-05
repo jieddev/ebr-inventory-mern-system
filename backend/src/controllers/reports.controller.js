@@ -4,7 +4,7 @@ const Transaction = require('../models/Transaction');
 const { buildSummaryReport, buildTransactionReport } = require('../services/summaryReport.service');
 const { record } = require('../services/audit.service');
 const { parseDay, today } = require('../utils/parse');
-const { costCenterLabel } = require('../config/costCenters');
+const { costCenterFileName } = require('../config/costCenters');
 const HttpError = require('../utils/httpError');
 
 // Each item's balance and last transaction date over its entries matching `dateMatch` (a
@@ -81,7 +81,7 @@ async function exportDailyReport(req, res) {
   if (from < to) details.from = dayText(from);
   await record(req, { action: 'report.export', details });
   res
-    .attachment(`EBR_Daily_Report_${costCenterLabel(req.costCenter).replace(/\s+/g, '_')}_${period}.xlsx`)
+    .attachment(`EBR_Daily_Report_${costCenterFileName(req.costCenter)}_${period}.xlsx`)
     .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     .send(Buffer.from(buffer));
 }
@@ -151,7 +151,7 @@ async function exportTransactionReport(req, res) {
   const period = fromDay === toDay ? fromDay : `${fromDay}_to_${toDay}`;
   await record(req, { action: 'report.transactions_export', details: { from: fromDay, to: toDay, count: rows.length } });
   res
-    .attachment(`EBR_Transaction_Report_${costCenterLabel(req.costCenter).replace(/\s+/g, '_')}_${period}.xlsx`)
+    .attachment(`EBR_Transaction_Report_${costCenterFileName(req.costCenter)}_${period}.xlsx`)
     .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     .send(Buffer.from(buffer));
 }

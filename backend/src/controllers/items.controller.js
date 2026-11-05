@@ -12,7 +12,7 @@ const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
-const { costCenterLabel } = require('../config/costCenters');
+const { costCenterFileName } = require('../config/costCenters');
 const { can } = require('../config/permissions');
 
 // What users without viewItemStock see of an item: its details and current ending balance,
@@ -451,7 +451,7 @@ async function exportItems(req, res) {
   const buffer = await buildSummaryReport(items, asOf);
   await record(req, { action: 'item.export', details: { count: items.length } });
   res
-    .attachment(`EBR_Items_${costCenterLabel(req.costCenter).replace(/\s+/g, '_')}_${asOf.toISOString().slice(0, 10)}.xlsx`)
+    .attachment(`EBR_Items_${costCenterFileName(req.costCenter)}_${asOf.toISOString().slice(0, 10)}.xlsx`)
     .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     .send(Buffer.from(buffer));
 }

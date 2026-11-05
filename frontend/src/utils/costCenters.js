@@ -1,6 +1,7 @@
 // The cost centers (branches). Keep in step with backend config/costCenters.js.
 export const COST_CENTERS = [
-  { value: 'servitek', label: 'Servitek' },
+  { value: 'warehouse-1', label: 'Warehouse #1' },
+  { value: 'servitek', label: 'Servitek (#2 - #7)' },
   { value: 'repair-shop', label: 'Repair shop' },
   { value: 'accessory-shop', label: 'Accessory shop' },
 ]
