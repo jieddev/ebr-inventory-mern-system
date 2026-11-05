@@ -42,7 +42,7 @@ const ACTION_LABELS = {
 
 const FIELD_LABELS = {
   category: 'Category',
-  code: 'Item code',
+  code: 'Item description',
   brand: 'Brand',
   typeDesign: 'Type / Design',
   balanceForwarded: 'Balance forwarded',

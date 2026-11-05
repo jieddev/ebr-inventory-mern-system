@@ -170,7 +170,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
       required.push({
         key: 'item',
         label: 'Item',
-        message: codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item code',
+        message: codeText.trim() ? 'Pick the item from the list' : 'Enter an item ID or pick an item description',
         ref: codeText.trim() ? codeRef : idRef,
       })
     }

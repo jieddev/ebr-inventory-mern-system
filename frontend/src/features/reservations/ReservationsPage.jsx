@@ -104,7 +104,7 @@ export default function ReservationsPage() {
               <img src={searchIcon} alt="" width="18" height="18" />
               <input
                 type="search"
-                placeholder="Search by item ID, code, brand or customer"
+                placeholder="Search by item ID, description, brand or customer"
                 aria-label="Search reservations"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}

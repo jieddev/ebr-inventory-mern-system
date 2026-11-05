@@ -17,10 +17,10 @@ export default function ItemCodePicker({
   error,
   hint,
   inputRef,
-  label = 'Item code',
+  label = 'Item description',
   hideLabel = false,
   required = true,
-  placeholder = 'Start typing an item code',
+  placeholder = 'Start typing an item description',
 }) {
   const id = useId()
   const listId = `${id}-list`

@@ -3,7 +3,7 @@ import TextField from '../../components/ui/TextField'
 import { getItemCategories } from '../../api/items'
 import chevronIcon from '../../assets/icons/chevron-down.svg'
 
-// The Category, Item code, Brand and Balance forwarded fields of Add Item and
+// The Category, Item description, Brand and Balance forwarded fields of Add Item and
 // Edit Item. Loads its own category choices.
 export default function ItemFields({ form, errors, onChange, categoryRef, codeRef, balanceHint }) {
   const categoryId = useId()
@@ -57,7 +57,7 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
 
       <TextField
         ref={codeRef}
-        label="Item code"
+        label="Item description"
         required
         placeholder="e.g. 185 R14 DUNLOP VANO1"
         autoComplete="off"

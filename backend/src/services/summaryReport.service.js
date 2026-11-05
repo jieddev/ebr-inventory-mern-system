@@ -49,7 +49,7 @@ function parseLongDate(text) {
   return month < 0 ? null : new Date(Date.UTC(+match[3], month, +match[2]));
 }
 
-// Reads the "Summary Report" sheet: ITEM CODE, BRAND NAME, TYPE / DESIGN and
+// Reads the "Summary Report" sheet: ITEM DESCRIPTION (or ITEM CODE, in older files), BRAND NAME, TYPE / DESIGN and
 // "ENDING BALANCE AS OF <date>" (CATEGORY is optional). Columns are found by their
 // header, so files exported from the Items page can be imported again.
 // Returns the valid rows, the rows that can't be imported, and the "as of" date.
@@ -69,7 +69,7 @@ async function readSummaryReport(buffer) {
   const columns = {};
   sheet.getRow(1).eachCell((cell, col) => {
     const header = Item.normalize(cellText(cell));
-    if (header === 'ITEM CODE') columns.code = col;
+    if (header === 'ITEM DESCRIPTION' || header === 'ITEM CODE') columns.code = col;
     else if (header === 'BRAND NAME') columns.brand = col;
     else if (header === 'TYPE / DESIGN' || header === 'TYPE/DESIGN') columns.typeDesign = col;
     else if (header === 'CATEGORY') columns.category = col;
@@ -79,7 +79,7 @@ async function readSummaryReport(buffer) {
     }
   });
   const missing = [
-    ['code', 'ITEM CODE'],
+    ['code', 'ITEM DESCRIPTION'],
     ['brand', 'BRAND NAME'],
     ['typeDesign', 'TYPE / DESIGN'],
     ['balance', 'ENDING BALANCE'],
@@ -103,7 +103,7 @@ async function readSummaryReport(buffer) {
 
     const entry = { row: r, code, brand, typeDesign };
     if (!code) {
-      invalid.push({ ...entry, reason: 'No item code' });
+      invalid.push({ ...entry, reason: 'No item description' });
       continue;
     }
 
@@ -134,7 +134,7 @@ async function buildSummaryReport(items, asOf, { beginningOf = null } = {}) {
   sheet.columns = [
     { header: 'ITEM ID', key: 'itemId', width: 12 },
     { header: 'CATEGORY', key: 'category', width: 22 },
-    { header: 'ITEM CODE', key: 'code', width: 48 },
+    { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
     { header: 'BRAND NAME', key: 'brand', width: 22 },
     { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
     ...(beginningOf
@@ -167,7 +167,7 @@ async function buildTransactionReport(rows, totals, from, to) {
   sheet.columns = [
     { header: 'ITEM ID', key: 'itemId', width: 12 },
     { header: 'CATEGORY', key: 'category', width: 22 },
-    { header: 'ITEM CODE', key: 'code', width: 48 },
+    { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
     { header: 'BRAND NAME', key: 'brand', width: 22 },
     { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
     { header: `IN (${period})`, key: 'in', width: 18 },

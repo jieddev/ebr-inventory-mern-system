@@ -255,7 +255,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
                     label={`Line ${index + 1} item`}
                     hideLabel
                     required={false}
-                    placeholder="Item code or ID"
+                    placeholder="Item description or ID"
                     value={line.codeText}
                     selected={line.item}
                     onChange={(text) => updateLine(line.key, { codeText: text, item: null })}

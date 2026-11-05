@@ -149,7 +149,7 @@ export default function DailyReportPage() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th>Item code</th>
+                  <th>Item description</th>
                   <th>Brand name</th>
                   <th>Category</th>
                   {isRange && <th className="is-number">Beginning balance</th>}

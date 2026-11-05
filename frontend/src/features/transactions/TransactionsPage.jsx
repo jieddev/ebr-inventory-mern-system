@@ -215,7 +215,7 @@ export default function TransactionsPage() {
               <img src={searchIcon} alt="" width="18" height="18" />
               <input
                 type="search"
-                placeholder="Search by item ID, code, brand or customer"
+                placeholder="Search by item ID, description, brand or customer"
                 aria-label="Search transactions"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}

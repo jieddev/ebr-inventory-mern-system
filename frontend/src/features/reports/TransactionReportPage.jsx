@@ -152,7 +152,7 @@ export default function TransactionReportPage() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th>Item code</th>
+                  <th>Item description</th>
                   <th>Brand name</th>
                   <th>Type / design</th>
                   <th className="is-number">In</th>

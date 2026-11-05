@@ -144,7 +144,7 @@ function parseItemFields(body = {}) {
     typeDesign: Item.normalize(body.typeDesign),
   };
   if (!CATEGORIES.includes(fields.category)) throw new HttpError(400, 'Select a category');
-  if (!fields.code) throw new HttpError(400, 'Enter an item code');
+  if (!fields.code) throw new HttpError(400, 'Enter an item description');
   fields.balanceForwarded = parseWholeNumber(body.balanceForwarded ?? 0, 'Balance forwarded');
   return fields;
 }
