@@ -52,6 +52,12 @@ export async function getItemBrands() {
   return data.brands
 }
 
+// Add Item's "Do you mean this item?": up to 3 existing items close to `code`, best first.
+export async function getSimilarItems(code, { signal } = {}) {
+  const { data } = await api.get('/items/similar', { params: { code }, signal })
+  return data.items
+}
+
 export async function createItem(item) {
   const { data } = await api.post('/items', item)
   return data.item

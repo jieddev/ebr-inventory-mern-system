@@ -2,13 +2,42 @@ import { useEffect, useRef, useState } from 'react'
 import Button from '../../components/ui/Button'
 import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
-import { createItem } from '../../api/items'
+import { createItem, getSimilarItems } from '../../api/items'
 import { formatNumber } from '../../utils/format'
 import plusIcon from '../../assets/icons/plus.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import ItemFields from './ItemFields'
 import { EMPTY_ITEM_FORM, validateItemForm } from './itemForm'
 import './AddItemPanel.css'
+
+// Waits this long after the last keystroke before looking for similar items.
+const SIMILAR_DELAY_MS = 300
+
+// Existing items close to the typed description, for "Do you mean this item?". [] when none,
+// while typing, or if the lookup fails (it's only a hint).
+function useSimilarItems(code) {
+  const [result, setResult] = useState({ code: '', items: [] })
+  const text = code.trim()
+
+  useEffect(() => {
+    if (!text) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      getSimilarItems(text, { signal: controller.signal })
+        .then((items) => setResult({ code: text, items }))
+        .catch(() => {
+          if (!controller.signal.aborted) setResult({ code: text, items: [] })
+        })
+    }, SIMILAR_DELAY_MS)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [text])
+
+  // Only show results for what's in the box now.
+  return result.code === text ? result.items : []
+}
 
 // Stays open after each save: the fields clear (except Category), a confirmation shows,
 // and the item is added to "Added this session", so many items can be entered in a row.
@@ -21,6 +50,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const similarItems = useSimilarItems(form.code)
 
   useEffect(() => {
     categoryRef.current?.focus()
@@ -91,6 +121,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
         onChange={setField}
         categoryRef={categoryRef}
         codeRef={codeRef}
+        codeHint={similarItems.length > 0 && <SimilarItems items={similarItems} />}
       />
 
       {addedThisSession.length > 0 && (
@@ -108,5 +139,25 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
         </section>
       )}
     </SidePanel>
+  )
+}
+
+// Under Item description: existing items that look like the one being added.
+function SimilarItems({ items }) {
+  return (
+    <div className="similar-items" role="status">
+      <p className="similar-items-title">{items.length === 1 ? 'Do you mean this item?' : 'Do you mean one of these items?'}</p>
+      <ul>
+        {items.map((item) => (
+          <li key={item._id}>
+            <span className="similar-item-code">{item.code}</span>
+            <span className="similar-item-meta">
+              {[item.itemId, item.brand, item.category].filter(Boolean).join(' · ')}
+              {item.isArchived && <span className="similar-item-archived">Archived</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

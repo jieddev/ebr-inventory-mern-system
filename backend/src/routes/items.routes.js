@@ -6,6 +6,7 @@ const {
   listTypes,
   listCategories,
   listBrands,
+  similarItems,
   listFacets,
   createItem,
   updateItem,
@@ -31,6 +32,8 @@ router.get('/types', usesItemChoices, listTypes);
 router.get('/categories', usesItemChoices, listCategories);
 router.get('/brands', usesItemChoices, listBrands);
 router.post('/', requirePermission('addItems'), createItem);
+// Add Item's "Do you mean this item?".
+router.get('/similar', requirePermission('addItems'), similarItems);
 
 // The Items page; stock fields only with viewItemStock (see listItems).
 router.get('/', canViewItems, listItems);

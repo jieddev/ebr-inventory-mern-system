@@ -7,8 +7,8 @@ import chevronIcon from '../../assets/icons/chevron-down.svg'
 const TYPE_BRAND = '__type__'
 
 // The Category, Item description, Brand and Balance forwarded fields of Add Item and
-// Edit Item. Loads its own category and brand choices.
-export default function ItemFields({ form, errors, onChange, categoryRef, codeRef, balanceHint }) {
+// Edit Item. Loads its own category and brand choices. codeHint shows under Item description.
+export default function ItemFields({ form, errors, onChange, categoryRef, codeRef, balanceHint, codeHint }) {
   const categoryId = useId()
   const brandId = useId()
   const [categories, setCategories] = useState([])
@@ -93,6 +93,7 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
         onChange={(e) => onChange('code', e.target.value)}
         error={errors.code}
       />
+      {codeHint}
 
       <div className="field">
         <label className="field-label" htmlFor={brandId}>

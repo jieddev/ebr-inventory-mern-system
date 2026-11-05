@@ -11,6 +11,7 @@ const { record, diff, describe, itemTarget } = require('../services/audit.servic
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
+const { findSimilarItems } = require('../services/similarItems.service');
 const { costCenterLabel } = require('../config/costCenters');
 const { can } = require('../config/permissions');
 
@@ -73,6 +74,12 @@ async function searchItems(req, res) {
   // Codes that start with what was typed come first.
   items.sort((a, b) => b.code.startsWith(q) - a.code.startsWith(q));
   res.json({ items });
+}
+
+// GET /api/items/similar?code= — Add Item's "Do you mean this item?": up to 3 existing items in the
+// cost center (archived too) whose description is close to `code`. No stock details.
+async function similarItems(req, res) {
+  res.json({ items: await findSimilarItems(req.costCenter, req.query.code) });
 }
 
 // GET /api/items/by-item-id/:itemId — Add Transaction's Item ID field. Accepts "ITM-00012" or just "12".
@@ -495,6 +502,7 @@ module.exports = {
   listTypes,
   listCategories,
   listBrands,
+  similarItems,
   listFacets,
   createItem,
   updateItem,
