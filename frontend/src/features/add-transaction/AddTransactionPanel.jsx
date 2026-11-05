@@ -439,19 +439,22 @@ const MODE_KEY = 'ebr.addTransaction.mode'
 const MODE_OPTIONS = [
   { value: 'form', label: 'Form' },
   { value: 'brr', label: 'BRR template' },
+  { value: 'out', label: 'Batch Out' },
 ]
 
 // Remembered per PC, so the bodega PC can stay on the BRR template.
 function savedMode() {
   try {
-    return localStorage.getItem(MODE_KEY) === 'brr' ? 'brr' : 'form'
+    const saved = localStorage.getItem(MODE_KEY)
+    return MODE_OPTIONS.some((option) => option.value === saved) ? saved : 'form'
   } catch {
     return 'form'
   }
 }
 
-// Add Transaction with two modes: the single-entry form, or the Bodega Receiving Report
-// slip (several IN lines at once). Both stay mounted, so switching never loses what was typed.
+// Add Transaction with three modes: the single-entry form, the Bodega Receiving Report slip
+// (several IN lines at once) and Batch Out (several OUT lines at once). All stay mounted, so
+// switching never loses what was typed.
 export default function AddTransactionPanel({ onClose, onSaved }) {
   const [mode, setMode] = useState(savedMode)
 
@@ -476,6 +479,15 @@ export default function AddTransactionPanel({ onClose, onSaved }) {
       </div>
       <div className="entry-mode-slot" hidden={mode !== 'brr'}>
         <ReceivingReportPanel onClose={onClose} onSaved={onSaved} modeToggle={modeToggle('entry-mode-brr')} isActive={mode === 'brr'} />
+      </div>
+      <div className="entry-mode-slot" hidden={mode !== 'out'}>
+        <ReceivingReportPanel
+          kind="OUT"
+          onClose={onClose}
+          onSaved={onSaved}
+          modeToggle={modeToggle('entry-mode-out')}
+          isActive={mode === 'out'}
+        />
       </div>
     </>
   )

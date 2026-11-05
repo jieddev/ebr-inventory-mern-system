@@ -173,15 +173,15 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
 
           {receiving && (
             <section className="txn-details-section">
-              <h3>Receiving report</h3>
+              <h3>{receiving.kind === 'OUT' ? 'Batch out' : 'Receiving report'}</h3>
               <dl>
                 <div>
                   <dt>Ref. No.</dt>
                   <dd>{receiving.reportNo || '—'}</dd>
                 </div>
                 <div>
-                  <dt>Received by</dt>
-                  <dd>{receiving.receivedBy || '—'}</dd>
+                  <dt>{receiving.kind === 'OUT' ? 'Released by' : 'Received by'}</dt>
+                  <dd>{(receiving.kind === 'OUT' ? receiving.releasedBy : receiving.receivedBy) || '—'}</dd>
                 </div>
               </dl>
             </section>

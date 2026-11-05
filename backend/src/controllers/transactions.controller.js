@@ -95,7 +95,7 @@ async function summarize(itemFilter, match) {
 }
 
 // GET /api/transactions/:id — one entry for the details panel: its item, who recorded it
-// and when, and the receiving report (BRR) it came from, if any.
+// and when, and the slip it came from (receiving report or Batch Out), if any.
 async function getTransaction(req, res) {
   const id = parseObjectId(req.params.id, 'Transaction');
   const [transaction, report] = await Promise.all([
@@ -107,12 +107,18 @@ async function getTransaction(req, res) {
       .populate('createdBy', 'userId name role')
       .populate('releasedBy', 'userId name role')
       .lean(),
-    ReceivingReport.findOne({ 'lines.transaction': id }).select({ reportNo: 1, receivedBy: 1, 'lines.$': 1 }).lean(),
+    ReceivingReport.findOne({ 'lines.transaction': id }).select({ kind: 1, reportNo: 1, receivedBy: 1, releasedBy: 1, 'lines.$': 1 }).lean(),
   ]);
   // Another cost center's entry is answered like a missing one.
   if (!transaction || transaction.item?.costCenter !== req.costCenter) throw new HttpError(404, 'Transaction not found');
 
-  const receiving = report && { reportNo: report.reportNo, receivedBy: report.receivedBy, unit: report.lines[0]?.unit };
+  const receiving = report && {
+    kind: report.kind === 'OUT' ? 'OUT' : 'IN',
+    reportNo: report.reportNo,
+    receivedBy: report.receivedBy,
+    releasedBy: report.releasedBy,
+    unit: report.lines[0]?.unit,
+  };
   res.json({ transaction, receiving: receiving ?? null });
 }
 

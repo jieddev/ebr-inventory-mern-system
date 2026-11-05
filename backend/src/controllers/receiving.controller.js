@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
-const { LINE_LIMIT, UNITS } = require('../models/ReceivingReport');
+const { LINE_LIMIT, UNITS, kindFilter } = require('../models/ReceivingReport');
 const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
 const { record } = require('../services/audit.service');
@@ -19,20 +19,37 @@ function customerText(customerName, reportNo) {
   return reportNo ? `No. ${reportNo}` : customerName;
 }
 
-// GET /api/receiving-reports/check?reportNo= — has this slip been saved before in the cost center?
+// What differs between the two slips.
+const SLIPS = {
+  IN: { person: 'receivedBy', action: 'receiving.create', name: 'Receiving report' },
+  OUT: { person: 'releasedBy', action: 'batchout.create', name: 'Batch out' },
+};
+
+// The last slip of this kind with this Ref. No. in the cost center.
+const findSlip = (costCenter, kind, reportNo) =>
+  ReceivingReport.findOne({ costCenter, reportNo, ...kindFilter(kind) }).sort({ createdAt: -1 }).select('createdAt').lean();
+
+// GET /api/receiving-reports/check?reportNo=&kind=IN|OUT — has this slip been saved before in the
+// cost center? Receiving reports and Batch Out slips are numbered separately.
 async function checkReportNo(req, res) {
   const reportNo = String(req.query.reportNo ?? '').trim();
+  const kind = String(req.query.kind ?? 'IN').toUpperCase() === 'OUT' ? 'OUT' : 'IN';
   if (!reportNo) return res.json({ existing: null });
-  const existing = await ReceivingReport.findOne({ costCenter: req.costCenter, reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
+  const existing = await findSlip(req.costCenter, kind, reportNo);
   res.json({ existing: existing && { savedAt: existing.createdAt } });
 }
 
-// POST /api/receiving-reports — save a BRR: every line becomes an IN transaction, all in
-// one MongoDB transaction, so a slip is never half saved.
-// Body: { date, customerName, receivedBy, reportNo, lines: [{ itemId, quantity, unit }],
+// POST /api/receiving-reports — save a BRR: every line becomes an IN transaction.
+// POST /api/receiving-reports/out — save a Batch Out slip: every line becomes an OUT transaction.
+// All in one MongoDB transaction, so a slip is never half saved.
+// Body: { date, customerName, receivedBy | releasedBy, reportNo, lines: [{ itemId, quantity, unit }],
 //         allowDuplicate }. A Ref. No. saved before needs allowDuplicate: true (409 otherwise),
-// because saving it again adds the stock a second time.
-async function createReceivingReport(req, res) {
+// because saving it again moves the stock a second time.
+const createReceivingReport = (req, res) => createSlip(req, res, 'IN');
+const createBatchOut = (req, res) => createSlip(req, res, 'OUT');
+
+async function createSlip(req, res, kind) {
+  const slip = SLIPS[kind];
   const body = req.body ?? {};
   const date = parseDay(body.date);
   const reportNo = String(body.reportNo ?? '').trim();
@@ -40,11 +57,11 @@ async function createReceivingReport(req, res) {
     throw new HttpError(400, 'Ref. No.: type only the number printed on the slip (e.g. 46954)');
   }
   const customerName = clean(body.customerName, 120);
-  const receivedBy = clean(body.receivedBy, 80);
+  const person = clean(body[slip.person], 80);
 
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
   if (!rawLines.length) throw new HttpError(400, 'Enter at least one quantity and item');
-  if (rawLines.length > LINE_LIMIT) throw new HttpError(400, `A receiving report has at most ${LINE_LIMIT} lines`);
+  if (rawLines.length > LINE_LIMIT) throw new HttpError(400, `A slip has at most ${LINE_LIMIT} lines`);
   const lines = rawLines.map((line, i) => {
     const label = `Line ${i + 1}`;
     const unit = String(line?.unit ?? 'pcs').toLowerCase();
@@ -57,12 +74,12 @@ async function createReceivingReport(req, res) {
   });
 
   if (reportNo && !body.allowDuplicate) {
-    const existing = await ReceivingReport.findOne({ costCenter: req.costCenter, reportNo }).sort({ createdAt: -1 }).select('createdAt').lean();
+    const existing = await findSlip(req.costCenter, kind, reportNo);
     if (existing) {
       return res.status(409).json({
         code: 'DUPLICATE_REPORT',
         savedAt: existing.createdAt,
-        message: `Receiving report No. ${reportNo} was already saved. Saving it again adds its items a second time.`,
+        message: `${slip.name} No. ${reportNo} was already saved. Saving it again moves its items a second time.`,
       });
     }
   }
@@ -82,7 +99,7 @@ async function createReceivingReport(req, res) {
       lines.map((line) => ({
         item: line.item,
         date,
-        type: 'IN',
+        type: kind,
         quantity: line.quantity,
         customerName: custText,
         createdBy: req.user._id,
@@ -94,7 +111,7 @@ async function createReceivingReport(req, res) {
     });
 
     const [report] = await ReceivingReport.create(
-      [{ costCenter: req.costCenter, reportNo, date, customerName, receivedBy, lines, createdBy: req.user._id }],
+      [{ costCenter: req.costCenter, kind, reportNo, date, customerName, [slip.person]: person, lines, createdBy: req.user._id }],
       { session },
     );
     for (const id of itemIds) await recalculateItem(id, session);
@@ -103,13 +120,13 @@ async function createReceivingReport(req, res) {
     await record(
       req,
       {
-        action: 'receiving.create',
-        target: { type: 'receiving', id: report._id, label: reportNo ? `Receiving report No. ${reportNo}` : 'Receiving report' },
+        action: slip.action,
+        target: { type: 'receiving', id: report._id, label: reportNo ? `${slip.name} No. ${reportNo}` : slip.name },
         details: {
           reportNo,
           date,
           customerName: custText,
-          receivedBy,
+          [slip.person]: person,
           lineCount: lines.length,
           totalQuantity,
           lines: lines.map((line) => ({
@@ -135,9 +152,9 @@ async function createReceivingReport(req, res) {
     activity: {
       kind: 'transaction',
       actorName: req.user.name,
-      type: 'IN',
+      type: kind,
       quantity: result.totalQuantity,
-      itemCode: `${result.itemIds.length} item${result.itemIds.length === 1 ? '' : 's'}${reportNo ? ` (receiving report No. ${reportNo})` : ''}`,
+      itemCode: `${result.itemIds.length} item${result.itemIds.length === 1 ? '' : 's'}${reportNo ? ` (${slip.name.toLowerCase()} No. ${reportNo})` : ''}`,
     },
     sourceClientId: sourceClientId(req),
   }, { costCenter: req.costCenter });
@@ -145,4 +162,4 @@ async function createReceivingReport(req, res) {
   res.status(201).json({ report: result.report, customerName: custText, totalQuantity: result.totalQuantity });
 }
 
-module.exports = { checkReportNo, createReceivingReport, customerText };
+module.exports = { checkReportNo, createReceivingReport, createBatchOut, customerText };

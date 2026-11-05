@@ -10,7 +10,7 @@ const TYPES = [
   { value: 'login', label: 'Logins and logouts', actions: ['auth.login', 'auth.logout'] },
   { value: 'failed_login', label: 'Failed logins', actions: ['auth.login_failed'] },
   { value: 'item', label: 'Items', actions: ACTIONS.filter((a) => a.startsWith('item.')) },
-  { value: 'transaction', label: 'Transactions', actions: ['transaction.create', 'transaction.release', 'transaction.cancel', 'transaction.rollback', 'receiving.create'] },
+  { value: 'transaction', label: 'Transactions', actions: ['transaction.create', 'transaction.release', 'transaction.cancel', 'transaction.rollback', 'receiving.create', 'batchout.create'] },
   { value: 'report', label: 'Reports', actions: ['report.export'] },
   { value: 'user', label: 'Users', actions: ['user.create', 'user.update'] },
 ];

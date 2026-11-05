@@ -20,6 +20,7 @@ const ACTIONS = [
   'transaction.cancel',
   'transaction.rollback',
   'receiving.create',
+  'batchout.create',
   'report.export',
   'report.transactions_export',
 ];

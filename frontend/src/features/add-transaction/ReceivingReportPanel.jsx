@@ -4,7 +4,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
-import { checkReportNo, createReceivingReport } from '../../api/receiving'
+import { checkReportNo, createBatchOut, createReceivingReport } from '../../api/receiving'
 import { formatDate, formatNumber, pluralize, todayInputValue } from '../../utils/format'
 import ItemCodePicker from './ItemCodePicker'
 import checkIcon from '../../assets/icons/check-circle.svg'
@@ -32,12 +32,36 @@ function customerText(customerName, reportNo) {
   return no ? `No. ${no}` : name
 }
 
+// What differs between the two slips. person: the API field for Received by / Released by.
+const SLIPS = {
+  IN: {
+    subtitle: 'Bodega Receiving Report',
+    slipName: 'receiving report',
+    linesLabel: 'Items received',
+    person: 'receivedBy',
+    personLabel: 'Received by',
+    refHint: 'The red number printed on the slip.',
+    save: createReceivingReport,
+  },
+  OUT: {
+    subtitle: 'Batch Out',
+    slipName: 'batch out',
+    linesLabel: 'Items released',
+    person: 'releasedBy',
+    personLabel: 'Released by',
+    refHint: 'The number printed on the slip, if any.',
+    save: createBatchOut,
+  },
+}
+
 const longDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
-// Add Transaction's "BRR template": the Bodega Receiving Report slip. Every line is saved
-// as an IN transaction in one go. After saving, Received by is kept and everything else
-// clears, including the date, which is always typed from the slip.
-export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isActive }) {
+// Add Transaction's "BRR template" (kind IN, the Bodega Receiving Report slip) and "Batch Out"
+// (kind OUT). Every line is saved as an IN or OUT transaction in one go. After saving, Received by /
+// Released by is kept and everything else clears, including the date, which is always typed from the slip.
+export default function ReceivingReportPanel({ kind = 'IN', onClose, onSaved, modeToggle, isActive }) {
+  const slip = SLIPS[kind]
+  const sign = kind === 'OUT' ? -1 : 1
   const dateRef = useRef(null)
   const [date, setDate] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -59,6 +83,14 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
   const totalQty = filledLines.reduce((sum, line) => sum + (Number(line.qty) || 0), 0)
   const hasEntries = filledLines.length > 0 || Boolean(date || customerName.trim() || reportNo.trim())
   const custPreview = customerText(customerName, reportNo)
+  // Each item's balance after this slip; an item can be on more than one line.
+  const balanceAfter = new Map()
+  for (const line of filledLines) {
+    if (!line.item) continue
+    const before = balanceAfter.get(line.item._id) ?? line.item.balance
+    balanceAfter.set(line.item._id, before + sign * (Number(line.qty) || 0))
+  }
+  const negativeItems = [...balanceAfter.values()].filter((balance) => balance < 0).length
 
   function updateLine(key, changes) {
     setLines((list) => list.map((line) => (line.key === key ? { ...line, ...changes } : line)))
@@ -96,7 +128,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
     if (reportNo.trim()) {
       setIsChecking(true)
       try {
-        duplicateSavedAt = (await checkReportNo(reportNo.trim()))?.savedAt ?? null
+        duplicateSavedAt = (await checkReportNo(reportNo.trim(), kind))?.savedAt ?? null
       } catch (err) {
         setFormError(getErrorMessage(err, 'Could not check the Ref. No.'))
         return
@@ -110,20 +142,20 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
   async function save() {
     setConfirm((c) => ({ ...c, isBusy: true, error: '' }))
     try {
-      const result = await createReceivingReport({
+      const result = await slip.save({
         date,
         customerName,
-        receivedBy,
+        [slip.person]: receivedBy,
         reportNo: reportNo.trim(),
         lines: filledLines.map((line) => ({ itemId: line.item._id, quantity: Number(line.qty), unit: line.unit })),
         allowDuplicate: Boolean(confirm.duplicateSavedAt),
       })
       setConfirm(null)
       setSuccessMessage(
-        `Saved ${pluralize(filledLines.length, 'line')} as IN, total ${formatNumber(result.totalQuantity)}` +
-          (reportNo.trim() ? ` (receiving report No. ${reportNo.trim()}).` : '.'),
+        `Saved ${pluralize(filledLines.length, 'line')} as ${kind}, total ${formatNumber(result.totalQuantity)}` +
+          (reportNo.trim() ? ` (${slip.slipName} No. ${reportNo.trim()}).` : '.'),
       )
-      // Ready for the next slip: keep Received by, clear everything else.
+      // Ready for the next slip: keep Received by / Released by, clear everything else.
       setDate('')
       setCustomerName('')
       setReportNo('')
@@ -136,7 +168,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
       if (err.response?.data?.code === 'DUPLICATE_REPORT') {
         setConfirm({ duplicateSavedAt: err.response.data.savedAt, isBusy: false, error: '' })
       } else {
-        setConfirm((c) => ({ ...c, isBusy: false, error: getErrorMessage(err, 'Could not save the receiving report.') }))
+        setConfirm((c) => ({ ...c, isBusy: false, error: getErrorMessage(err, `Could not save the ${slip.slipName}.`) }))
       }
     }
   }
@@ -165,7 +197,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
   return (
     <SidePanel
       title="Add Transaction"
-      subtitle="Bodega Receiving Report"
+      subtitle={slip.subtitle}
       onClose={requestClose}
       as="form"
       bodyProps={{ onSubmit: handleSubmit, noValidate: true }}
@@ -215,7 +247,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
         onChange={(e) => setCustomerName(e.target.value)}
       />
 
-      <section className="brr-lines" aria-label="Items received">
+      <section className="brr-lines" aria-label={slip.linesLabel}>
         <div className="brr-line brr-line-header" aria-hidden="true">
           <span>Quantity</span>
           <span>Unit</span>
@@ -276,7 +308,14 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
                 <p className="brr-line-details">
                   {[line.item.itemId, line.item.brand, line.item.category].filter(Boolean).join(' · ')} · Bal.{' '}
                   {formatNumber(line.item.balance)}
-                  {Number(line.qty) > 0 && ` → ${formatNumber(line.item.balance + Number(line.qty))}`}
+                  {Number(line.qty) > 0 && (
+                    <>
+                      {' → '}
+                      <span className={line.item.balance + sign * Number(line.qty) < 0 ? 'brr-negative' : ''}>
+                        {formatNumber(line.item.balance + sign * Number(line.qty))}
+                      </span>
+                    </>
+                  )}
                 </p>
               )}
               {(lineErrors.qty || lineErrors.item) && (
@@ -312,10 +351,10 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
             setErrors((er) => ({ ...er, reportNo: undefined }))
           }}
           error={errors.reportNo}
-          hint="The red number printed on the slip."
+          hint={slip.refHint}
         />
         <TextField
-          label="Received by"
+          label={slip.personLabel}
           autoComplete="off"
           value={receivedBy}
           onChange={(e) => setReceivedBy(e.target.value)}
@@ -331,7 +370,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
 
       {confirm && (
         <ConfirmDialog
-          title={`Save ${pluralize(filledLines.length, 'line')} as IN?`}
+          title={`Save ${pluralize(filledLines.length, 'line')} as ${kind}?`}
           tone="primary"
           confirmLabel={confirm.duplicateSavedAt ? 'Save again' : 'Save to Inventory'}
           isBusy={confirm.isBusy}
@@ -342,9 +381,14 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
             <div className="brr-confirm">
               {confirm.duplicateSavedAt && (
                 <p className="brr-confirm-warning">
-                  Receiving report No. {reportNo.trim()} was already saved on{' '}
-                  {new Date(confirm.duplicateSavedAt).toLocaleString('en-US')}. Saving it again adds its items to the
-                  inventory a second time.
+                  {slip.slipName.charAt(0).toUpperCase() + slip.slipName.slice(1)} No. {reportNo.trim()} was already saved
+                  on {new Date(confirm.duplicateSavedAt).toLocaleString('en-US')}. Saving it again{' '}
+                  {kind === 'OUT' ? 'takes its items out of' : 'adds its items to'} the inventory a second time.
+                </p>
+              )}
+              {negativeItems > 0 && (
+                <p className="brr-confirm-warning">
+                  {pluralize(negativeItems, 'item')} will have a negative balance after this.
                 </p>
               )}
               {isFuture && <p className="brr-confirm-warning">The date is in the future.</p>}
@@ -375,7 +419,7 @@ export default function ReceivingReportPanel({ onClose, onSaved, modeToggle, isA
       {confirmClose && (
         <ConfirmDialog
           title="Close without saving?"
-          message={<p>The lines on this receiving report haven't been saved.</p>}
+          message={<p>The lines on this {slip.slipName} haven't been saved.</p>}
           confirmLabel="Close anyway"
           onCancel={() => setConfirmClose(false)}
           onConfirm={() => {

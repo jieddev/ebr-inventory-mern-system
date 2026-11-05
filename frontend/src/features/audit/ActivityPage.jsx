@@ -36,6 +36,7 @@ const ACTION_LABELS = {
   'transaction.cancel': 'Cancelled reservation',
   'transaction.rollback': 'Rolled back transaction',
   'receiving.create': 'Receiving report',
+  'batchout.create': 'Batch out',
   'report.export': 'Exported Daily Report',
   'report.transactions_export': 'Exported Transaction Report',
 }
@@ -311,10 +312,11 @@ function Details({ entry }) {
     case 'item.create':
       return `${d.category || 'No category'} · opening balance ${formatNumber(d.balanceForwarded)}`
     case 'receiving.create':
+    case 'batchout.create':
       return (
         <>
           <span>
-            {[`IN ${formatNumber(d.totalQuantity)}`, formatDate(d.date), d.customerName]
+            {[`${entry.action === 'batchout.create' ? 'OUT' : 'IN'} ${formatNumber(d.totalQuantity)}`, formatDate(d.date), d.customerName]
               .filter(Boolean)
               .join(' · ')}
           </span>
