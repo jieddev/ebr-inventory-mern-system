@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../features/auth/useAuth'
 import { useCostCenter } from '../../features/costCenter/useCostCenter'
@@ -5,8 +6,8 @@ import { usePendingReservations } from '../../hooks/usePendingReservations'
 import { viewPath } from '../../utils/rememberedViews'
 import { REPORT_PERMISSIONS, canAny } from '../../utils/permissions'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
-import chevronIcon from '../../assets/icons/chevron-down-sm.svg'
-import '../ui/TextField.css'
+import chevronIcon from '../../assets/icons/chevron-right-sm.svg'
+import checkIcon from '../../assets/icons/check.svg'
 import './Sidebar.css'
 
 // permission: who can open the page, one or a list of any (admins can open all; none = everyone); keep in step with the
@@ -32,40 +33,52 @@ export default function Sidebar() {
   const reservations = usePendingReservations({ enabled: links.some((link) => link.to === '/reservations') })
   const { costCenter, canSwitch, setCostCenter } = useCostCenter()
   const label = costCenterLabel(costCenter)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const triggerRef = useRef(null)
+  const pickerId = useId()
+
+  function closePicker({ returnFocus = false } = {}) {
+    setIsPickerOpen(false)
+    if (returnFocus) triggerRef.current?.focus()
+  }
 
   return (
     <aside className="sidebar">
-      <nav className="sidebar-panel" aria-label="Main">
-        {/* Collapsed: the cost center's initial. Expanded: the dropdown (admins) or its name. */}
-        <div className="sidebar-branch" title={`Cost center: ${label}`}>
-          <span className="sidebar-branch-mark" aria-hidden="true">
-            {label.charAt(0)}
-          </span>
-          {canSwitch ? (
-            <div className="field-control sidebar-branch-control">
-              <select
-                className="field-input field-select"
-                aria-label="Cost center"
-                value={costCenter}
-                onChange={(e) => setCostCenter(e.target.value)}
-              >
-                {COST_CENTERS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <div className="field-adornment field-adornment-icon" aria-hidden="true">
-                <img src={chevronIcon} alt="" width="16" height="16" />
-              </div>
-            </div>
-          ) : (
+      {/* Stays expanded while the cost center card is open, so the card stays beside it. */}
+      <nav className={`sidebar-panel ${isPickerOpen ? 'is-pinned' : ''}`} aria-label="Main">
+        {/* Collapsed: the cost center's initial. Expanded: its name, a button that opens the
+            cost center card for admins. */}
+        {canSwitch ? (
+          <button
+            ref={triggerRef}
+            type="button"
+            className="sidebar-branch sidebar-branch-trigger"
+            title={`Cost center: ${label}`}
+            aria-haspopup="true"
+            aria-expanded={isPickerOpen}
+            aria-controls={pickerId}
+            onClick={() => setIsPickerOpen((open) => !open)}
+          >
+            <span className="sidebar-branch-mark" aria-hidden="true">
+              {label.charAt(0)}
+            </span>
             <span className="sidebar-branch-control sidebar-branch-name">
               <span className="visually-hidden">Cost center: </span>
               {label}
             </span>
-          )}
-        </div>
+            <img className="sidebar-branch-chevron" src={chevronIcon} alt="" width="16" height="16" />
+          </button>
+        ) : (
+          <div className="sidebar-branch" title={`Cost center: ${label}`}>
+            <span className="sidebar-branch-mark" aria-hidden="true">
+              {label.charAt(0)}
+            </span>
+            <span className="sidebar-branch-control sidebar-branch-name">
+              <span className="visually-hidden">Cost center: </span>
+              {label}
+            </span>
+          </div>
+        )}
 
         {links.map((link) => (
           <NavLink
@@ -93,6 +106,88 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {isPickerOpen && (
+        <CostCenterCard
+          id={pickerId}
+          value={costCenter}
+          triggerRef={triggerRef}
+          onSelect={(value) => {
+            setCostCenter(value)
+            closePicker({ returnFocus: true })
+          }}
+          onClose={closePicker}
+        />
+      )}
     </aside>
+  )
+}
+
+// The admin's cost center choices, in a card beside the sidebar. Arrow keys move between them,
+// Escape closes it, and pressing outside it (except on its trigger) closes it too.
+function CostCenterCard({ id, value, triggerRef, onSelect, onClose }) {
+  const cardRef = useRef(null)
+  const titleId = useId()
+
+  // Start on the current cost center.
+  useEffect(() => {
+    cardRef.current?.querySelector('[aria-checked="true"]')?.focus()
+  }, [])
+
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (cardRef.current?.contains(event.target) || triggerRef.current?.contains(event.target)) return
+      onCloseRef.current()
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [triggerRef])
+
+  function handleKeyDown(event) {
+    if (event.key === 'Escape') {
+      // Stop here so an open side panel doesn't also close.
+      event.stopPropagation()
+      onClose({ returnFocus: true })
+      return
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    event.preventDefault()
+    const options = [...cardRef.current.querySelectorAll('[role="menuitemradio"]')]
+    const index = options.indexOf(document.activeElement)
+    const next = (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length
+    options[next].focus()
+  }
+
+  return (
+    <div id={id} ref={cardRef} className="cost-center-card" onKeyDown={handleKeyDown}>
+      <div className="cost-center-card-header">
+        <p id={titleId} className="cost-center-card-title">
+          Cost center
+        </p>
+        <p className="cost-center-card-hint">Pages show this cost center's items and transactions.</p>
+      </div>
+      <div role="menu" aria-labelledby={titleId}>
+        {COST_CENTERS.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            role="menuitemradio"
+            aria-checked={c.value === value}
+            className="cost-center-option"
+            onClick={() => (c.value === value ? onClose({ returnFocus: true }) : onSelect(c.value))}
+          >
+            <span className="cost-center-option-mark" aria-hidden="true">
+              {c.label.charAt(0)}
+            </span>
+            <span className="cost-center-option-label">{c.label}</span>
+            {c.value === value && <img src={checkIcon} alt="" width="16" height="16" />}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

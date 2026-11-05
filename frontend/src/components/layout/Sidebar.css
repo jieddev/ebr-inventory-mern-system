@@ -21,12 +21,13 @@
 }
 
 .sidebar-panel:hover,
-.sidebar-panel:focus-within {
+.sidebar-panel:focus-within,
+.sidebar-panel.is-pinned {
   width: var(--sidebar-width-expanded);
   box-shadow: var(--shadow-md);
 }
 
-/* Branch picker: a letter badge in the icon column, the select beside it when expanded. */
+/* Branch row: a letter badge in the icon column, the name beside it when expanded. */
 .sidebar-branch {
   display: flex;
   gap: var(--space-2);
@@ -55,18 +56,13 @@
   transition: opacity 0.15s;
 }
 
-.sidebar-branch-control .field-input {
-  height: 32px;
-  padding-left: var(--space-2);
-  font-weight: var(--weight-medium);
-}
-
 .sidebar-panel:hover .sidebar-branch-control,
-.sidebar-panel:focus-within .sidebar-branch-control {
+.sidebar-panel:focus-within .sidebar-branch-control,
+.sidebar-panel.is-pinned .sidebar-branch-control {
   opacity: 1;
 }
 
-/* Users who work in one cost center see its name instead of the dropdown. */
+/* The cost center's name; for admins it sits in the button that opens the cost center card. */
 .sidebar-branch-name {
   display: flex;
   align-items: center;
@@ -78,15 +74,145 @@
   text-overflow: ellipsis;
 }
 
-/* Expanded: the select takes the full width, lined up with the links. */
+/* Expanded: the name takes the full width, lined up with the links. */
 .sidebar-panel:hover .sidebar-branch,
-.sidebar-panel:focus-within .sidebar-branch {
+.sidebar-panel:focus-within .sidebar-branch,
+.sidebar-panel.is-pinned .sidebar-branch {
   padding-left: 0;
 }
 
 .sidebar-panel:hover .sidebar-branch-mark,
-.sidebar-panel:focus-within .sidebar-branch-mark {
+.sidebar-panel:focus-within .sidebar-branch-mark,
+.sidebar-panel.is-pinned .sidebar-branch-mark {
   display: none;
+}
+
+/* Admins: the whole branch row is a button. */
+.sidebar-branch-trigger {
+  width: 100%;
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-branch-trigger .sidebar-branch-name {
+  flex: 1;
+}
+
+.sidebar-branch-trigger:hover .sidebar-branch-name,
+.sidebar-branch-trigger[aria-expanded='true'] .sidebar-branch-name {
+  background: var(--color-bg);
+}
+
+.sidebar-branch-trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.sidebar-branch-chevron {
+  display: none;
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+  transition: transform 0.15s;
+}
+
+.sidebar-panel:hover .sidebar-branch-chevron,
+.sidebar-panel:focus-within .sidebar-branch-chevron,
+.sidebar-panel.is-pinned .sidebar-branch-chevron {
+  display: block;
+}
+
+/* Points at the card while it's open. */
+.sidebar-branch-trigger[aria-expanded='true'] .sidebar-branch-chevron {
+  transform: translateX(2px);
+}
+
+/* The cost center card: pops up beside the expanded sidebar, level with the branch row.
+   Outside .sidebar-panel because the panel clips its overflow. */
+.cost-center-card {
+  position: absolute;
+  top: var(--space-2);
+  left: calc(var(--sidebar-width-expanded) + var(--space-2));
+  width: 260px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: cost-center-card-in 0.15s ease-out;
+}
+
+@keyframes cost-center-card-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.cost-center-card-header {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cost-center-card-title {
+  font-weight: var(--weight-semibold);
+}
+
+.cost-center-card-hint {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.cost-center-option {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.cost-center-option:hover {
+  background: var(--color-bg);
+}
+
+.cost-center-option[aria-checked='true'] {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.cost-center-option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.cost-center-option-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-primary);
+  border: 2px solid var(--color-border-strong);
+}
+
+.cost-center-option-label {
+  flex: 1;
 }
 
 .sidebar-link {
@@ -175,7 +301,8 @@
 }
 
 .sidebar-panel:hover .sidebar-label,
-.sidebar-panel:focus-within .sidebar-label {
+.sidebar-panel:focus-within .sidebar-label,
+.sidebar-panel.is-pinned .sidebar-label {
   opacity: 1;
 }
 
@@ -202,7 +329,8 @@
 }
 
 .sidebar-panel:hover .sidebar-badge,
-.sidebar-panel:focus-within .sidebar-badge {
+.sidebar-panel:focus-within .sidebar-badge,
+.sidebar-panel.is-pinned .sidebar-badge {
   position: static;
   margin-left: auto;
 }
@@ -210,7 +338,12 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-panel,
   .sidebar-label,
-  .sidebar-branch-control {
+  .sidebar-branch-control,
+  .sidebar-branch-chevron {
     transition: none;
+  }
+
+  .cost-center-card {
+    animation: none;
   }
 }

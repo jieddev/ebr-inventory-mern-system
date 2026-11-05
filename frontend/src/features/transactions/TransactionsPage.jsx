@@ -201,7 +201,6 @@ export default function TransactionsPage() {
     <div className="workspace">
       <section className="workspace-content">
         <header className="page-header">
-          <h1>Servitek Transactions</h1>
           <div className="page-actions">
             <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
               <img src={plusIcon} alt="" />
