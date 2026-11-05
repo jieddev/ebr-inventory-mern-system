@@ -50,6 +50,8 @@ export default function TransactionsPage() {
   const { user } = useAuth()
   const canAddItems = can(user, 'addItems')
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
+  // Item description for the Add Item panel when it's opened from a search that found nothing.
+  const [newItemCode, setNewItemCode] = useState('')
 
   const updateParams = useCallback(
     (changes) => {
@@ -281,9 +283,25 @@ export default function TransactionsPage() {
               {search || activeFilterCount ? (
                 <>
                   <p>{search ? `No items match “${search}”` : 'No items match'}{activeFilterCount ? ' with these filters.' : '.'}</p>
-                  <Button variant="secondary" size="sm" onClick={clearSearchAndFilters}>
-                    {activeFilterCount ? 'Clear search and filters' : 'Clear search'}
-                  </Button>
+                  {search && canAddItems && <p className="table-empty-question">Do you want to add this item?</p>}
+                  <div className="table-empty-actions">
+                    {search && canAddItems && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          // An item ID (ITM-01234) isn't a description, so don't fill it in.
+                          setNewItemCode(/^ITM-\d+$/i.test(search) ? '' : search)
+                          setPanel('item')
+                        }}
+                      >
+                        <img src={plusIcon} alt="" />
+                        Add Item
+                      </Button>
+                    )}
+                    <Button variant="secondary" size="sm" onClick={clearSearchAndFilters}>
+                      {activeFilterCount ? 'Clear search and filters' : 'Clear search'}
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <>
@@ -293,7 +311,13 @@ export default function TransactionsPage() {
                       : 'No items yet. Ask an admin to add items before recording transactions.'}
                   </p>
                   {canAddItems && (
-                    <Button size="sm" onClick={() => setPanel('item')}>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNewItemCode('')
+                        setPanel('item')
+                      }}
+                    >
                       <img src={plusIcon} alt="" />
                       Add Item
                     </Button>
@@ -338,7 +362,14 @@ export default function TransactionsPage() {
       </section>
 
       {panel === 'item' && canAddItems && (
-        <AddItemPanel onClose={closePanel} onAdded={handleItemAdded} addedThisSession={itemsAddedThisSession} />
+        <AddItemPanel
+          // A new search starts a fresh form.
+          key={newItemCode}
+          initialCode={newItemCode}
+          onClose={closePanel}
+          onAdded={handleItemAdded}
+          addedThisSession={itemsAddedThisSession}
+        />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'details' && (

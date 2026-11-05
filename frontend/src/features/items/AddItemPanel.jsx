@@ -12,10 +12,11 @@ import './AddItemPanel.css'
 
 // Stays open after each save: the fields clear (except Category), a confirmation shows,
 // and the item is added to "Added this session", so many items can be entered in a row.
-export default function AddItemPanel({ onClose, onAdded, addedThisSession }) {
+// initialCode fills in Item description, e.g. from a search that found nothing.
+export default function AddItemPanel({ onClose, onAdded, addedThisSession, initialCode = '' }) {
   const categoryRef = useRef(null)
   const codeRef = useRef(null)
-  const [form, setForm] = useState(EMPTY_ITEM_FORM)
+  const [form, setForm] = useState(() => ({ ...EMPTY_ITEM_FORM, code: initialCode }))
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
