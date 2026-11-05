@@ -395,4 +395,7 @@ module.exports = {
   releaseReservation,
   cancelReservation,
   rollbackTransaction,
+  // For the dashboard (dashboard.controller.js).
+  reservationMatch,
+  countReservations,
 };

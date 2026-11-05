@@ -37,6 +37,7 @@ const ACTION_LABELS = {
   'transaction.rollback': 'Rolled back transaction',
   'receiving.create': 'Receiving report',
   'report.export': 'Exported Daily Report',
+  'report.transactions_export': 'Exported Transaction Report',
 }
 
 const FIELD_LABELS = {
@@ -368,7 +369,12 @@ function Details({ entry }) {
     case 'item.export':
       return `${pluralize(d.count, 'item')}`
     case 'report.export':
-      return `As of ${formatDate(`${d.date}T00:00:00Z`)} · ${pluralize(d.count, 'item')}`
+      return `${d.from ? `${formatDate(`${d.from}T00:00:00Z`)} – ` : 'As of '}${formatDate(`${d.date}T00:00:00Z`)} · ${pluralize(d.count, 'item')}`
+    case 'report.transactions_export': {
+      const day = (value) => formatDate(`${value}T00:00:00Z`)
+      const period = d.from === d.to ? day(d.from) : `${day(d.from)} – ${day(d.to)}`
+      return `${period} · ${pluralize(d.count, 'item')}`
+    }
     case 'item.batch_archive':
     case 'item.batch_restore':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`

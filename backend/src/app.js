@@ -15,6 +15,7 @@ const eventRoutes = require('./routes/events.routes');
 const auditRoutes = require('./routes/audit.routes');
 const receivingRoutes = require('./routes/receiving.routes');
 const reportRoutes = require('./routes/reports.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -49,6 +50,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/receiving-reports', receivingRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Serve the built frontend (npm run build in frontend/) so one port hosts the whole app.
 // Any non-API path gets index.html and React Router takes it from there.

@@ -134,6 +134,11 @@
   mask-repeat: no-repeat;
 }
 
+.sidebar-icon-dashboard {
+  -webkit-mask-image: url('../../assets/icons/dashboard.svg');
+  mask-image: url('../../assets/icons/dashboard.svg');
+}
+
 .sidebar-icon-transactions {
   -webkit-mask-image: url('../../assets/icons/transactions.svg');
   mask-image: url('../../assets/icons/transactions.svg');
@@ -147,6 +152,11 @@
 .sidebar-icon-items {
   -webkit-mask-image: url('../../assets/icons/items.svg');
   mask-image: url('../../assets/icons/items.svg');
+}
+
+.sidebar-icon-reports {
+  -webkit-mask-image: url('../../assets/icons/report.svg');
+  mask-image: url('../../assets/icons/report.svg');
 }
 
 .sidebar-icon-activity {

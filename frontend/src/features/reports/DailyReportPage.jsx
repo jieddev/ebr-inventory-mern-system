@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Logo from '../../components/ui/Logo'
-import PickDateDialog from '../../components/ui/PickDateDialog'
+import PickDateRangeDialog from '../../components/ui/PickDateRangeDialog'
 import { getErrorMessage } from '../../api/auth'
 import { exportDailyReport, getDailyReport } from '../../api/reports'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
-import { viewPath } from '../../utils/rememberedViews'
 import { costCenterLabel } from '../../utils/costCenters'
 import { useCostCenter } from '../costCenter/useCostCenter'
 import arrowLeftIcon from '../../assets/icons/arrow-left.svg'
@@ -26,38 +25,44 @@ const dateTime = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
 })
+const toDate = (day) => new Date(`${day}T00:00:00Z`)
 
 // Daily Report (design screen 06): every item's ending balance at the end of the chosen day,
-// from /reports/daily?date=YYYY-MM-DD. Pages on screen; Print prints every item.
+// from /reports/daily?date=YYYY-MM-DD. For a range (?from=&to=) each item also shows its
+// beginning balance when `from` starts and the net change. Pages on screen; Print prints every item.
 export default function DailyReportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { costCenter } = useCostCenter()
-  const date = searchParams.get('date') || todayInputValue()
-  const [page, setPage] = useState({ date, number: 1 })
+  const date = searchParams.get('date')
+  const to = searchParams.get('to') || date || searchParams.get('from') || todayInputValue()
+  const from = searchParams.get('from') || to
+  const isRange = from < to
+  const period = `${from}|${to}`
+  const [page, setPage] = useState({ period, number: 1 })
   // The last finished request; it's loading while that isn't the current request.
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
-  const [isPickingDate, setIsPickingDate] = useState(false)
+  const [isPickingDates, setIsPickingDates] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState('')
 
-  const requestKey = `${date}|${reloadKey}`
+  const requestKey = `${period}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getDailyReport(date, { signal: controller.signal })
+    getDailyReport({ from, to }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
         setResponse({ key: requestKey, data: null, error: getErrorMessage(err, 'Could not generate the report.') })
       })
     return () => controller.abort()
-  }, [date, requestKey])
+  }, [from, to, requestKey])
 
   async function handleExport() {
     setIsExporting(true)
     setExportError('')
     try {
-      await exportDailyReport(date)
+      await exportDailyReport({ from, to })
     } catch (err) {
       setExportError(getErrorMessage(err, 'Could not export the report.'))
     } finally {
@@ -68,25 +73,26 @@ export default function DailyReportPage() {
   const { data } = response
   const isLoading = response.key !== requestKey
   const rows = data?.rows ?? []
-  // A new date starts on page 1.
-  const pageNumber = page.date === date ? page.number : 1
+  // A new period starts on page 1.
+  const pageNumber = page.period === period ? page.number : 1
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const first = rows.length ? (pageNumber - 1) * PAGE_SIZE : 0
   const last = Math.min(first + PAGE_SIZE, rows.length)
-  const asOfText = longDate.format(new Date(`${date}T00:00:00Z`))
+  const asOfText = longDate.format(toDate(to))
+  const periodText = isRange ? longDate.formatRange(toDate(from), toDate(to)) : asOfText
 
   return (
     <div className="workspace">
       <section className="workspace-content report-page">
         <div className="report-toolbar no-print">
-          <Link to={viewPath('/transactions')} className="report-back">
+          <Link to="/reports" className="report-back">
             <img src={arrowLeftIcon} alt="" width="16" height="16" />
-            Back to transactions
+            Back to reports
           </Link>
           <div className="page-actions">
-            <Button variant="secondary" onClick={() => setIsPickingDate(true)}>
+            <Button variant="secondary" onClick={() => setIsPickingDates(true)}>
               <img src={calendarIcon} alt="" />
-              Change date
+              Change dates
             </Button>
             <Button variant="secondary" onClick={handleExport} disabled={!data || isLoading} isLoading={isExporting}>
               {!isExporting && <img src={downloadIcon} alt="" />}
@@ -119,15 +125,15 @@ export default function DailyReportPage() {
             <div>
               <p className="report-eyebrow">EBR Inventory System · {costCenterLabel(costCenter)}</p>
               <h1>Daily Report</h1>
-              <p className="report-as-of">As of {asOfText}</p>
+              <p className="report-as-of">{isRange ? `For ${periodText}` : `As of ${asOfText}`}</p>
             </div>
             <Logo size="sm" />
           </header>
 
           <dl className="report-meta">
             <div>
-              <dt>Report date</dt>
-              <dd>{formatDate(`${date}T00:00:00Z`)}</dd>
+              <dt>{isRange ? 'Period' : 'Report date'}</dt>
+              <dd>{isRange ? `${formatDate(toDate(from))} – ${formatDate(toDate(to))}` : formatDate(toDate(to))}</dd>
             </div>
             <div>
               <dt>Generated</dt>
@@ -146,6 +152,8 @@ export default function DailyReportPage() {
                   <th>Item code</th>
                   <th>Brand name</th>
                   <th>Category</th>
+                  {isRange && <th className="is-number">Beginning balance</th>}
+                  {isRange && <th className="is-number">Net change</th>}
                   <th className="is-number">Ending balance</th>
                   <th className="is-number">Last transaction date</th>
                 </tr>
@@ -157,6 +165,12 @@ export default function DailyReportPage() {
                     <td className="report-code">{row.code}</td>
                     <td>{row.brand || '—'}</td>
                     <td>{row.category || '—'}</td>
+                    {isRange && (
+                      <td className={`is-number ${row.beginningBalance < 0 ? 'is-negative' : ''}`}>
+                        {formatNumber(row.beginningBalance)}
+                      </td>
+                    )}
+                    {isRange && <td className="is-number report-muted">{netChange(row)}</td>}
                     <td className={`is-number report-balance ${row.endingBalance < 0 ? 'is-negative' : ''}`}>
                       {formatNumber(row.endingBalance)}
                     </td>
@@ -183,7 +197,7 @@ export default function DailyReportPage() {
                   variant="ghost"
                   size="sm"
                   disabled={pageNumber <= 1}
-                  onClick={() => setPage({ date, number: pageNumber - 1 })}
+                  onClick={() => setPage({ period, number: pageNumber - 1 })}
                 >
                   Previous
                 </Button>
@@ -191,7 +205,7 @@ export default function DailyReportPage() {
                   variant="ghost"
                   size="sm"
                   disabled={pageNumber >= totalPages}
-                  onClick={() => setPage({ date, number: pageNumber + 1 })}
+                  onClick={() => setPage({ period, number: pageNumber + 1 })}
                 >
                   Next
                 </Button>
@@ -200,6 +214,8 @@ export default function DailyReportPage() {
           )}
 
           <p className="report-note">
+            {isRange &&
+              `Beginning balance is each item's stock on hand when ${longDate.format(toDate(from))} starts; net change is the difference to the ending balance. `}
             Ending balance is each item's stock on hand at the end of {asOfText}.
             {data?.negativeCount > 0 && ` ${formatNumber(data.negativeCount)} negative balances are shown in red so they can be checked.`}
             {data?.negativeCount === 0 && ' Negative balances are shown in red so they can be checked.'}
@@ -207,18 +223,25 @@ export default function DailyReportPage() {
         </article>
       </section>
 
-      {isPickingDate && (
-        <PickDateDialog
+      {isPickingDates && (
+        <PickDateRangeDialog
           title="Generate Daily Report"
-          subtitle="Show ending balances as of which date?"
-          initialDate={date}
-          onCancel={() => setIsPickingDate(false)}
+          subtitle="Show balances for which day or dates?"
+          initialFrom={from}
+          initialTo={to}
+          onCancel={() => setIsPickingDates(false)}
           onConfirm={(next) => {
-            setIsPickingDate(false)
-            setSearchParams({ date: next })
+            setIsPickingDates(false)
+            setSearchParams(next.from === next.to ? { date: next.to } : next)
           }}
         />
       )}
     </div>
   )
+}
+
+// "+3", "-2" or "0": ending minus beginning balance.
+function netChange(row) {
+  const change = row.endingBalance - row.beginningBalance
+  return change > 0 ? `+${formatNumber(change)}` : formatNumber(change)
 }

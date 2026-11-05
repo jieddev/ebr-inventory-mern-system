@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
-import PickDateDialog from '../../components/ui/PickDateDialog'
 import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
 import { getErrorMessage } from '../../api/auth'
@@ -18,7 +17,6 @@ import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../
 import { can } from '../../utils/permissions'
 import plusIcon from '../../assets/icons/plus.svg'
 import searchIcon from '../../assets/icons/search.svg'
-import reportIcon from '../../assets/icons/report.svg'
 import './TransactionsPage.css'
 
 const PAGE_SIZE = 10
@@ -46,8 +44,6 @@ export default function TransactionsPage() {
 
   const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'details' | null
   const [selectedEntryId, setSelectedEntryId] = useState(null) // the 'details' panel's entry
-  const [isPickingReportDate, setIsPickingReportDate] = useState(false)
-  const navigate = useNavigate()
   const { user } = useAuth()
   const canAddItems = can(user, 'addItems')
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
@@ -228,18 +224,6 @@ export default function TransactionsPage() {
             </label>
             <FilterDropdown filters={filters} onApply={applyFilters} withEntryFilters />
           </div>
-          <div className="toolbar-reports">
-            {can(user, 'viewDailyReport') && (
-              <Button variant="secondary" onClick={() => setIsPickingReportDate(true)}>
-                <img src={reportIcon} alt="" />
-                Generate Daily Report
-              </Button>
-            )}
-            <Button variant="secondary" disabled title="Coming soon">
-              <img src={reportIcon} alt="" />
-              Generate Transaction Report
-            </Button>
-          </div>
         </div>
 
         <ActiveFilters
@@ -356,15 +340,6 @@ export default function TransactionsPage() {
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'details' && (
         <TransactionDetailsPanel transactionId={selectedEntryId} onClose={closePanel} onChanged={handleEntryChanged} />
-      )}
-
-      {isPickingReportDate && (
-        <PickDateDialog
-          title="Generate Daily Report"
-          subtitle="Show ending balances as of which date?"
-          onCancel={() => setIsPickingReportDate(false)}
-          onConfirm={(date) => navigate(`/reports/daily?date=${date}`)}
-        />
       )}
     </div>
   )

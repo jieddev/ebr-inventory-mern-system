@@ -3,6 +3,7 @@
 const PERMISSIONS = [
   { value: 'addTransactions', label: 'Allow user to add transactions' },
   { value: 'viewDailyReport', label: 'Allow user to view the daily report' },
+  { value: 'viewTransactionReport', label: 'Allow user to view the transaction report' },
   { value: 'viewItems', label: 'Allow user to open the Items page' },
   { value: 'viewItemStock', label: 'Allow user to see stock details (stock filter, last transaction) on the Items page' },
   { value: 'addItems', label: 'Allow user to add items' },
@@ -12,7 +13,7 @@ const PERMISSION_VALUES = PERMISSIONS.map((p) => p.value);
 // Ticked when an admin picks the role; the admin can change them after.
 const ROLE_DEFAULTS = {
   admin: [],
-  warehouse: ['addTransactions', 'viewDailyReport', 'addItems'],
+  warehouse: ['addTransactions', 'viewDailyReport', 'viewTransactionReport', 'addItems'],
   encoder: ['viewItems', 'addItems'],
 };
 

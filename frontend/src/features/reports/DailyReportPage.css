@@ -126,6 +126,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Transaction Report: the TOTAL row under the items. */
+.report-table tfoot td {
+  font-weight: var(--weight-bold);
+  background: var(--color-bg);
+  border-top: 2px solid var(--color-border-strong);
+}
+
 .report-code {
   font-weight: var(--weight-medium);
 }
@@ -194,6 +201,11 @@
 
   .report-table tr {
     break-inside: avoid;
+  }
+
+  .report-table tfoot td {
+    background: none;
+    border-top-color: var(--color-text);
   }
 
   .report-table td,

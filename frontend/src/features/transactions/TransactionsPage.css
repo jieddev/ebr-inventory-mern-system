@@ -31,12 +31,6 @@
 }
 
 .page-actions,
-.toolbar-reports {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;

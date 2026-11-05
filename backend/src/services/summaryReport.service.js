@@ -121,8 +121,13 @@ async function readSummaryReport(buffer) {
   return { rows, invalid, asOf: columns.asOf ?? null };
 }
 
+const longDate = (date) =>
+  date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
 // Builds an .xlsx in the Summary Report layout, with the item ID and category in front.
-async function buildSummaryReport(items, asOf) {
+// With beginningOf (a Daily Report for a range), each item's beginningBalance and the net change
+// come before the ending balance; the importer ignores those columns.
+async function buildSummaryReport(items, asOf, { beginningOf = null } = {}) {
   const asOfText = asOf.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(SHEET_NAME, { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -132,6 +137,12 @@ async function buildSummaryReport(items, asOf) {
     { header: 'ITEM CODE', key: 'code', width: 48 },
     { header: 'BRAND NAME', key: 'brand', width: 22 },
     { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
+    ...(beginningOf
+      ? [
+          { header: `BEGINNING BALANCE ON ${longDate(beginningOf)}`, key: 'beginningBalance', width: 24 },
+          { header: 'NET CHANGE', key: 'netChange', width: 14 },
+        ]
+      : []),
     { header: `ENDING BALANCE AS OF ${asOfText}`, key: 'balance', width: 22 },
     { header: 'LAST TRANSACTION DATE', key: 'lastTransactionDate', width: 22, style: { numFmt: 'mm/dd/yyyy' } },
   ];
@@ -139,6 +150,7 @@ async function buildSummaryReport(items, asOf) {
   sheet.addRows(
     items.map((item) => ({
       ...item,
+      ...(beginningOf && { netChange: item.balance - (item.beginningBalance ?? 0) }),
       // ExcelJS writes Dates in UTC, which is how calendar days are stored.
       lastTransactionDate: item.lastTransactionDate ?? null,
     })),
@@ -146,4 +158,27 @@ async function buildSummaryReport(items, asOf) {
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { readSummaryReport, buildSummaryReport };
+// Builds the Transaction Report .xlsx: each item's IN and OUT for the period, its ending
+// balance at the end of `to`, and a TOTAL row.
+async function buildTransactionReport(rows, totals, from, to) {
+  const period = from.getTime() === to.getTime() ? longDate(to) : `${longDate(from)} TO ${longDate(to)}`;
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Transaction Report', { views: [{ state: 'frozen', ySplit: 1 }] });
+  sheet.columns = [
+    { header: 'ITEM ID', key: 'itemId', width: 12 },
+    { header: 'CATEGORY', key: 'category', width: 22 },
+    { header: 'ITEM CODE', key: 'code', width: 48 },
+    { header: 'BRAND NAME', key: 'brand', width: 22 },
+    { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
+    { header: `IN (${period})`, key: 'in', width: 18 },
+    { header: `OUT (${period})`, key: 'out', width: 18 },
+    { header: `ENDING BALANCE AS OF ${longDate(to)}`, key: 'endingBalance', width: 22 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  sheet.addRows(rows);
+  const total = sheet.addRow({ code: 'TOTAL', in: totals.in, out: totals.out });
+  total.font = { bold: true };
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport };
