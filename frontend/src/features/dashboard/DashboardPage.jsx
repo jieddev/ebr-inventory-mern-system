@@ -79,7 +79,9 @@ export default function DashboardPage() {
 function StatTiles({ data, user }) {
   const { stock, today, reservations } = data
   const day = todayInputValue()
-  const todayReport = can(user, 'viewTransactionReport') ? `/reports/transactions?from=${day}&to=${day}` : null
+  // Today's IN or OUT entries on the Transactions page, for users who can open it.
+  const todayEntries = (type) =>
+    can(user, 'addTransactions') ? `/transactions?${new URLSearchParams({ type, from: day, to: day })}` : null
   const canFilterStock = can(user, 'viewItems') && can(user, 'viewItemStock')
 
   return (
@@ -90,13 +92,13 @@ function StatTiles({ data, user }) {
             label={<><Badge kind="IN" /> Today</>}
             value={formatNumber(today.in)}
             detail="units received"
-            to={todayReport}
+            to={todayEntries('IN')}
           />
           <StatTile
             label={<><Badge kind="OUT" /> Today</>}
             value={formatNumber(today.out)}
             detail="units released"
-            to={todayReport}
+            to={todayEntries('OUT')}
           />
         </>
       )}
