@@ -146,6 +146,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
 function SimilarItems({ items }) {
   return (
     <div className="similar-items" role="status">
+      <p>Please make sure that an item does not exist</p>
       <p className="similar-items-title">{items.length === 1 ? 'Do you mean this item?' : 'Do you mean one of these items?'}</p>
       <ul>
         {items.map((item) => (
