@@ -17,6 +17,22 @@ const DEFAULT_TYPES = [
   'TUBE',
 ];
 
+// Brand names offered in Add Item and Edit Item, with the brands already used in the cost center.
+// Other brands can still be typed in.
+const DEFAULT_BRANDS = [
+  'GOODYEAR',
+  'AMS',
+  'GULF',
+  'PRESTONE',
+  'MOTUL',
+  'BOSCH',
+  'VS1',
+  'MOTOTEK',
+  'MOTOLUBE',
+  'MOBIL',
+  'TOTAL',
+];
+
 // Item categories for Add Item. Items added before categories existed have ''.
 const CATEGORIES = [
   'TIRES',
@@ -91,5 +107,6 @@ const ACTIVE = { archivedAt: null };
 
 module.exports = mongoose.model('Item', itemSchema);
 module.exports.DEFAULT_TYPES = DEFAULT_TYPES;
+module.exports.DEFAULT_BRANDS = DEFAULT_BRANDS;
 module.exports.CATEGORIES = CATEGORIES;
 module.exports.ACTIVE = ACTIVE;

@@ -46,6 +46,12 @@ export async function getItemCategories() {
   return data.categories
 }
 
+// Brand name choices for the current cost center; other brands can be typed in.
+export async function getItemBrands() {
+  const { data } = await api.get('/items/brands')
+  return data.brands
+}
+
 export async function createItem(item) {
   const { data } = await api.post('/items', item)
   return data.item

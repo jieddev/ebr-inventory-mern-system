@@ -5,6 +5,7 @@ const {
   findByItemId,
   listTypes,
   listCategories,
+  listBrands,
   listFacets,
   createItem,
   updateItem,
@@ -28,6 +29,7 @@ router.use(requireAuth, resolveCostCenter);
 const usesItemChoices = requirePermission('addItems', 'viewItems', 'addTransactions');
 router.get('/types', usesItemChoices, listTypes);
 router.get('/categories', usesItemChoices, listCategories);
+router.get('/brands', usesItemChoices, listBrands);
 router.post('/', requirePermission('addItems'), createItem);
 
 // The Items page; stock fields only with viewItemStock (see listItems).

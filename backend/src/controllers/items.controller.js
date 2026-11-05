@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
-const { DEFAULT_TYPES, CATEGORIES, ACTIVE } = require('../models/Item');
+const { DEFAULT_TYPES, DEFAULT_BRANDS, CATEGORIES, ACTIVE } = require('../models/Item');
 const { BALANCE_FORWARDED } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
@@ -87,6 +87,14 @@ async function listTypes(req, res) {
   const used = await Item.distinct('typeDesign', { costCenter: req.costCenter });
   const types = [...new Set([...DEFAULT_TYPES, ...used.filter(Boolean)])].sort();
   res.json({ types });
+}
+
+// GET /api/items/brands — Brand name choices for Add Item and Edit Item: the default brands and
+// every brand already used in the cost center, A–Z.
+async function listBrands(req, res) {
+  const used = await Item.distinct('brand', { costCenter: req.costCenter });
+  const brands = [...new Set([...DEFAULT_BRANDS, ...used.filter(Boolean)])].sort();
+  res.json({ brands });
 }
 
 // GET /api/items/facets — choices and counts for the filter dropdown.
@@ -483,6 +491,7 @@ module.exports = {
   findByItemId,
   listTypes,
   listCategories,
+  listBrands,
   listFacets,
   createItem,
   updateItem,
