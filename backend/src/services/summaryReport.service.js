@@ -12,17 +12,20 @@ const CATEGORY_BY_TYPE = {
   TUBE: 'TUBES',
   FLAP: 'FLAPS',
   BATTERY: 'BATTERIES',
-  OIL: 'OILS & LUBRICANTS',
-  GULF: 'OILS & LUBRICANTS',
-  CHEMICAL: 'CHEMICALS & FLUIDS',
-  'BRAKE FLUID': 'CHEMICALS & FLUIDS',
-  COOLANT: 'CHEMICALS & FLUIDS',
+  OIL: 'OIL',
+  GULF: 'OIL',
+  CHEMICAL: 'CHEMICAL',
+  'BRAKE FLUID': 'FLUID',
+  COOLANT: 'FLUID',
+  GAS: 'GASES',
 };
 
 // BOSCH rows are mostly parts (filters, brake pads, spark plugs, wipers) plus some batteries ("... BATT BOSCH").
+// Anything that isn't a current category falls back to OTHERS, so a renamed category can't break an import.
 function categoryFor(code, typeDesign) {
-  if (typeDesign === 'BOSCH') return /\bBATT/.test(code) ? 'BATTERIES' : 'PARTS & ACCESSORIES';
-  return CATEGORY_BY_TYPE[typeDesign] ?? 'OTHERS';
+  const category =
+    typeDesign === 'BOSCH' ? (/\bBATT/.test(code) ? 'BATTERIES' : 'PARTS & ACCESSORIES') : CATEGORY_BY_TYPE[typeDesign];
+  return CATEGORIES.includes(category) ? category : 'OTHERS';
 }
 
 // The value Excel shows, whatever the cell holds (formula, rich text, hyperlink, ...).
