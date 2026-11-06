@@ -7,8 +7,9 @@ export function validateItemForm(form) {
   if (!form.category) errors.category = 'Select a category'
   if (!form.code.trim()) errors.code = 'Enter an item description'
   const balanceForwarded = form.balanceForwarded === '' ? 0 : Number(form.balanceForwarded)
-  if (!Number.isInteger(balanceForwarded) || balanceForwarded < 0) {
-    errors.balanceForwarded = 'Enter a whole number, 0 or more'
+  // Negative is allowed: the item starts with more out than on hand.
+  if (!Number.isInteger(balanceForwarded)) {
+    errors.balanceForwarded = 'Enter a whole number'
   }
   return { errors, balanceForwarded }
 }

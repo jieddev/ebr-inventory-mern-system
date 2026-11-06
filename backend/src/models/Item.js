@@ -68,10 +68,10 @@ const itemSchema = new mongoose.Schema(
     code: { type: String, required: true, maxlength: 80, set: normalize },
     brand: { type: String, default: '', maxlength: 60, set: normalize },
     typeDesign: { type: String, default: '', maxlength: 60, set: normalize },
+    // The opening stock. Can be negative (more went out than was on hand), as in the Excel sheet.
     balanceForwarded: {
       type: Number,
       default: 0,
-      min: 0,
       validate: { validator: Number.isInteger, message: 'Balance forwarded must be a whole number' },
     },
 

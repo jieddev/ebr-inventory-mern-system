@@ -38,7 +38,12 @@ const transactionSchema = new mongoose.Schema(
 transactionSchema.index({ item: 1, isBalanceForwarded: -1, date: 1, _id: 1 });
 transactionSchema.index({ date: 1 });
 
+// The BALANCE FORWARDED entry's type and quantity for an opening balance: IN for stock on hand,
+// OUT for a negative opening balance (quantity is always 1 or more). Call only with a balance other than 0.
+const openingEntry = (balance) => ({ type: balance > 0 ? 'IN' : 'OUT', quantity: Math.abs(balance) });
+
 module.exports = mongoose.model('Transaction', transactionSchema);
 module.exports.BALANCE_FORWARDED = BALANCE_FORWARDED;
 module.exports.TYPES = TYPES;
+module.exports.openingEntry = openingEntry;
 module.exports.LEDGER_ORDER = { isBalanceForwarded: -1, date: 1, _id: 1 };

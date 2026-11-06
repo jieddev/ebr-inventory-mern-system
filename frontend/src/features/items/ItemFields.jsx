@@ -138,7 +138,6 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
         label="Balance forwarded"
         type="number"
         inputMode="numeric"
-        min="0"
         step="1"
         placeholder="0"
         value={form.balanceForwarded}

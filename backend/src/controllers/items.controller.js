@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { DEFAULT_TYPES, DEFAULT_BRANDS, CATEGORIES, ACTIVE } = require('../models/Item');
-const { BALANCE_FORWARDED } = require('../models/Transaction');
+const { BALANCE_FORWARDED, openingEntry } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
@@ -163,7 +163,10 @@ function parseItemFields(body = {}) {
   };
   if (!CATEGORIES.includes(fields.category)) throw new HttpError(400, 'Select a category');
   if (!fields.code) throw new HttpError(400, 'Enter an item description');
-  fields.balanceForwarded = parseWholeNumber(body.balanceForwarded ?? 0, 'Balance forwarded');
+  // Any whole number: a negative opening balance is allowed, as imports can bring them in.
+  const balanceForwarded = body.balanceForwarded === '' || body.balanceForwarded == null ? 0 : Number(body.balanceForwarded);
+  if (!Number.isInteger(balanceForwarded)) throw new HttpError(400, 'Balance forwarded must be a whole number');
+  fields.balanceForwarded = balanceForwarded;
   return fields;
 }
 
@@ -179,8 +182,8 @@ async function assertKeyIsFree(costCenter, key, exceptId) {
   throw new HttpError(409, `${describe(key)} already exists`);
 }
 
-// POST /api/items — Add Item. A balance forwarded above 0 is also saved as an IN entry
-// marked BALANCE FORWARDED, like the opening row of each item in the Excel sheet.
+// POST /api/items — Add Item. A balance forwarded other than 0 is also saved as an entry marked
+// BALANCE FORWARDED (IN, or OUT when negative), like the opening row of each item in the Excel sheet.
 async function createItem(req, res) {
   const { category, code, brand, typeDesign, balanceForwarded } = parseItemFields(req.body);
   const { costCenter } = req;
@@ -200,8 +203,7 @@ async function createItem(req, res) {
         {
           item: created._id,
           date: today(),
-          type: 'IN',
-          quantity: balanceForwarded,
+          ...openingEntry(balanceForwarded),
           customerName: BALANCE_FORWARDED,
           isBalanceForwarded: true,
           createdBy: req.user._id,
@@ -249,7 +251,7 @@ async function updateItem(req, res) {
     if (fields.balanceForwarded === 0) {
       if (opening) await opening.deleteOne({ session });
     } else if (opening) {
-      opening.quantity = fields.balanceForwarded;
+      opening.set(openingEntry(fields.balanceForwarded));
       await opening.save({ session });
     } else {
       await Transaction.create(
@@ -257,8 +259,7 @@ async function updateItem(req, res) {
           {
             item: id,
             date: today(),
-            type: 'IN',
-            quantity: fields.balanceForwarded,
+            ...openingEntry(fields.balanceForwarded),
             customerName: BALANCE_FORWARDED,
             isBalanceForwarded: true,
             createdBy: req.user._id,
@@ -386,21 +387,20 @@ async function importItems(req, res) {
         balanceForwarded: row.balance,
         // What recalculateItem() would give for a ledger with just the opening entry.
         balance: row.balance,
-        transactionCount: row.balance > 0 ? 1 : 0,
-        lastTransactionDate: row.balance > 0 ? date : undefined,
-        lastTransactionType: row.balance > 0 ? 'IN' : undefined,
+        transactionCount: row.balance !== 0 ? 1 : 0,
+        lastTransactionDate: row.balance !== 0 ? date : undefined,
+        lastTransactionType: row.balance !== 0 ? openingEntry(row.balance).type : undefined,
         createdBy: req.user._id,
       })),
       { session },
     );
     await Transaction.insertMany(
       items
-        .filter((item) => item.balanceForwarded > 0)
+        .filter((item) => item.balanceForwarded !== 0)
         .map((item) => ({
           item: item._id,
           date,
-          type: 'IN',
-          quantity: item.balanceForwarded,
+          ...openingEntry(item.balanceForwarded),
           customerName: BALANCE_FORWARDED,
           isBalanceForwarded: true,
           endingBalance: item.balanceForwarded,

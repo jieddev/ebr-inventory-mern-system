@@ -118,7 +118,7 @@ async function transactionRows(costCenter, from, to) {
       $group: {
         _id: '$item',
         in: quantityIf({ $and: [{ $eq: ['$type', 'IN'] }, { $ne: ['$isBalanceForwarded', true] }] }),
-        out: quantityIf({ $eq: ['$type', 'OUT'] }),
+        out: quantityIf({ $and: [{ $eq: ['$type', 'OUT'] }, { $ne: ['$isBalanceForwarded', true] }] }),
         endingBalance: { $last: '$endingBalance' },
       },
     },

@@ -128,8 +128,9 @@ async function readSummaryReport(buffer) {
     }
 
     const balance = rawBalance == null || rawBalance === '' ? 0 : Number(rawBalance);
-    if (!Number.isInteger(balance) || balance < 0) {
-      invalid.push({ ...entry, reason: `Ending balance "${rawBalance}" is not a whole number of 0 or more` });
+    // Negative balances are kept: the item starts with more out than on hand, as in the sheet.
+    if (!Number.isInteger(balance)) {
+      invalid.push({ ...entry, reason: `Ending balance "${rawBalance}" is not a whole number` });
       continue;
     }
 
