@@ -4,7 +4,7 @@ const Transaction = require('../models/Transaction');
 const { buildSummaryReport, buildTransactionReport } = require('../services/summaryReport.service');
 const { record } = require('../services/audit.service');
 const { parseDay, today } = require('../utils/parse');
-const { costCenterFileName } = require('../config/costCenters');
+const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
 const HttpError = require('../utils/httpError');
 
 // Each item's balance and last transaction date over its entries matching `dateMatch` (a
@@ -74,7 +74,12 @@ async function exportDailyReport(req, res) {
   const buffer = await buildSummaryReport(
     rows.map((row) => ({ ...row, balance: row.endingBalance })),
     to,
-    { beginningOf: from < to ? from : null },
+    {
+      beginningOf: from < to ? from : null,
+      title: 'Daily Report',
+      costCenterName: costCenterLabel(req.costCenter),
+      preparedBy: req.user.name,
+    },
   );
   const period = from < to ? `${dayText(from)}_to_${dayText(to)}` : dayText(to);
   const details = { date: dayText(to), count: rows.length };
@@ -145,7 +150,10 @@ async function transactionReport(req, res) {
 async function exportTransactionReport(req, res) {
   const { from, to } = reportPeriod(req.query);
   const { rows, totals } = await transactionRows(req.costCenter, from, to);
-  const buffer = await buildTransactionReport(rows, totals, from, to);
+  const buffer = await buildTransactionReport(rows, totals, from, to, {
+    costCenterName: costCenterLabel(req.costCenter),
+    preparedBy: req.user.name,
+  });
   const fromDay = from.toISOString().slice(0, 10);
   const toDay = to.toISOString().slice(0, 10);
   const period = fromDay === toDay ? fromDay : `${fromDay}_to_${toDay}`;

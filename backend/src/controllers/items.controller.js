@@ -12,7 +12,7 @@ const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
-const { costCenterFileName } = require('../config/costCenters');
+const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
 const { can } = require('../config/permissions');
 
 // What users without viewItemStock see of an item: its details and current ending balance,
@@ -448,7 +448,11 @@ async function importItems(req, res) {
 async function exportItems(req, res) {
   const items = await Item.find({ costCenter: req.costCenter, ...ACTIVE }).sort({ itemId: 1, _id: 1 }).select(ITEM_FIELDS).lean();
   const asOf = today();
-  const buffer = await buildSummaryReport(items, asOf);
+  const buffer = await buildSummaryReport(items, asOf, {
+    title: 'Items Report',
+    costCenterName: costCenterLabel(req.costCenter),
+    preparedBy: req.user.name,
+  });
   await record(req, { action: 'item.export', details: { count: items.length } });
   res
     .attachment(`EBR_Items_${costCenterFileName(req.costCenter)}_${asOf.toISOString().slice(0, 10)}.xlsx`)

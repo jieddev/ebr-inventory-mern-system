@@ -4,6 +4,8 @@ const { CATEGORIES } = require('../models/Item');
 const HttpError = require('../utils/httpError');
 
 const SHEET_NAME = 'Summary Report';
+// How far down the importer looks for the column headers.
+const HEADER_SEARCH_ROWS = 20;
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 
 // TYPE / DESIGN → category, for files that have no CATEGORY column.
@@ -69,8 +71,23 @@ async function readSummaryReport(buffer) {
     workbook.worksheets[0];
   if (!sheet) throw new HttpError(400, 'This file has no sheets.');
 
+  // Exports start with a title block (report name, dates, prepared by), so the column headers
+  // are on the first row that has ITEM DESCRIPTION (or ITEM CODE), not always row 1.
+  const isCodeHeader = (cell) => ['ITEM DESCRIPTION', 'ITEM CODE'].includes(Item.normalize(cellText(cell)));
+  let headerRow = 1;
+  for (let r = 1; r <= Math.min(sheet.rowCount, HEADER_SEARCH_ROWS); r++) {
+    let found = false;
+    sheet.getRow(r).eachCell((cell) => {
+      if (isCodeHeader(cell)) found = true;
+    });
+    if (found) {
+      headerRow = r;
+      break;
+    }
+  }
+
   const columns = {};
-  sheet.getRow(1).eachCell((cell, col) => {
+  sheet.getRow(headerRow).eachCell((cell, col) => {
     const header = Item.normalize(cellText(cell));
     if (header === 'ITEM DESCRIPTION' || header === 'ITEM CODE') columns.code = col;
     else if (header === 'BRAND NAME') columns.brand = col;
@@ -96,7 +113,7 @@ async function readSummaryReport(buffer) {
 
   const rows = [];
   const invalid = [];
-  for (let r = 2; r <= sheet.rowCount; r++) {
+  for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     const code = Item.normalize(cellText(row.getCell(columns.code)));
     const brand = Item.normalize(cellText(row.getCell(columns.brand)));
@@ -127,29 +144,101 @@ async function readSummaryReport(buffer) {
 const longDate = (date) =>
   date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 
-// Builds an .xlsx in the Summary Report layout, with the item ID and category in front.
+// "11/06/2026, 3:45 PM" in the server's time zone, like the Generated line on the report pages.
+const dateTime = (date) =>
+  date.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+// The period as the report pages show it: one day, or "<from> – <to>".
+const periodText = (from, to) => (from.getTime() === to.getTime() ? longDate(to) : `${longDate(from)} – ${longDate(to)}`);
+
+const MUTED = { argb: 'FF6B7280' };
+
+// Writes the report's title block above the table, like the report page header (without the logo):
+//   EBR Inventory System · <cost center>
+//   <Title>
+//   As of <date> | For <period>
+//
+//   Report date | Period   <value>
+//   Generated              <value>
+//   Prepared by            <value>
+//
+// then the column headers. `header.columns` are the table's columns; returns the header row.
+function addReportTable(sheet, columns, header) {
+  const { title, subtitle, costCenterName, dateLabel, dateText, generatedAt, preparedBy } = header;
+  sheet.columns = columns.map(({ header: _label, ...column }) => column);
+  const lastCol = columns.length;
+  const fullWidth = (row) => sheet.mergeCells(row.number, 1, row.number, lastCol);
+
+  const eyebrow = sheet.addRow([`EBR Inventory System · ${costCenterName}`]);
+  eyebrow.font = { size: 10, color: MUTED };
+  fullWidth(eyebrow);
+  const titleRow = sheet.addRow([title]);
+  titleRow.font = { bold: true, size: 16 };
+  titleRow.height = 24;
+  fullWidth(titleRow);
+  const subtitleRow = sheet.addRow([subtitle]);
+  subtitleRow.font = { size: 11, color: MUTED };
+  fullWidth(subtitleRow);
+  sheet.addRow([]);
+
+  for (const [label, value] of [
+    [dateLabel, dateText],
+    ['Generated', dateTime(generatedAt)],
+    ['Prepared by', preparedBy || '—'],
+  ]) {
+    const row = sheet.addRow([label, value]);
+    row.getCell(1).font = { bold: true, size: 10, color: MUTED };
+    row.getCell(2).alignment = { horizontal: 'left' };
+    sheet.mergeCells(row.number, 2, row.number, Math.max(2, Math.min(lastCol, 4)));
+  }
+  sheet.addRow([]);
+
+  const headerRow = sheet.addRow(columns.map((column) => column.header));
+  headerRow.font = { bold: true };
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+    cell.border = { bottom: { style: 'thin' } };
+  });
+  sheet.views = [{ state: 'frozen', ySplit: headerRow.number }];
+  sheet.pageSetup.printTitlesRow = `${headerRow.number}:${headerRow.number}`;
+  return headerRow;
+}
+
+// Builds an .xlsx in the Summary Report layout, with the item ID and category in front, under the
+// report's title block (report.title, costCenterName, preparedBy; see addReportTable).
 // With beginningOf (a Daily Report for a range), each item's beginningBalance and the net change
-// come before the ending balance; the importer ignores those columns.
-async function buildSummaryReport(items, asOf, { beginningOf = null } = {}) {
-  const asOfText = asOf.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+// come before the ending balance; the importer ignores those columns and the title block.
+async function buildSummaryReport(items, asOf, { beginningOf = null, title, costCenterName, preparedBy } = {}) {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(SHEET_NAME, { views: [{ state: 'frozen', ySplit: 1 }] });
-  sheet.columns = [
-    { header: 'ITEM ID', key: 'itemId', width: 12 },
-    { header: 'CATEGORY', key: 'category', width: 22 },
-    { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
-    { header: 'BRAND NAME', key: 'brand', width: 22 },
-    { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
-    ...(beginningOf
-      ? [
-          { header: `BEGINNING BALANCE ON ${longDate(beginningOf)}`, key: 'beginningBalance', width: 24 },
-          { header: 'NET CHANGE', key: 'netChange', width: 14 },
-        ]
-      : []),
-    { header: `ENDING BALANCE AS OF ${asOfText}`, key: 'balance', width: 22 },
-    { header: 'LAST TRANSACTION DATE', key: 'lastTransactionDate', width: 22, style: { numFmt: 'mm/dd/yyyy' } },
-  ];
-  sheet.getRow(1).font = { bold: true };
+  const sheet = workbook.addWorksheet(SHEET_NAME);
+  const isRange = beginningOf && beginningOf.getTime() !== asOf.getTime();
+  addReportTable(
+    sheet,
+    [
+      { header: 'ITEM ID', key: 'itemId', width: 12 },
+      { header: 'CATEGORY', key: 'category', width: 22 },
+      { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
+      { header: 'BRAND NAME', key: 'brand', width: 22 },
+      { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
+      ...(beginningOf
+        ? [
+            { header: `BEGINNING BALANCE ON ${longDate(beginningOf)}`, key: 'beginningBalance', width: 24 },
+            { header: 'NET CHANGE', key: 'netChange', width: 14 },
+          ]
+        : []),
+      { header: `ENDING BALANCE AS OF ${longDate(asOf)}`, key: 'balance', width: 22 },
+      { header: 'LAST TRANSACTION DATE', key: 'lastTransactionDate', width: 22, style: { numFmt: 'mm/dd/yyyy' } },
+    ],
+    {
+      title,
+      subtitle: isRange ? `For ${periodText(beginningOf, asOf)}` : `As of ${longDate(asOf)}`,
+      costCenterName,
+      dateLabel: isRange ? 'Period' : 'Report date',
+      dateText: isRange ? periodText(beginningOf, asOf) : longDate(asOf),
+      generatedAt: new Date(),
+      preparedBy,
+    },
+  );
   sheet.addRows(
     items.map((item) => ({
       ...item,
@@ -162,22 +251,34 @@ async function buildSummaryReport(items, asOf, { beginningOf = null } = {}) {
 }
 
 // Builds the Transaction Report .xlsx: each item's IN and OUT for the period, its ending
-// balance at the end of `to`, and a TOTAL row.
-async function buildTransactionReport(rows, totals, from, to) {
+// balance at the end of `to`, and a TOTAL row, under the report's title block.
+async function buildTransactionReport(rows, totals, from, to, { costCenterName, preparedBy } = {}) {
   const period = from.getTime() === to.getTime() ? longDate(to) : `${longDate(from)} TO ${longDate(to)}`;
+  const isSingleDay = from.getTime() === to.getTime();
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Transaction Report', { views: [{ state: 'frozen', ySplit: 1 }] });
-  sheet.columns = [
-    { header: 'ITEM ID', key: 'itemId', width: 12 },
-    { header: 'CATEGORY', key: 'category', width: 22 },
-    { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
-    { header: 'BRAND NAME', key: 'brand', width: 22 },
-    { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
-    { header: `IN (${period})`, key: 'in', width: 18 },
-    { header: `OUT (${period})`, key: 'out', width: 18 },
-    { header: `ENDING BALANCE AS OF ${longDate(to)}`, key: 'endingBalance', width: 22 },
-  ];
-  sheet.getRow(1).font = { bold: true };
+  const sheet = workbook.addWorksheet('Transaction Report');
+  addReportTable(
+    sheet,
+    [
+      { header: 'ITEM ID', key: 'itemId', width: 12 },
+      { header: 'CATEGORY', key: 'category', width: 22 },
+      { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
+      { header: 'BRAND NAME', key: 'brand', width: 22 },
+      { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
+      { header: `IN (${period})`, key: 'in', width: 18 },
+      { header: `OUT (${period})`, key: 'out', width: 18 },
+      { header: `ENDING BALANCE AS OF ${longDate(to)}`, key: 'endingBalance', width: 22 },
+    ],
+    {
+      title: 'Transaction Report',
+      subtitle: `For ${periodText(from, to)}`,
+      costCenterName,
+      dateLabel: isSingleDay ? 'Report date' : 'Period',
+      dateText: periodText(from, to),
+      generatedAt: new Date(),
+      preparedBy,
+    },
+  );
   sheet.addRows(rows);
   const total = sheet.addRow({ code: 'TOTAL', in: totals.in, out: totals.out });
   total.font = { bold: true };
