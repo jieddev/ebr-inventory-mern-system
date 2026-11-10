@@ -286,4 +286,32 @@ async function buildTransactionReport(rows, totals, from, to, { costCenterName, 
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport };
+// Builds the Item List .xlsx: each item's ID, category, brand and description (no stock), in the
+// order given, under the report's title block. sortLabel names that order (e.g. "Brand name (A–Z)").
+async function buildItemList(items, { costCenterName, preparedBy, isFiltered = false, sortLabel = 'Item ID' } = {}) {
+  const asOf = new Date();
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Item List');
+  addReportTable(
+    sheet,
+    [
+      { header: 'ITEM ID', key: 'itemId', width: 12 },
+      { header: 'CATEGORY', key: 'category', width: 22 },
+      { header: 'BRAND NAME', key: 'brand', width: 22 },
+      { header: 'ITEM DESCRIPTION', key: 'code', width: 48 },
+    ],
+    {
+      title: 'Item List',
+      subtitle: `${items.length.toLocaleString('en-US')} item${items.length === 1 ? '' : 's'}${isFiltered ? ' · filtered' : ''} · sorted by ${sortLabel}`,
+      costCenterName,
+      dateLabel: 'Report date',
+      dateText: longDate(asOf),
+      generatedAt: asOf,
+      preparedBy,
+    },
+  );
+  sheet.addRows(items);
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList };

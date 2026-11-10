@@ -8,7 +8,7 @@ import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
 import SortSelect from '../../components/filters/SortSelect'
 import { getErrorMessage } from '../../api/auth'
-import { archiveItem, batchItems, exportItems, getItems, importItems, restoreItem } from '../../api/items'
+import { archiveItem, batchItems, exportItemList, exportItems, getItems, importItems, restoreItem } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
@@ -36,7 +36,8 @@ const SEARCH_DELAY_MS = 300
 const NO_SELECTION = { scope: null, ids: new Set(), all: false }
 
 // Every unique item with its item ID, for users with viewItems; Add Item with addItems.
-// Everyone sees the current ending balance. With viewItemStock: the stock filter and the last
+// Everyone sees the current ending balance and can export the item list (with the page's search,
+// filters and sort) as Excel. With viewItemStock: the stock filter and the last
 // transaction date (the API leaves them out otherwise). Admins also get: Excel import and
 // export, Edit / Archive per item, the Archived view (with Restore), and ticked rows
 // (or "Select all N matching") archived or restored in one go.
@@ -69,6 +70,7 @@ export default function ItemsPage() {
   const fileInputRef = useRef(null)
   const [isImporting, setIsImporting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isExportingList, setIsExportingList] = useState(false)
   const [importResult, setImportResult] = useState(null)
 
   const [editing, setEditing] = useState(null)
@@ -252,6 +254,18 @@ export default function ItemsPage() {
     }
   }
 
+  async function handleExportList() {
+    setIsExportingList(true)
+    setError('')
+    try {
+      await exportItemList({ search, filters, sort })
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not export the item list.'))
+    } finally {
+      setIsExportingList(false)
+    }
+  }
+
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 1
@@ -274,7 +288,7 @@ export default function ItemsPage() {
       <section className="workspace-content">
         <header className="page-header">
           <h1>All Items</h1>
-          {!isArchivedView && (canAddItems || isAdmin) && (
+          {!isArchivedView && (
             <div className="page-actions">
               {canAddItems && (
                 <Button
@@ -301,6 +315,10 @@ export default function ItemsPage() {
                   </Button>
                 </>
               )}
+              <Button variant="secondary" onClick={handleExportList} isLoading={isExportingList}>
+                {!isExportingList && <img src={downloadIcon} alt="" />}
+                Export Item List
+              </Button>
             </div>
           )}
         </header>

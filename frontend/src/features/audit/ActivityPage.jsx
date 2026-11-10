@@ -31,6 +31,7 @@ const ACTION_LABELS = {
   'item.batch_restore': 'Restored items',
   'item.import': 'Imported Excel',
   'item.export': 'Exported Excel',
+  'item.list_export': 'Exported item list',
   'transaction.create': 'Added transaction',
   'transaction.release': 'Released reservation',
   'transaction.cancel': 'Cancelled reservation',
@@ -370,6 +371,8 @@ function Details({ entry }) {
         .join(' · ')
     case 'item.export':
       return `${pluralize(d.count, 'item')}`
+    case 'item.list_export':
+      return `${pluralize(d.count, 'item')}${d.filtered ? ' · filtered' : ''}`
     case 'report.export':
       return `${d.from ? `${formatDate(`${d.from}T00:00:00Z`)} – ` : 'As of '}${formatDate(`${d.date}T00:00:00Z`)} · ${pluralize(d.count, 'item')}`
     case 'report.transactions_export': {

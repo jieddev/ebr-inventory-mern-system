@@ -5,7 +5,7 @@ const { DEFAULT_TYPES, DEFAULT_BRANDS, CATEGORIES, ACTIVE } = require('../models
 const { BALANCE_FORWARDED, openingEntry } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
-const { readSummaryReport, buildSummaryReport } = require('../services/summaryReport.service');
+const { readSummaryReport, buildSummaryReport, buildItemList } = require('../services/summaryReport.service');
 const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
@@ -460,6 +460,37 @@ async function exportItems(req, res) {
     .send(Buffer.from(buffer));
 }
 
+// The Items page's sort choices as frontend utils/sorts.js names them, for the item list's title block.
+const SORT_LABELS = {
+  '': 'Item ID',
+  description: 'Item description (A–Z)',
+  'description-desc': 'Item description (Z–A)',
+  brand: 'Brand name (A–Z)',
+};
+
+// GET /api/items/export/list?search=&stock=&category=&brand=&sort= — the active items the Items page
+// shows (same search, filters and sort, every page) as an Excel item list: item ID, category,
+// brand name and item description. No stock, so anyone who can view items can export it.
+async function exportItemList(req, res) {
+  const seesStock = can(req.user, 'viewItemStock');
+  const query = { ...req.query, archived: '', ...(seesStock ? {} : { stock: '' }) };
+  const filter = itemsPageFilter(req.costCenter, query);
+  const { sort, collation } = itemSort(query, { itemId: 1, _id: 1 });
+  const items = await Item.find(filter).sort(sort).collation(collation).select('itemId category brand code').lean();
+  const isFiltered = Boolean(String(query.search ?? '').trim()) || itemConditions(query).length > 0;
+  const buffer = await buildItemList(items, {
+    costCenterName: costCenterLabel(req.costCenter),
+    preparedBy: req.user.name,
+    isFiltered,
+    sortLabel: SORT_LABELS[query.sort ?? ''] ?? 'Item ID',
+  });
+  await record(req, { action: 'item.list_export', details: { count: items.length, filtered: isFiltered } });
+  res
+    .attachment(`EBR_Item_List_${costCenterFileName(req.costCenter)}_${today().toISOString().slice(0, 10)}.xlsx`)
+    .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    .send(Buffer.from(buffer));
+}
+
 // GET /api/items/:id/transactions?type=&from=&to= — the item's full ledger, newest
 // first ("View all"). The Transactions page passes its filters so only matching entries show.
 async function listItemTransactions(req, res) {
@@ -515,5 +546,6 @@ module.exports = {
   batchItems,
   importItems,
   exportItems,
+  exportItemList,
   listItemTransactions,
 };

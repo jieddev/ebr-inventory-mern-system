@@ -15,6 +15,7 @@ const {
   batchItems,
   importItems,
   exportItems,
+  exportItemList,
   listItemTransactions,
 } = require('../controllers/items.controller');
 const { requireAuth, requireRole, requirePermission, resolveCostCenter } = require('../middleware/auth');
@@ -42,6 +43,8 @@ router.get('/by-item-id/:itemId', canAddTransactions, findByItemId);
 // The filter dropdown on the Items and Transactions pages.
 router.get('/facets', requirePermission('viewItems', 'addTransactions'), listFacets);
 router.get('/export', adminOnly, exportItems);
+// The Items page's item list (no stock) as Excel.
+router.get('/export/list', canViewItems, exportItemList);
 router.post('/batch', adminOnly, batchItems);
 // The Excel file is sent as the raw request body.
 router.post('/import', adminOnly, express.raw({ type: () => true, limit: '25mb' }), importItems);

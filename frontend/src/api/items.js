@@ -30,6 +30,14 @@ export async function exportItems() {
   saveDownload(response, 'EBR_Items.xlsx')
 }
 
+// Downloads the Items page's item list (item ID, category, brand, description) as Excel,
+// with the page's search, filters and sort.
+export async function exportItemList({ search, filters, sort } = {}) {
+  const params = cleanParams({ search, sort, ...filters })
+  const response = await api.get('/items/export/list', { params, responseType: 'blob' })
+  saveDownload(response, 'EBR_Item_List.xlsx')
+}
+
 // Add Transaction's Item ID field. Rejects (404 / 409) for unknown or archived IDs.
 export async function getItemByItemId(itemId, { signal } = {}) {
   const { data } = await api.get(`/items/by-item-id/${encodeURIComponent(itemId)}`, { signal })
