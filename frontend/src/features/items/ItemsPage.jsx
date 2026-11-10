@@ -26,7 +26,7 @@ import { ITEM_SORTS, readSort } from '../../utils/sorts'
 import '../transactions/TransactionsPage.css'
 import './ItemsPage.css'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 50
 const VIEW_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'archived', label: 'Archived' },

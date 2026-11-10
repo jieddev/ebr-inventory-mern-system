@@ -227,7 +227,7 @@ async function buildSummaryReport(items, asOf, { beginningOf = null, title, cost
             { header: 'NET CHANGE', key: 'netChange', width: 14 },
           ]
         : []),
-      { header: `ENDING BALANCE AS OF ${longDate(asOf)}`, key: 'balance', width: 22 },
+      { header: `ENDING BALANCE `, key: 'balance', width: 22 },
       { header: 'LAST TRANSACTION DATE', key: 'lastTransactionDate', width: 22, style: { numFmt: 'mm/dd/yyyy' } },
     ],
     {
