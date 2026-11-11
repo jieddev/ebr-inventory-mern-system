@@ -7,6 +7,8 @@ import { getDashboard } from '../../api/dashboard'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { useAuth } from '../auth/useAuth'
 import { can } from '../../utils/permissions'
+import { costCenterLabel } from '../../utils/costCenters'
+import { useCostCenter } from '../costCenter/useCostCenter'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import alertIcon from '../../assets/icons/alert-triangle.svg'
 import '../transactions/TransactionsPage.css'
@@ -43,13 +45,17 @@ export default function DashboardPage() {
   })
 
   const { data, error } = response
+  const { costCenter } = useCostCenter()
   const hasData = data && (data.stock || data.today || data.reservations || data.recent)
 
   return (
     <div className="workspace">
       <section className="workspace-content dashboard">
-        {/* No visible title; this names the page for screen readers. */}
-        <h1 className="visually-hidden">Dashboard</h1>
+        <header className="dashboard-header">
+          <h1 className="visually-hidden">Dashboard</h1>
+          <p className="dashboard-eyebrow">Cost center</p>
+          <p className="dashboard-cost-center">{costCenterLabel(costCenter)}</p>
+        </header>
 
         {error && (
           <div className="page-error" role="alert">

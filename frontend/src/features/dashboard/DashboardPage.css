@@ -1,3 +1,24 @@
+/* Which cost center the numbers are for. */
+.dashboard-header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.dashboard-eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.dashboard-cost-center {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
 /* KPI row: one tile per headline number the user can see (up to 4). The tiles share the row's
    width and wrap to fewer columns on narrow windows. */
 .stat-tiles {
