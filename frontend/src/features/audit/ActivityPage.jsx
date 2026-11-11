@@ -37,6 +37,7 @@ const ACTION_LABELS = {
   'transaction.release': 'Released reservation',
   'transaction.cancel': 'Cancelled reservation',
   'transaction.rollback': 'Rolled back transaction',
+  'transaction.update': 'Edited transaction',
   'receiving.create': 'Receiving report',
   'batchout.create': 'Batch out',
   'report.export': 'Exported Daily Report',
@@ -49,7 +50,19 @@ const FIELD_LABELS = {
   brand: 'Brand',
   typeDesign: 'Type / Design',
   balanceForwarded: 'Balance forwarded',
+  // Edited transactions
+  date: 'Date',
+  type: 'Type',
+  quantity: 'Quantity',
+  customerName: 'Customer name / Details',
+  neededBy: 'Needed by',
+  notes: 'Notes',
 }
+
+// Fields whose change values are days (YYYY-MM-DD), shown as dates.
+const DAY_FIELDS = new Set(['date', 'neededBy'])
+const changeText = (field, value) =>
+  value === '' || value == null ? '(blank)' : DAY_FIELDS.has(field) ? formatDate(`${value}T00:00:00Z`) : String(value)
 
 const FAILED_LOGIN_REASONS = {
   unknown_id: 'unknown ID',
@@ -301,14 +314,16 @@ function Details({ entry }) {
         </span>
       )
     case 'item.update':
+    case 'transaction.update':
       return (
         <ul className="activity-changes">
           {Object.entries(entry.changes ?? {}).map(([field, { from, to }]) => (
             <li key={field}>
-              {FIELD_LABELS[field] ?? field}: <span className="items-muted">{String(from) || '(blank)'}</span> →{' '}
-              <strong>{String(to) || '(blank)'}</strong>
+              {FIELD_LABELS[field] ?? field}: <span className="items-muted">{changeText(field, from)}</span> →{' '}
+              <strong>{changeText(field, to)}</strong>
             </li>
           ))}
+          {d.reportNo && <li className="items-muted">On slip {d.reportNo}</li>}
         </ul>
       )
     case 'item.create':

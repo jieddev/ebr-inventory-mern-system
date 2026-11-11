@@ -36,6 +36,13 @@ export async function rollbackTransaction(id) {
   return data
 }
 
+// Admin: corrects an entry in place (date, type, quantity, customerName, neededBy, notes; only
+// the fields given change). The item's balance is recalculated. { transaction, item }.
+export async function updateTransaction(id, changes) {
+  const { data } = await api.patch(`/transactions/${id}`, changes)
+  return data
+}
+
 // Pending reservations for the Reservations page: { reservations, counts, today }.
 // due: '' | 'overdue' | 'today' | 'upcoming'.
 export async function getReservations({ search, due } = {}, { signal } = {}) {

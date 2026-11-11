@@ -74,3 +74,19 @@
 .txn-details-rollback {
   margin-right: auto;
 }
+
+.txn-edit-form {
+  align-content: start;
+}
+
+.txn-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 480px) {
+  .txn-edit-row {
+    grid-template-columns: 1fr;
+  }
+}

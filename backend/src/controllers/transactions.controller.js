@@ -6,7 +6,7 @@ const { TYPES } = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
 const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
-const { record, itemTarget } = require('../services/audit.service');
+const { record, diff, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, searchWords, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
@@ -376,6 +376,110 @@ async function rollbackTransaction(req, res) {
   res.json({ item: result.item });
 }
 
+const EDIT_FIELDS = ['date', 'type', 'quantity', 'customerName', 'neededBy', 'notes'];
+// An entry's editable fields with dates as YYYY-MM-DD, so diff() compares values and the
+// Activity log shows plain days.
+const dayText = (date) => (date ? new Date(date).toISOString().slice(0, 10) : '');
+const editable = (entry) => ({
+  date: dayText(entry.date),
+  type: entry.type,
+  quantity: entry.quantity,
+  customerName: entry.customerName ?? '',
+  neededBy: dayText(entry.neededBy),
+  notes: entry.notes ?? '',
+});
+
+// PATCH /api/transactions/:id { date?, type?, quantity?, customerName?, neededBy?, notes? } — admin only.
+// Corrects an entry in place; only the fields sent change. Not the balance forwarded (Edit Item)
+// or entries of archived items. IN ↔ OUT only (reservations keep their type: use Confirm out or
+// Cancel); needed-by and notes are for pending reservations. Entries on a receiving report /
+// batch out slip keep the slip's date and type; a new quantity also goes on the slip's line.
+// The item's ledger is re-run.
+async function updateTransaction(req, res) {
+  const id = parseObjectId(req.params.id, 'Transaction');
+  const body = req.body ?? {};
+  const has = (field) => body[field] !== undefined;
+
+  const result = await mongoose.connection.transaction(async (session) => {
+    const entry = await Transaction.findById(id)
+      .select('item date type quantity customerName neededBy notes isBalanceForwarded')
+      .session(session)
+      .lean();
+    if (!entry) throw new HttpError(404, 'Transaction not found');
+    if (entry.isBalanceForwarded) {
+      throw new HttpError(409, 'The balance forwarded can only be changed with Edit Item on the Items page.');
+    }
+    const target = await Item.findOne({ _id: entry.item, costCenter: req.costCenter })
+      .select('itemId code brand typeDesign archivedAt')
+      .session(session)
+      .lean();
+    if (!target) throw new HttpError(404, 'Transaction not found');
+    if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
+    const slip = await ReceivingReport.findOne({ 'lines.transaction': id }).select('kind reportNo').session(session).lean();
+
+    const update = {};
+    if (has('date')) update.date = parseDay(body.date);
+    if (has('type')) {
+      const type = String(body.type).toUpperCase();
+      if (type !== entry.type) {
+        if (entry.type === 'RESERVE' || type === 'RESERVE' || !TYPES.includes(type)) {
+          throw new HttpError(400, 'The type can only change between IN and OUT. Use Confirm out or Cancel for reservations.');
+        }
+        update.type = type;
+      }
+    }
+    if (has('quantity')) update.quantity = parseWholeNumber(body.quantity, 'Quantity', { min: 1 });
+    if (has('customerName')) {
+      update.customerName = String(body.customerName ?? '').trim().replace(/\s+/g, ' ').toUpperCase().slice(0, 120);
+    }
+    if (has('neededBy') || has('notes')) {
+      if (entry.type !== 'RESERVE') throw new HttpError(400, 'Needed-by date and notes are only for pending reservations');
+      if (has('neededBy')) update.neededBy = body.neededBy ? parseDay(body.neededBy, 'Needed-by date') : null;
+      if (has('notes')) update.notes = String(body.notes ?? '').trim().slice(0, 300);
+    }
+
+    const changes = diff(editable(entry), editable({ ...entry, ...update }), EDIT_FIELDS);
+    if (!changes) {
+      const saved = await Transaction.findById(id).session(session).lean();
+      return { transaction: saved, item: null };
+    }
+    if (slip && (changes.date || changes.type)) {
+      const slipName = slip.kind === 'OUT' ? 'batch out slip' : 'receiving report';
+      throw new HttpError(
+        400,
+        `This entry is on a ${slipName}, so its date and type follow the slip. Roll it back and add it again to change them.`,
+      );
+    }
+
+    await Transaction.updateOne({ _id: id }, update, { session, runValidators: true });
+    if (slip && changes.quantity) {
+      await ReceivingReport.updateOne(
+        { 'lines.transaction': id },
+        { $set: { 'lines.$.quantity': update.quantity } },
+        { session },
+      );
+    }
+    await record(
+      req,
+      {
+        action: 'transaction.update',
+        target: itemTarget(target),
+        changes,
+        details: { transactionId: id, ...(slip && { reportNo: slip.reportNo }) },
+      },
+      session,
+    );
+    const item = await recalculateItem(entry.item, session);
+    const saved = await Transaction.findById(id).session(session).lean();
+    return { transaction: saved, item };
+  });
+
+  if (result.item) {
+    announce(req, result.item, { kind: 'edit', type: result.transaction.type, quantity: result.transaction.quantity });
+  }
+  res.json(result);
+}
+
 // The reservation and its item; 404 if it's gone or in another cost center, 409 if it's not
 // a reservation (any more).
 async function loadReservation(req, id, session) {
@@ -413,6 +517,7 @@ module.exports = {
   releaseReservation,
   cancelReservation,
   rollbackTransaction,
+  updateTransaction,
   // For the dashboard (dashboard.controller.js).
   reservationMatch,
   countReservations,

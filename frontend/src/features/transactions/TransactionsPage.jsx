@@ -373,7 +373,12 @@ export default function TransactionsPage() {
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'details' && (
-        <TransactionDetailsPanel transactionId={selectedEntryId} onClose={closePanel} onChanged={handleEntryChanged} />
+        <TransactionDetailsPanel
+          key={selectedEntryId}
+          transactionId={selectedEntryId}
+          onClose={closePanel}
+          onChanged={handleEntryChanged}
+        />
       )}
     </div>
   )

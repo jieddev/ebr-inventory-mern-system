@@ -21,6 +21,7 @@ const ACTIONS = [
   'transaction.release',
   'transaction.cancel',
   'transaction.rollback',
+  'transaction.update',
   'receiving.create',
   'batchout.create',
   'report.export',
