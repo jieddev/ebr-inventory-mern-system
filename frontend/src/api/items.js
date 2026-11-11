@@ -24,6 +24,18 @@ export async function importItems(file) {
   return data
 }
 
+// The import Undo import would undo (the newest one not undone), or null.
+export async function getLatestImport() {
+  const { data } = await api.get('/items/imports/latest')
+  return data.import
+}
+
+// Removes the items that import added. Returns { removed, fileName }.
+export async function undoImport(id) {
+  const { data } = await api.post(`/items/imports/${id}/undo`)
+  return data
+}
+
 // Downloads every item as an Excel file.
 export async function exportItems() {
   const response = await api.get('/items/export', { responseType: 'blob' })

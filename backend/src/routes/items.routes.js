@@ -14,6 +14,8 @@ const {
   restoreItem,
   batchItems,
   importItems,
+  latestImport,
+  undoImport,
   exportItems,
   exportItemList,
   listItemTransactions,
@@ -48,6 +50,9 @@ router.get('/export/list', canViewItems, exportItemList);
 router.post('/batch', adminOnly, batchItems);
 // The Excel file is sent as the raw request body.
 router.post('/import', adminOnly, express.raw({ type: () => true, limit: '25mb' }), importItems);
+// Undo import: the newest import, and undoing it.
+router.get('/imports/latest', adminOnly, latestImport);
+router.post('/imports/:id/undo', adminOnly, undoImport);
 router.get('/:id/transactions', canAddTransactions, listItemTransactions);
 router.patch('/:id', adminOnly, updateItem);
 router.delete('/:id', adminOnly, archiveItem);

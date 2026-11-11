@@ -14,6 +14,7 @@ const ACTIONS = [
   'item.batch_archive',
   'item.batch_restore',
   'item.import',
+  'item.import_undo',
   'item.export',
   'item.list_export',
   'transaction.create',

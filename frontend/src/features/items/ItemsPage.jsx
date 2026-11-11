@@ -8,7 +8,17 @@ import ActiveFilters from '../../components/filters/ActiveFilters'
 import FilterDropdown from '../../components/filters/FilterDropdown'
 import SortSelect from '../../components/filters/SortSelect'
 import { getErrorMessage } from '../../api/auth'
-import { archiveItem, batchItems, exportItemList, exportItems, getItems, importItems, restoreItem } from '../../api/items'
+import {
+  archiveItem,
+  batchItems,
+  exportItemList,
+  exportItems,
+  getItems,
+  getLatestImport,
+  importItems,
+  restoreItem,
+  undoImport,
+} from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import { EMPTY_FILTERS, countActiveFilters, filterChips, readFilters } from '../../utils/filters'
@@ -50,10 +60,10 @@ export default function ItemsPage() {
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const isArchivedView = isAdmin && searchParams.get('archived') === '1'
-  // The Items page only uses the item filters (stock, category, brand).
+  // The Items page only uses the item filters (stock, date added, added by, category, brand).
   const filters = useMemo(() => {
-    const { stock, category, brand } = readFilters(searchParams)
-    return { ...EMPTY_FILTERS, stock, category, brand }
+    const { stock, added, addedBy, category, brand } = readFilters(searchParams)
+    return { ...EMPTY_FILTERS, stock, added, addedBy, category, brand }
   }, [searchParams])
   const sort = readSort(searchParams, ITEM_SORTS)
 
@@ -72,6 +82,8 @@ export default function ItemsPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [isExportingList, setIsExportingList] = useState(false)
   const [importResult, setImportResult] = useState(null)
+  const [latestImport, setLatestImport] = useState(null) // what Undo import would undo
+  const [confirmUndo, setConfirmUndo] = useState(null) // { isBusy, error }
 
   const [editing, setEditing] = useState(null)
   const [isAdding, setIsAdding] = useState(false)
@@ -140,6 +152,18 @@ export default function ItemsPage() {
   const reload = useCallback(() => setReloadKey((k) => k + 1), [])
   useLiveUpdates(reload)
 
+  // Admins can undo the newest import. Refreshed with the list, so it follows other tabs' imports.
+  useEffect(() => {
+    if (!isAdmin) return
+    let isCurrent = true
+    getLatestImport()
+      .then((found) => isCurrent && setLatestImport(found))
+      .catch(() => isCurrent && setLatestImport(null))
+    return () => {
+      isCurrent = false
+    }
+  }, [isAdmin, reloadKey])
+
   async function handleFileChosen(event) {
     const file = event.target.files?.[0]
     event.target.value = '' // so choosing the same file again still triggers a change
@@ -155,6 +179,20 @@ export default function ItemsPage() {
       setError(getErrorMessage(err, 'Could not import the file.'))
     } finally {
       setIsImporting(false)
+    }
+  }
+
+  async function handleUndoImport() {
+    const target = latestImport
+    setConfirmUndo({ isBusy: true, error: '' })
+    try {
+      const { removed } = await undoImport(target._id)
+      setConfirmUndo(null)
+      setImportResult((result) => (result?.importId === target._id ? null : result))
+      setNotice(`Undid the import of ${target.fileName || 'the Excel file'}: ${pluralize(removed, 'item')} removed.`)
+      reload()
+    } catch (err) {
+      setConfirmUndo({ isBusy: false, error: getErrorMessage(err, 'Could not undo the import.') })
     }
   }
 
@@ -218,11 +256,11 @@ export default function ItemsPage() {
     const action = isArchivedView ? 'restore' : 'archive'
     setConfirmBatch({ isBusy: true, error: '' })
     try {
-      const { stock, category, brand } = filters
+      const { stock, added, addedBy, category, brand } = filters
       const count = await batchItems(
         action,
         selection.all
-          ? { all: true, query: { search, stock, category, brand } }
+          ? { all: true, query: { search, stock, added, addedBy, category, brand } }
           : { ids: [...selection.ids] },
       )
       setConfirmBatch(null)
@@ -309,6 +347,15 @@ export default function ItemsPage() {
                     {!isImporting && <img src={uploadIcon} alt="" />}
                     {isImporting ? 'Importing…' : 'Import Excel'}
                   </Button>
+                  {latestImport && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setConfirmUndo({ isBusy: false, error: '' })}
+                      title={`Undo the import of ${latestImport.fileName || 'the Excel file'}`}
+                    >
+                      Undo Import
+                    </Button>
+                  )}
                   <Button variant="secondary" onClick={handleExport} isLoading={isExporting}>
                     {!isExporting && <img src={downloadIcon} alt="" />}
                     Export Excel
@@ -323,7 +370,17 @@ export default function ItemsPage() {
           )}
         </header>
 
-        {importResult && <ImportResult result={importResult} onDismiss={() => setImportResult(null)} />}
+        {importResult && (
+          <ImportResult
+            result={importResult}
+            onDismiss={() => setImportResult(null)}
+            onUndo={
+              importResult.importId && importResult.importId === latestImport?._id
+                ? () => setConfirmUndo({ isBusy: false, error: '' })
+                : null
+            }
+          />
+        )}
         {notice && (
           <div className="panel-alert panel-alert-success items-notice" role="status">
             <img src={checkIcon} alt="" width="20" height="20" />
@@ -336,7 +393,7 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
-            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={seesStock} />
+            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={seesStock} withAdded />
 
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
@@ -369,7 +426,7 @@ export default function ItemsPage() {
         </div>
 
         <ActiveFilters
-          chips={filterChips(filters)}
+          chips={filterChips(filters, { addedByNames: data?.addedByNames })}
           onChange={applyFilters}
           onClearAll={() => applyFilters(EMPTY_FILTERS)}
           summary={
@@ -622,6 +679,27 @@ export default function ItemsPage() {
         />
       )}
 
+      {confirmUndo && latestImport && (
+        <ConfirmDialog
+          title={`Undo the import of ${latestImport.fileName || 'the Excel file'}?`}
+          message={
+            <>
+              <p>
+                The <strong>{pluralize(latestImport.added, 'item')}</strong> it added on {formatDate(latestImport.createdAt)}
+                {latestImport.createdByName && ` (by ${latestImport.createdByName})`} will be permanently deleted, with
+                their opening balances. Their item IDs won't be reused.
+              </p>
+              <p>If any of them has had transactions since, nothing is removed.</p>
+            </>
+          }
+          confirmLabel="Undo import"
+          isBusy={confirmUndo.isBusy}
+          error={confirmUndo.error}
+          onConfirm={handleUndoImport}
+          onCancel={() => setConfirmUndo(null)}
+        />
+      )}
+
       {confirmArchive && (
         <ConfirmDialog
           title={`Archive ${confirmArchive.item.itemId}?`}
@@ -643,7 +721,7 @@ export default function ItemsPage() {
 }
 
 // What an import did: how many items were added and which rows were skipped and why.
-function ImportResult({ result, onDismiss }) {
+function ImportResult({ result, onDismiss, onUndo }) {
   const { fileName, added, asOf, skippedExisting, skippedDuplicates, invalid } = result
   const problems = [
     ...invalid,
@@ -667,6 +745,11 @@ function ImportResult({ result, onDismiss }) {
               ` · ${pluralize(skippedExisting.length, 'item')} already existed and were left unchanged`}
           </p>
         </div>
+        {onUndo && (
+          <Button variant="ghost" size="sm" onClick={onUndo}>
+            Undo import
+          </Button>
+        )}
         <button type="button" className="import-result-close" onClick={onDismiss} aria-label="Dismiss import result">
           <img src={closeIcon} alt="" width="20" height="20" />
         </button>

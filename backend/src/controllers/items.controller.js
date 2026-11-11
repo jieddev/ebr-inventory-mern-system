@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const Transaction = require('../models/Transaction');
+const ItemImport = require('../models/ItemImport');
+const ReceivingReport = require('../models/ReceivingReport');
+const User = require('../models/User');
 const { DEFAULT_TYPES, DEFAULT_BRANDS, CATEGORIES, ACTIVE } = require('../models/Item');
 const { BALANCE_FORWARDED, openingEntry } = require('../models/Transaction');
 const { recalculateItem } = require('../services/balance.service');
@@ -10,7 +13,7 @@ const { broadcast, sourceClientId, EVERYONE } = require('../services/events.serv
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseWholeNumber, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
-const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
+const { itemConditions, entryMatch, andFilter, itemSort, startOfToday } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
 const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
 const { can } = require('../config/permissions');
@@ -43,7 +46,22 @@ async function listItems(req, res) {
       .select(seesStock ? ITEM_FIELDS : BASIC_ITEM_FIELDS)
       .lean(),
   ]);
-  res.json({ items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
+  res.json({
+    items,
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    addedByNames: await addedByNames(req.query.addedBy),
+  });
+}
+
+// { userId: name } for the Added by filter's chips, or undefined when it isn't set.
+async function addedByNames(addedBy) {
+  const ids = [].concat(addedBy ?? []).filter(Boolean);
+  if (!ids.length) return undefined;
+  const users = await User.find({ _id: { $in: ids } }).select('name').lean();
+  return Object.fromEntries(users.map((user) => [String(user._id), user.name]));
 }
 
 // The Items page's cost center, search, filters and Active / Archived view as one Item filter.
@@ -130,9 +148,25 @@ async function listFacets(req, res) {
           },
           { $project: { _id: 0 } },
         ],
+        addedToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, { $count: 'count' }],
+        addedBy: countBy('createdBy'),
+        addedByToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, ...countBy('createdBy')],
       },
     },
   ]);
+
+  // Who added items, by name: count is all of their items, todayCount the ones added today.
+  const users = await User.find({ _id: { $in: facets.addedBy.map((u) => u.value) } }).select('name').lean();
+  const nameOf = new Map(users.map((user) => [String(user._id), user.name]));
+  const todayCountOf = new Map(facets.addedByToday.map((u) => [String(u.value), u.count]));
+  const addedBy = facets.addedBy
+    .map(({ value, count }) => ({
+      value: String(value),
+      label: nameOf.get(String(value)) ?? 'Removed user',
+      count,
+      todayCount: todayCountOf.get(String(value)) ?? 0,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   // Every category is listed, even ones no item uses yet.
   const categoryCounts = new Map(facets.categories.map((c) => [c.value, c.count]));
@@ -140,6 +174,8 @@ async function listFacets(req, res) {
     categories: CATEGORIES.map((value) => ({ value, count: categoryCounts.get(value) ?? 0 })),
     typeDesigns: facets.typeDesigns,
     brands: facets.brands,
+    addedToday: facets.addedToday[0]?.count ?? 0,
+    addedBy,
     ...((can(req.user, 'viewItemStock') || can(req.user, 'addTransactions')) && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
   });
 }
@@ -317,7 +353,7 @@ const MAX_BATCH_IDS = 1000;
 
 // POST /api/items/batch — archive or restore many items at once (admin).
 // Body: { action: 'archive' | 'restore', ids: [...] } for picked items, or
-// { action, all: true, query: { search, stock, category, typeDesign, brand } } for every
+// { action, all: true, query: { search, stock, added, addedBy, category, typeDesign, brand } } for every
 // item matching the Items page's current search and filters.
 async function batchItems(req, res) {
   const { action, ids, all, query = {} } = req.body ?? {};
@@ -370,6 +406,7 @@ async function importItems(req, res) {
 
   // The opening entry is dated the report's "as of" day, like the first row of an item's ledger.
   const date = asOf ?? today();
+  let importId = null;
   await mongoose.connection.transaction(async (session) => {
     const itemIds = await nextItemIds(toAdd.length, session);
     const items = await Item.insertMany(
@@ -404,6 +441,22 @@ async function importItems(req, res) {
         })),
       { session },
     );
+    // Remembered so it can be undone (undoImport).
+    if (items.length) {
+      const [saved] = await ItemImport.create(
+        [
+          {
+            costCenter: req.costCenter,
+            fileName: fileNameOf(req),
+            asOf: date,
+            items: items.map((item) => item._id),
+            createdBy: req.user._id,
+          },
+        ],
+        { session },
+      );
+      importId = saved._id;
+    }
     await record(
       req,
       {
@@ -432,12 +485,98 @@ async function importItems(req, res) {
     );
   }
   res.status(201).json({
+    importId,
     added: toAdd.length,
     asOf: date,
     skippedExisting,
     skippedDuplicates,
     invalid,
   });
+}
+
+// The cost center's newest import that hasn't been undone: the only one that can be.
+function newestImport(costCenter) {
+  return ItemImport.findOne({ costCenter, undoneAt: null }).sort({ createdAt: -1, _id: -1 });
+}
+
+// GET /api/items/imports/latest — the import Undo import would undo, or null.
+async function latestImport(req, res) {
+  const found = await newestImport(req.costCenter).populate('createdBy', 'name').lean();
+  res.json({
+    import: found && {
+      _id: found._id,
+      fileName: found.fileName,
+      asOf: found.asOf,
+      added: found.items.length,
+      createdAt: found.createdAt,
+      createdByName: found.createdBy?.name ?? '',
+    },
+  });
+}
+
+// POST /api/items/imports/:id/undo — permanently removes the items the newest import added, with
+// their opening balance entries. Refused when any of them has had other transactions or is on a
+// receiving report / batch out slip since: those are real stock movements. Item IDs aren't reused.
+async function undoImport(req, res) {
+  const id = parseObjectId(req.params.id, 'Import');
+  const newest = await newestImport(req.costCenter).select('_id').lean();
+  if (!newest || !newest._id.equals(id)) throw new HttpError(409, 'Only the newest import can be undone');
+
+  let undone;
+  let removed = 0;
+  await mongoose.connection.transaction(async (session) => {
+    undone = await ItemImport.findOneAndUpdate(
+      { _id: id, costCenter: req.costCenter, undoneAt: null },
+      { undoneAt: new Date(), undoneBy: req.user._id },
+      { returnDocument: 'after', session },
+    );
+    if (!undone) throw new HttpError(409, 'This import was already undone');
+
+    const itemIds = undone.items;
+    const [moved, onSlips] = await Promise.all([
+      Transaction.distinct('item', { item: { $in: itemIds }, isBalanceForwarded: { $ne: true } }).session(session),
+      ReceivingReport.distinct('lines.item', { 'lines.item': { $in: itemIds } }).session(session),
+    ]);
+    const usedIds = [...new Set([...moved, ...onSlips].map(String))];
+    if (usedIds.length) {
+      const used = await Item.find({ _id: { $in: usedIds } })
+        .sort({ itemId: 1 })
+        .limit(5)
+        .select('itemId')
+        .session(session)
+        .lean();
+      const names = used.map((item) => item.itemId).join(', ');
+      const more = usedIds.length > used.length ? ` and ${usedIds.length - used.length} more` : '';
+      throw new HttpError(
+        409,
+        `Can't undo this import: ${usedIds.length === 1 ? '1 of its items has' : `${usedIds.length} of its items have`} transactions since (${names}${more}). Roll those back first, or archive the items instead.`,
+      );
+    }
+
+    await Transaction.deleteMany({ item: { $in: itemIds } }, { session });
+    ({ deletedCount: removed } = await Item.deleteMany({ _id: { $in: itemIds }, costCenter: req.costCenter }, { session }));
+    await record(
+      req,
+      {
+        action: 'item.import_undo',
+        details: { fileName: undone.fileName || undefined, removed, importedAt: undone.createdAt },
+      },
+      session,
+    );
+  });
+
+  if (removed) {
+    broadcast(
+      'item-changed',
+      {
+        importUndone: removed,
+        activity: { kind: 'import_undo', actorName: req.user.name, count: removed },
+        sourceClientId: sourceClientId(req),
+      },
+      { permission: EVERYONE, costCenter: req.costCenter },
+    );
+  }
+  res.json({ removed, fileName: undone.fileName });
 }
 
 // GET /api/items/export — every item in the cost center as an Excel file in the Summary Report layout.
@@ -462,6 +601,8 @@ const SORT_LABELS = {
   description: 'Item description (A–Z)',
   'description-desc': 'Item description (Z–A)',
   brand: 'Brand name (A–Z)',
+  'added-desc': 'Date added (newest first)',
+  added: 'Date added (oldest first)',
 };
 
 // GET /api/items/export/list?search=&stock=&category=&brand=&sort= — the active items the Items page
@@ -541,6 +682,8 @@ module.exports = {
   restoreItem,
   batchItems,
   importItems,
+  latestImport,
+  undoImport,
   exportItems,
   exportItemList,
   listItemTransactions,

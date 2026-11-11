@@ -30,6 +30,7 @@ const ACTION_LABELS = {
   'item.batch_archive': 'Archived items',
   'item.batch_restore': 'Restored items',
   'item.import': 'Imported Excel',
+  'item.import_undo': 'Undid import',
   'item.export': 'Exported Excel',
   'item.list_export': 'Exported item list',
   'transaction.create': 'Added transaction',
@@ -367,6 +368,10 @@ function Details({ entry }) {
         d.skippedExisting && `${formatNumber(d.skippedExisting)} already existed`,
         (d.skippedDuplicates || d.invalid) && `${formatNumber(d.skippedDuplicates + d.invalid)} rows skipped`,
       ]
+        .filter(Boolean)
+        .join(' · ')
+    case 'item.import_undo':
+      return [d.fileName, `removed ${pluralize(d.removed, 'item')}`, d.importedAt && `imported ${formatDate(d.importedAt)}`]
         .filter(Boolean)
         .join(' · ')
     case 'item.export':

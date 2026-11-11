@@ -14,7 +14,7 @@ let nextId = 1
 // Flash messages like "Maria Santos has added a transaction" or "… has added an item",
 // shown on every page of every other open tab. The tab that saved already shows its own
 // confirmation. Encoders only ever receive item notices (backend events.service.js).
-const TOAST_KINDS = ['transaction', 'release', 'cancel', 'rollback', 'item', 'import']
+const TOAST_KINDS = ['transaction', 'release', 'cancel', 'rollback', 'item', 'import', 'import_undo']
 export default function ActivityToasts() {
   const [toasts, setToasts] = useState([])
 
@@ -92,6 +92,14 @@ function ActivityToast({ toast, onDismiss }) {
             <p className="activity-toast-title">{toast.actorName} has imported items</p>
             <p className="activity-toast-detail">
               <span>{formatNumber(toast.count)} new items from Excel</span>
+            </p>
+          </>
+        )}
+        {toast.kind === 'import_undo' && (
+          <>
+            <p className="activity-toast-title">{toast.actorName} has undone an import</p>
+            <p className="activity-toast-detail">
+              <span>{formatNumber(toast.count)} imported items removed</span>
             </p>
           </>
         )}

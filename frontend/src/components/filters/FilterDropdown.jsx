@@ -16,14 +16,25 @@ const TYPE_OPTIONS = [
   { value: 'RESERVE', label: 'RESERVE', icon: dotReserve, tone: 'reserve' },
 ]
 
+// The Added by choices. With "Added today" on: today's counts, and only users who added items
+// today (plus any already picked).
+function addedByOptions(users, draft) {
+  if (!users || draft.added !== 'today') return users
+  return users
+    .filter((user) => user.todayCount > 0 || draft.addedBy.includes(user.value))
+    .map((user) => ({ ...user, count: user.todayCount }))
+}
+
 // The item filter of the Transactions and Items pages (see utils/filters.js).
 // withEntryFilters adds transaction type and date range (Transactions page only).
-// withStock: false hides stock status (encoders don't see stock). align: see FilterPopover.
+// withStock: false hides stock status (encoders don't see stock). withAdded: the "Added today"
+// and "Added by" filters (Items page only). align: see FilterPopover.
 export default function FilterDropdown({
   filters,
   onApply,
   withEntryFilters = false,
   withStock = true,
+  withAdded = false,
   align = 'end',
 }) {
   const [facets, setFacets] = useState(null)
@@ -84,6 +95,33 @@ export default function FilterDropdown({
                 ))}
               </div>
             </section>
+          )}
+
+          {withAdded && (
+            <section className="filter-section">
+              <h3 className="filter-title">Date added</h3>
+              <div className="filter-options">
+                <label className="filter-option">
+                  <input
+                    type="checkbox"
+                    checked={draft.added === 'today'}
+                    onChange={(e) => set({ added: e.target.checked ? 'today' : '' })}
+                  />
+                  <span className="filter-option-label">Added today</span>
+                  {facets && <span className="filter-option-count">{formatNumber(facets.addedToday)}</span>}
+                </label>
+              </div>
+            </section>
+          )}
+
+          {withAdded && (
+            <ChecklistSection
+              title="Added by"
+              options={addedByOptions(facets?.addedBy, draft)}
+              error={facetsError}
+              selected={draft.addedBy}
+              onChange={(addedBy) => set({ addedBy })}
+            />
           )}
 
           {LIST_FILTERS.map(({ key, label, facet }) => (
