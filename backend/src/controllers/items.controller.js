@@ -9,7 +9,7 @@ const { readSummaryReport, buildSummaryReport, buildItemList } = require('../ser
 const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
-const { today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
+const { today, parseWholeNumber, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
 const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
@@ -51,11 +51,8 @@ async function listItems(req, res) {
 function itemsPageFilter(costCenter, query) {
   const conditions = [{ costCenter }, ...itemConditions(query)];
   conditions.push(query.archived === '1' ? { archivedAt: { $ne: null } } : ACTIVE);
-  const search = String(query.search ?? '').trim();
-  if (search) {
-    const rx = containsRegex(search);
-    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { typeDesign: rx }] });
-  }
+  const search = allWordsFilter(query.search, ['itemId', 'code', 'brand', 'typeDesign']);
+  if (search) conditions.push(search);
   return andFilter(conditions);
 }
 
@@ -64,8 +61,7 @@ async function searchItems(req, res) {
   const q = Item.normalize(req.query.q);
   if (!q) return res.json({ items: [] });
 
-  const rx = containsRegex(q);
-  const items = await Item.find({ costCenter: req.costCenter, ...ACTIVE, $or: [{ code: rx }, { itemId: rx }] })
+  const items = await Item.find({ costCenter: req.costCenter, ...ACTIVE, ...allWordsFilter(q, ['code', 'itemId']) })
     .select(ITEM_FIELDS)
     .sort({ code: 1, brand: 1, typeDesign: 1 })
     .limit(20)

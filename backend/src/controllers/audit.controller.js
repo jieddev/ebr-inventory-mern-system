@@ -3,7 +3,7 @@ const AuditLog = require('../models/AuditLog');
 const { ACTIONS } = require('../models/AuditLog');
 const User = require('../models/User');
 const HttpError = require('../utils/httpError');
-const { parseDay, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
+const { parseDay, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
 
 // The Activity filter's "Activity type" choices → the actions each one covers.
 const TYPES = [
@@ -42,11 +42,8 @@ async function listAuditLog(req, res) {
     // "To" is a calendar day, so include all of it.
     if (req.query.to) filter.at.$lt = new Date(parseDay(req.query.to, 'To date').getTime() + DAY_MS);
   }
-  const search = String(req.query.search ?? '').trim();
-  if (search) {
-    const rx = containsRegex(search);
-    filter.$or = [{ 'target.label': rx }, { 'details.userId': rx }, { 'actor.userId': rx }, { 'actor.name': rx }];
-  }
+  const search = allWordsFilter(req.query.search, ['target.label', 'details.userId', 'actor.userId', 'actor.name']);
+  if (search) filter.$and = search.$and;
 
   const [total, entries, userList] = await Promise.all([
     AuditLog.countDocuments(filter),

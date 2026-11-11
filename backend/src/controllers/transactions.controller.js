@@ -8,7 +8,7 @@ const { recalculateItem } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
 const { record, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
-const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, parsePage } = require('../utils/parse');
+const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, searchWords, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort } = require('../utils/filters');
 
 // Entries shown under each item group before "View all".
@@ -24,11 +24,15 @@ async function listTransactions(req, res) {
   const match = entryMatch(req.query);
 
   const conditions = [{ costCenter: req.costCenter }, ACTIVE, ...itemConditions(req.query)];
-  if (search) {
-    const rx = containsRegex(search);
-    const customerItemIds = await Transaction.distinct('item', { customerName: rx });
-    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { _id: { $in: customerItemIds } }] });
-  }
+  // Every word must match the item ID, code, brand or a customer on the item's transactions.
+  const words = searchWords(search);
+  const customerItemIds = await Promise.all(
+    words.map((word) => Transaction.distinct('item', { customerName: containsRegex(word) })),
+  );
+  words.forEach((word, i) => {
+    const rx = containsRegex(word);
+    conditions.push({ $or: [{ itemId: rx }, { code: rx }, { brand: rx }, { _id: { $in: customerItemIds[i] } }] });
+  });
   if (match) conditions.push({ _id: { $in: await Transaction.distinct('item', match) } });
   const filter = andFilter(conditions);
   const { sort, collation } = itemSort(req.query, { lastTransactionDate: -1, updatedAt: -1, _id: -1 });
@@ -131,10 +135,16 @@ const DUE_FILTERS = ['overdue', 'today', 'upcoming'];
 async function reservationMatch(costCenter, search) {
   const itemFilter = { costCenter, ...ACTIVE };
   const match = { type: 'RESERVE' };
-  if (search) {
-    const rx = containsRegex(search);
-    const itemIds = await Item.distinct('_id', { ...itemFilter, $or: [{ itemId: rx }, { code: rx }, { brand: rx }] });
-    match.$or = [{ item: { $in: itemIds } }, { customerName: rx }];
+  // Every word must match the item (ID, code, brand) or the customer.
+  const words = searchWords(search);
+  if (words.length) {
+    const itemIds = await Promise.all(
+      words.map((word) => {
+        const rx = containsRegex(word);
+        return Item.distinct('_id', { ...itemFilter, $or: [{ itemId: rx }, { code: rx }, { brand: rx }] });
+      }),
+    );
+    match.$and = words.map((word, i) => ({ $or: [{ item: { $in: itemIds[i] } }, { customerName: containsRegex(word) }] }));
   }
   match.item = { $in: await Item.distinct('_id', itemFilter) };
   return match;
