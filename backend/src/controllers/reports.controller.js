@@ -1,9 +1,11 @@
 const Item = require('../models/Item');
 const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
-const { buildSummaryReport, buildTransactionReport } = require('../services/summaryReport.service');
+const { LEDGER_ORDER } = require('../models/Transaction');
+const { buildSummaryReport, buildTransactionReport, buildReconcileReport } = require('../services/summaryReport.service');
 const { record } = require('../services/audit.service');
-const { parseDay, today } = require('../utils/parse');
+const { parseDay, today, parseObjectId } = require('../utils/parse');
+const { entryMatch } = require('../utils/filters');
 const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
 const HttpError = require('../utils/httpError');
 
@@ -164,4 +166,54 @@ async function exportTransactionReport(req, res) {
     .send(Buffer.from(buffer));
 }
 
-module.exports = { dailyReport, exportDailyReport, transactionReport, exportTransactionReport };
+// One item of the cost center (archived too, so old stock can still be reconciled) and its ledger,
+// oldest first, with who recorded each entry. ?from=&to= (YYYY-MM-DD, both optional) limit the entries.
+async function reconcileRows(costCenter, itemParam, query) {
+  const id = parseObjectId(itemParam, 'Item');
+  const match = entryMatch({ from: query.from, to: query.to });
+  const item = await Item.findOne({ _id: id, costCenter }).select('itemId category code brand typeDesign balance archivedAt').lean();
+  if (!item) throw new HttpError(404, 'Item not found');
+  const transactions = await Transaction.find({ item: id, ...match })
+    .sort(LEDGER_ORDER)
+    .select('date type quantity customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt')
+    .populate('createdBy', 'userId name')
+    .lean();
+  return { item, transactions, from: match?.date?.$gte ?? null, to: match?.date?.$lte ?? null };
+}
+
+// GET /api/reports/reconcile/:itemId?from=&to= — the Reconcile page: one item's transactions.
+async function reconcileReport(req, res) {
+  const { item, transactions, from, to } = await reconcileRows(req.costCenter, req.params.itemId, req.query);
+  res.json({ item, transactions, from, to, generatedAt: new Date(), preparedBy: req.user.name });
+}
+
+// GET /api/reports/reconcile/:itemId/export?from=&to= — the same transactions as an .xlsx.
+async function exportReconcileReport(req, res) {
+  const { item, transactions, from, to } = await reconcileRows(req.costCenter, req.params.itemId, req.query);
+  const buffer = await buildReconcileReport(item, transactions, {
+    from,
+    to,
+    costCenterName: costCenterLabel(req.costCenter),
+    preparedBy: req.user.name,
+  });
+  const fromDay = from && dayText(from);
+  const toDay = to && dayText(to);
+  const period = fromDay || toDay ? `${fromDay ?? 'start'}_to_${toDay ?? 'latest'}` : 'all';
+  const details = { itemId: item.itemId, code: item.code, count: transactions.length };
+  if (fromDay) details.from = fromDay;
+  if (toDay) details.to = toDay;
+  await record(req, { action: 'report.reconcile_export', details });
+  res
+    .attachment(`EBR_Reconcile_${costCenterFileName(req.costCenter)}_${item.itemId}_${period}.xlsx`)
+    .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    .send(Buffer.from(buffer));
+}
+
+module.exports = {
+  dailyReport,
+  exportDailyReport,
+  transactionReport,
+  exportTransactionReport,
+  reconcileReport,
+  exportReconcileReport,
+};

@@ -314,4 +314,63 @@ async function buildItemList(items, { costCenterName, preparedBy, isFiltered = f
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList };
+// Builds the Reconcile .xlsx: one item's transactions in ledger order (oldest first), each with its
+// quantity under IN, OUT or RESERVE and the running balance after it, plus a TOTAL row.
+// from / to: the period the entries were limited to (either may be null: no limit on that side).
+async function buildReconcileReport(item, transactions, { from = null, to = null, costCenterName, preparedBy } = {}) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Reconcile');
+  let period = 'All transactions';
+  if (from && to) period = periodText(from, to);
+  else if (from) period = `From ${longDate(from)}`;
+  else if (to) period = `Up to ${longDate(to)}`;
+  const description = [item.itemId, item.code, item.brand, item.typeDesign].filter(Boolean).join(' · ');
+
+  addReportTable(
+    sheet,
+    [
+      { header: 'DATE', key: 'date', width: 14, style: { numFmt: 'mm/dd/yyyy' } },
+      { header: 'TYPE', key: 'type', width: 20 },
+      { header: 'IN', key: 'in', width: 10 },
+      { header: 'OUT', key: 'out', width: 10 },
+      { header: 'RESERVE', key: 'reserve', width: 10 },
+      { header: 'CUSTOMER', key: 'customerName', width: 28 },
+      { header: 'NOTES', key: 'notes', width: 36 },
+      { header: 'RECORDED BY', key: 'recordedBy', width: 22 },
+      { header: 'RUNNING BALANCE', key: 'endingBalance', width: 18 },
+    ],
+    {
+      title: 'Reconcile Report',
+      subtitle: `${description} · ${period}`,
+      costCenterName,
+      dateLabel: 'Period',
+      dateText: period,
+      generatedAt: new Date(),
+      preparedBy,
+    },
+  );
+
+  const totals = { in: 0, out: 0, reserve: 0 };
+  for (const t of transactions) {
+    const key = t.type.toLowerCase();
+    totals[key] += t.quantity;
+    sheet.addRow({
+      // ExcelJS writes Dates in UTC, which is how calendar days are stored.
+      date: t.date,
+      type: t.isBalanceForwarded ? `BALANCE FORWARDED (${t.type})` : t.type,
+      [key]: t.quantity,
+      customerName: t.customerName || '',
+      notes: t.notes || '',
+      recordedBy: t.createdBy?.name ?? '',
+      endingBalance: t.endingBalance,
+    });
+  }
+  const total = sheet.addRow({ type: 'TOTAL', ...totals });
+  total.font = { bold: true };
+  total.eachCell((cell) => {
+    cell.border = { top: { style: 'thin' } };
+  });
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList, buildReconcileReport };

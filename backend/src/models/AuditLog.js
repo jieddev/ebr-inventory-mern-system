@@ -26,6 +26,7 @@ const ACTIONS = [
   'batchout.create',
   'report.export',
   'report.transactions_export',
+  'report.reconcile_export',
 ];
 
 // How long entries are kept. Changing it also updates an existing database's TTL index

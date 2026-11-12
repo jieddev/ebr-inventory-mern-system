@@ -4,7 +4,7 @@ const { COST_CENTER_VALUES } = require('../config/costCenters');
 const { PERMISSION_VALUES } = require('../config/permissions');
 
 const SALT_ROUNDS = 12;
-const ROLES = ['admin', 'warehouse', 'encoder'];
+const ROLES = ['admin', 'warehouse', 'encoder', 'accounting'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     passwordHash: { type: String, required: true, select: false },
-    // admin: everything. warehouse and encoder: what `permissions` allows.
+    // admin: everything. warehouse, encoder and accounting: what `permissions` allows.
     role: { type: String, enum: ROLES, default: 'warehouse' },
     // Ticked per account by an admin, starting from the role's defaults (config/permissions.js).
     // Empty for admins, who can do everything. Missing on accounts saved before permissions.

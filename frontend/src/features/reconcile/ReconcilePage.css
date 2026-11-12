@@ -1,0 +1,50 @@
+.reconcile-header,
+.reconcile-controls,
+.reconcile-empty {
+  width: 100%;
+  max-width: 1080px;
+}
+
+/* Item search, then the optional date range and "All dates", on one row when there is room. */
+.reconcile-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.reconcile-controls .field {
+  margin: 0;
+}
+
+.reconcile-item {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.reconcile-empty {
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.reconcile-card {
+  max-width: 1080px;
+}
+
+.reconcile-type {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-xs);
+}
+
+.reconcile-notes {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}

@@ -18,6 +18,12 @@ export const PERMISSIONS = [
     hint: 'Stock filter and last transaction',
   },
   { value: 'addItems', label: 'Allow user to add items', short: 'Add items' },
+  {
+    value: 'reconcile',
+    label: 'Allow user to reconcile items',
+    short: 'Reconcile',
+    hint: "Search an item and export its transactions to Excel",
+  },
 ]
 
 // Ticked when an admin picks the role; the admin can change them after.
@@ -25,6 +31,7 @@ export const ROLE_DEFAULTS = {
   admin: [],
   warehouse: ['addTransactions', 'viewDailyReport', 'viewTransactionReport', 'addItems'],
   encoder: ['viewItems', 'addItems'],
+  accounting: ['reconcile'],
 }
 
 export const permissionsOf = (user) => user.permissions ?? ROLE_DEFAULTS[user.role] ?? []

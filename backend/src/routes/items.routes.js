@@ -40,7 +40,8 @@ router.get('/similar', requirePermission('addItems'), similarItems);
 
 // The Items page; stock fields only with viewItemStock (see listItems).
 router.get('/', canViewItems, listItems);
-router.get('/search', canAddTransactions, searchItems);
+// The item search on Add Transaction and Reconcile.
+router.get('/search', requirePermission('addTransactions', 'reconcile'), searchItems);
 router.get('/by-item-id/:itemId', canAddTransactions, findByItemId);
 // The filter dropdown on the Items and Transactions pages.
 router.get('/facets', requirePermission('viewItems', 'addTransactions'), listFacets);

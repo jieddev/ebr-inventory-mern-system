@@ -150,6 +150,7 @@ export default function CreateUserPage() {
           <select id={roleId} name="role" className="field-input" value={form.role} onChange={handleChange}>
             <option value="warehouse">Warehouse: transactions</option>
             <option value="encoder">Encoder: items</option>
+            <option value="accounting">Accounting: reconcile</option>
             <option value="admin">Admin: everything</option>
           </select>
         </div>

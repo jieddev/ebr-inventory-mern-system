@@ -18,6 +18,7 @@ const LINKS = [
   { to: '/reservations', label: 'Reservations', icon: 'reservations', permission: 'addTransactions' },
   { to: '/items', label: 'Items', icon: 'items', permission: 'viewItems' },
   { to: '/reports', label: 'Reports', icon: 'reports', permission: REPORT_PERMISSIONS },
+  { to: '/reconcile', label: 'Reconcile', icon: 'reconcile', permission: 'reconcile' },
   { to: '/activity', label: 'Activity', icon: 'activity', adminOnly: true },
   { to: '/users', label: 'User management', icon: 'users', adminOnly: true },
 ]

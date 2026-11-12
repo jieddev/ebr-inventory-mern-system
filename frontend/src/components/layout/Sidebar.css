@@ -285,6 +285,11 @@
   mask-image: url('../../assets/icons/report.svg');
 }
 
+.sidebar-icon-reconcile {
+  -webkit-mask-image: url('../../assets/icons/check-circle.svg');
+  mask-image: url('../../assets/icons/check-circle.svg');
+}
+
 .sidebar-icon-activity {
   -webkit-mask-image: url('../../assets/icons/activity.svg');
   mask-image: url('../../assets/icons/activity.svg');

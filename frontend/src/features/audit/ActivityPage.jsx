@@ -42,6 +42,7 @@ const ACTION_LABELS = {
   'batchout.create': 'Batch out',
   'report.export': 'Exported Daily Report',
   'report.transactions_export': 'Exported Transaction Report',
+  'report.reconcile_export': 'Exported Reconcile Report',
 }
 
 const FIELD_LABELS = {
@@ -399,6 +400,14 @@ function Details({ entry }) {
       const day = (value) => formatDate(`${value}T00:00:00Z`)
       const period = d.from === d.to ? day(d.from) : `${day(d.from)} – ${day(d.to)}`
       return `${period} · ${pluralize(d.count, 'item')}`
+    }
+    case 'report.reconcile_export': {
+      const day = (value) => formatDate(`${value}T00:00:00Z`)
+      let period = 'all transactions'
+      if (d.from && d.to) period = d.from === d.to ? day(d.from) : `${day(d.from)} – ${day(d.to)}`
+      else if (d.from) period = `from ${day(d.from)}`
+      else if (d.to) period = `up to ${day(d.to)}`
+      return [d.itemId, d.code, period, pluralize(d.count, 'transaction')].filter(Boolean).join(' · ')
     }
     case 'item.batch_archive':
     case 'item.batch_restore':

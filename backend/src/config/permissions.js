@@ -7,6 +7,7 @@ const PERMISSIONS = [
   { value: 'viewItems', label: 'Allow user to open the Items page' },
   { value: 'viewItemStock', label: 'Allow user to see stock details (stock filter, last transaction) on the Items page' },
   { value: 'addItems', label: 'Allow user to add items' },
+  { value: 'reconcile', label: 'Allow user to reconcile items and export their transactions' },
 ];
 const PERMISSION_VALUES = PERMISSIONS.map((p) => p.value);
 
@@ -15,6 +16,7 @@ const ROLE_DEFAULTS = {
   admin: [],
   warehouse: ['addTransactions', 'viewDailyReport', 'viewTransactionReport', 'addItems'],
   encoder: ['viewItems', 'addItems'],
+  accounting: ['reconcile'],
 };
 
 const defaultPermissions = (role) => [...(ROLE_DEFAULTS[role] ?? [])];
