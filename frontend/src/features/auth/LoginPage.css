@@ -65,6 +65,11 @@
   border-radius: var(--radius-md);
 }
 
+.login-countdown {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
 .login-help {
   font-size: var(--text-sm);
   color: var(--color-primary);

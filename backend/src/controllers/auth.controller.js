@@ -4,6 +4,7 @@ const User = require('../models/User');
 const HttpError = require('../utils/httpError');
 const { AUTH_COOKIE } = require('../middleware/auth');
 const { recordQuietly } = require('../services/audit.service');
+const { lockRemaining, recordFailure, clearFailures } = require('../services/loginThrottle.service');
 const { jwtSecret, jwtExpiresIn, nodeEnv } = require('../config/env');
 
 // Compared against when the user doesn't exist, so response time doesn't reveal valid IDs.
@@ -16,10 +17,36 @@ const cookieOptions = {
   path: '/',
 };
 
+// "1 minute", "2 minutes", "45 seconds".
+function waitText(ms) {
+  const seconds = Math.ceil(ms / 1000);
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+// 429 with how long to wait, in the body (retryAfter, seconds) and the Retry-After header.
+function tooManyAttempts(ms) {
+  const retryAfter = Math.ceil(ms / 1000);
+  return new HttpError(429, `Too many failed login attempts. Please wait ${waitText(ms)} before trying again.`, {
+    extra: { retryAfter },
+    headers: { 'Retry-After': String(retryAfter) },
+  });
+}
+
+// POST /api/auth/login. After 3 wrong passwords for a username (or 10 from one computer), logging in
+// is blocked for a minute, then longer after each further lockout (services/loginThrottle.service.js).
 async function login(req, res) {
   const userId = String(req.body?.userId ?? '').trim().toLowerCase();
   const password = String(req.body?.password ?? '');
   if (!userId || !password) throw new HttpError(400, 'Enter your username and password');
+
+  // Checked before the password, so waiting can't be skipped by guessing right.
+  const waitMs = await lockRemaining(userId, req.ip);
+  if (waitMs) {
+    await recordQuietly(req, { action: 'auth.login_failed', actor: null, details: { userId: userId.slice(0, 64), reason: 'locked' } });
+    throw tooManyAttempts(waitMs);
+  }
 
   const user = await User.findOne({ userId }).select('+passwordHash');
   const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
@@ -28,8 +55,14 @@ async function login(req, res) {
   if (failure) {
     await recordQuietly(req, { action: 'auth.login_failed', actor: null, details: { userId: userId.slice(0, 64), reason: failure } });
     if (failure === 'disabled') throw new HttpError(403, 'This account is disabled. Contact your administrator.');
-    throw new HttpError(401, 'Incorrect username or password');
+    // Unknown IDs count the same as wrong passwords, so the wait doesn't reveal which IDs exist.
+    const { lockedMs, attemptsLeft } = await recordFailure(userId, req.ip);
+    if (lockedMs) throw tooManyAttempts(lockedMs);
+    const left = attemptsLeft === 1 ? ' 1 attempt left before you have to wait.' : '';
+    throw new HttpError(401, `Incorrect username or password.${left}`, { extra: { attemptsLeft } });
   }
+
+  await clearFailures(userId, req.ip);
 
   const token = jwt.sign({ sub: user.id, role: user.role }, jwtSecret, { expiresIn: jwtExpiresIn });
   const { exp } = jwt.decode(token);

@@ -19,7 +19,9 @@ function errorHandler(err, req, res, next) {
   const status = err.status || err.statusCode || 500;
   // The request log line (pino-http in app.js) picks this up, with the stack and request ID.
   if (status >= 500) res.err = err;
+  if (status < 500 && err.headers) res.set(err.headers);
   res.status(status).json({
+    ...(status < 500 && err.extra),
     message: status >= 500 && nodeEnv === 'production' ? 'Internal server error' : err.message,
     ...(status >= 500 && nodeEnv !== 'production' && { stack: err.stack }),
   });

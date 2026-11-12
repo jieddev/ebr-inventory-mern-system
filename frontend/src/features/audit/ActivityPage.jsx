@@ -69,6 +69,7 @@ const FAILED_LOGIN_REASONS = {
   unknown_id: 'unknown ID',
   wrong_password: 'wrong password',
   disabled: 'account disabled',
+  locked: 'blocked: too many attempts',
 }
 
 const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })

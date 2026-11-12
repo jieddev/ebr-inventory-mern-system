@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Logo from '../../components/ui/Logo'
@@ -8,6 +8,9 @@ import eyeIcon from '../../assets/icons/eye.svg'
 import eyeOffIcon from '../../assets/icons/eye-off.svg'
 import { useAuth } from './useAuth'
 import './LoginPage.css'
+
+// 75 → "1:15"
+const countdown = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 export default function LoginPage() {
   const { user, login } = useAuth()
@@ -21,6 +24,25 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // After too many failed logins the server asks to wait; Log in stays off until then.
+  const [lockedUntil, setLockedUntil] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
+  const secondsLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000))
+  const isLocked = secondsLeft > 0
+
+  useEffect(() => {
+    if (!lockedUntil) return
+    const timer = setInterval(() => {
+      const current = Date.now()
+      setNow(current)
+      if (current >= lockedUntil) {
+        clearInterval(timer)
+        setLockedUntil(0)
+        setFormError('')
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [lockedUntil])
 
   if (user) return <Navigate to={redirectTo} replace />
 
@@ -31,13 +53,19 @@ export default function LoginPage() {
     if (!password) errors.password = 'Enter your password'
     setFieldErrors(errors)
     setFormError('')
-    if (Object.keys(errors).length) return
+    if (Object.keys(errors).length || isLocked) return
 
     setIsSubmitting(true)
     try {
       await login(userId.trim(), password)
       navigate(redirectTo, { replace: true })
     } catch (err) {
+      const retryAfter = err.response?.status === 429 ? Number(err.response.data?.retryAfter) : 0
+      if (retryAfter > 0) {
+        const current = Date.now()
+        setNow(current)
+        setLockedUntil(current + retryAfter * 1000)
+      }
       setFormError(getErrorMessage(err))
       setPassword('')
     } finally {
@@ -64,7 +92,14 @@ export default function LoginPage() {
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           {formError && (
             <div className="login-alert" role="alert">
-              {formError}
+              {isLocked ? (
+                <>
+                  Too many failed login attempts. Please wait{' '}
+                  <span className="login-countdown">{countdown(secondsLeft)}</span> before trying again.
+                </>
+              ) : (
+                formError
+              )}
             </div>
           )}
 
@@ -98,8 +133,8 @@ export default function LoginPage() {
             }
           />
 
-          <Button type="submit" size="lg" block isLoading={isSubmitting}>
-            {isSubmitting ? 'Logging in…' : 'Log in'}
+          <Button type="submit" size="lg" block isLoading={isSubmitting} disabled={isLocked}>
+            {isSubmitting ? 'Logging in…' : isLocked ? `Try again in ${countdown(secondsLeft)}` : 'Log in'}
           </Button>
         </form>
 
