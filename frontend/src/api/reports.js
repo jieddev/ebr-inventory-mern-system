@@ -26,6 +26,13 @@ export async function exportTransactionReport({ from, to }) {
   saveDownload(response, `EBR_Transaction_Report_${from === to ? from : `${from}_to_${to}`}.xlsx`)
 }
 
+// Stockcard: every item's transactions from `from` to `to` ("YYYY-MM-DD", both included) as an
+// Excel file, saved by the browser.
+export async function exportStockcard({ from, to }) {
+  const response = await api.get('/reports/stockcard/export', { params: { from, to }, responseType: 'blob' })
+  saveDownload(response, `EBR_Stockcard_${from === to ? from : `${from}_to_${to}`}.xlsx`)
+}
+
 // Reconcile: one item's transactions, oldest first. from / to ("YYYY-MM-DD") are optional.
 export async function getReconcile(itemId, { from, to } = {}, { signal } = {}) {
   const { data } = await api.get(`/reports/reconcile/${itemId}`, { params: cleanParams({ from, to }), signal })

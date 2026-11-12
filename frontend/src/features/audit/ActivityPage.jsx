@@ -43,6 +43,7 @@ const ACTION_LABELS = {
   'report.export': 'Exported Daily Report',
   'report.transactions_export': 'Exported Transaction Report',
   'report.reconcile_export': 'Exported Reconcile Report',
+  'report.stockcard_export': 'Exported Stockcard',
 }
 
 const FIELD_LABELS = {
@@ -401,6 +402,11 @@ function Details({ entry }) {
       const day = (value) => formatDate(`${value}T00:00:00Z`)
       const period = d.from === d.to ? day(d.from) : `${day(d.from)} – ${day(d.to)}`
       return `${period} · ${pluralize(d.count, 'item')}`
+    }
+    case 'report.stockcard_export': {
+      const day = (value) => formatDate(`${value}T00:00:00Z`)
+      const period = d.from === d.to ? day(d.from) : `${day(d.from)} – ${day(d.to)}`
+      return `${period} · ${pluralize(d.count, 'item')} · ${pluralize(d.transactions, 'transaction')}`
     }
     case 'report.reconcile_export': {
       const day = (value) => formatDate(`${value}T00:00:00Z`)

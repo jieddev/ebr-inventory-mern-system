@@ -373,4 +373,82 @@ async function buildReconcileReport(item, transactions, { from = null, to = null
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList, buildReconcileReport };
+// Builds the Stockcard .xlsx: each item in `items` (in that order) as its own block —
+//   <item ID · description · brand · type / design · category>
+//   BEGINNING BALANCE                       <balance when `from` starts>
+//   <each entry in the period, ledger order: quantity under IN, OUT or RESERVE, running balance>
+//   ENDING BALANCE       <IN> <OUT> <RES>   <balance at the end of `to`>
+// transactionsByItem: item _id (string) → its entries in the period, oldest first.
+// beginningByItem: item _id (string) → balance at the end of the day before `from` (missing: 0).
+async function buildStockcard(items, transactionsByItem, beginningByItem, from, to, { costCenterName, preparedBy } = {}) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Stockcard');
+  const isSingleDay = from.getTime() === to.getTime();
+  const columns = [
+    { header: 'DATE', key: 'date', width: 14, style: { numFmt: 'mm/dd/yyyy' } },
+    { header: 'TYPE', key: 'type', width: 26 },
+    { header: 'IN', key: 'in', width: 10 },
+    { header: 'OUT', key: 'out', width: 10 },
+    { header: 'RESERVE', key: 'reserve', width: 10 },
+    { header: 'CUSTOMER', key: 'customerName', width: 28 },
+    { header: 'NOTES', key: 'notes', width: 36 },
+    { header: 'RECORDED BY', key: 'recordedBy', width: 22 },
+    { header: 'BALANCE', key: 'balance', width: 14 },
+  ];
+  const entryCount = [...transactionsByItem.values()].reduce((sum, list) => sum + list.length, 0);
+  addReportTable(sheet, columns, {
+    title: 'Stockcard',
+    subtitle: `For ${periodText(from, to)} · ${items.length.toLocaleString('en-US')} item${items.length === 1 ? '' : 's'} · ${entryCount.toLocaleString('en-US')} transaction${entryCount === 1 ? '' : 's'}`,
+    costCenterName,
+    dateLabel: isSingleDay ? 'Report date' : 'Period',
+    dateText: periodText(from, to),
+    generatedAt: new Date(),
+    preparedBy,
+  });
+  const lastCol = columns.length;
+  const ITEM_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+
+  for (const item of items) {
+    const key = String(item._id);
+    const entries = transactionsByItem.get(key) ?? [];
+    const beginning = beginningByItem.get(key) ?? 0;
+
+    const itemRow = sheet.addRow([
+      [item.itemId, item.code, item.brand, item.typeDesign, item.category].filter(Boolean).join(' · '),
+    ]);
+    sheet.mergeCells(itemRow.number, 1, itemRow.number, lastCol);
+    itemRow.font = { bold: true };
+    itemRow.getCell(1).fill = ITEM_FILL;
+
+    const beginningRow = sheet.addRow({ date: from, type: 'BEGINNING BALANCE', balance: beginning });
+    beginningRow.font = { italic: true, color: MUTED };
+
+    const totals = { in: 0, out: 0, reserve: 0 };
+    let balance = beginning;
+    for (const t of entries) {
+      const typeKey = t.type.toLowerCase();
+      totals[typeKey] += t.quantity;
+      balance = t.endingBalance;
+      sheet.addRow({
+        // ExcelJS writes Dates in UTC, which is how calendar days are stored.
+        date: t.date,
+        type: t.isBalanceForwarded ? `BALANCE FORWARDED (${t.type})` : t.type,
+        [typeKey]: t.quantity,
+        customerName: t.customerName || '',
+        notes: t.notes || '',
+        recordedBy: t.createdBy?.name ?? '',
+        balance: t.endingBalance,
+      });
+    }
+
+    const endingRow = sheet.addRow({ date: to, type: 'ENDING BALANCE', ...totals, balance });
+    endingRow.font = { bold: true };
+    endingRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.border = { top: { style: 'thin' } };
+    });
+    sheet.addRow([]);
+  }
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList, buildReconcileReport, buildStockcard };

@@ -27,6 +27,7 @@ const ACTIONS = [
   'report.export',
   'report.transactions_export',
   'report.reconcile_export',
+  'report.stockcard_export',
 ];
 
 // How long entries are kept. Changing it also updates an existing database's TTL index

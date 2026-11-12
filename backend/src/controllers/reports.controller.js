@@ -2,7 +2,7 @@ const Item = require('../models/Item');
 const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { LEDGER_ORDER } = require('../models/Transaction');
-const { buildSummaryReport, buildTransactionReport, buildReconcileReport } = require('../services/summaryReport.service');
+const { buildSummaryReport, buildTransactionReport, buildReconcileReport, buildStockcard } = require('../services/summaryReport.service');
 const { record } = require('../services/audit.service');
 const { parseDay, today, parseObjectId } = require('../utils/parse');
 const { entryMatch } = require('../utils/filters');
@@ -209,6 +209,58 @@ async function exportReconcileReport(req, res) {
     .send(Buffer.from(buffer));
 }
 
+// The active items in the cost center with entries from `from` to `to` (both days included): those
+// entries in ledger order, who recorded each, and each item's balance when `from` starts (the end of
+// the day before). Items with no entries in the period are left out.
+async function stockcardRows(costCenter, from, to) {
+  const allItems = await Item.find({ costCenter, ...ACTIVE })
+    .sort({ itemId: 1, _id: 1 })
+    .select('itemId category code brand typeDesign')
+    .lean();
+  const withEntries = new Set(
+    (await Transaction.distinct('item', { item: { $in: allItems.map((item) => item._id) }, date: { $gte: from, $lte: to } })).map(String),
+  );
+  const items = allItems.filter((item) => withEntries.has(String(item._id)));
+  const itemIds = items.map((item) => item._id);
+  const [beginning, transactions] = await Promise.all([
+    balancesBy(itemIds, { $lt: from }),
+    Transaction.find({ item: { $in: itemIds }, date: { $gte: from, $lte: to } })
+      .sort({ item: 1, ...LEDGER_ORDER })
+      .select('item date type quantity customerName notes endingBalance isBalanceForwarded createdBy')
+      .populate('createdBy', 'name')
+      .lean(),
+  ]);
+  const transactionsByItem = new Map();
+  for (const t of transactions) {
+    const key = String(t.item);
+    if (!transactionsByItem.has(key)) transactionsByItem.set(key, []);
+    transactionsByItem.get(key).push(t);
+  }
+  const beginningByItem = new Map([...beginning].map(([key, b]) => [key, b.balance]));
+  return { items, transactionsByItem, beginningByItem, count: transactions.length };
+}
+
+// GET /api/reports/stockcard/export?from=&to= — every item's stockcard for the period as an .xlsx.
+async function exportStockcard(req, res) {
+  const { from, to } = reportPeriod(req.query);
+  const { items, transactionsByItem, beginningByItem, count } = await stockcardRows(req.costCenter, from, to);
+  const buffer = await buildStockcard(items, transactionsByItem, beginningByItem, from, to, {
+    costCenterName: costCenterLabel(req.costCenter),
+    preparedBy: req.user.name,
+  });
+  const fromDay = dayText(from);
+  const toDay = dayText(to);
+  const period = fromDay === toDay ? fromDay : `${fromDay}_to_${toDay}`;
+  await record(req, {
+    action: 'report.stockcard_export',
+    details: { from: fromDay, to: toDay, count: items.length, transactions: count },
+  });
+  res
+    .attachment(`EBR_Stockcard_${costCenterFileName(req.costCenter)}_${period}.xlsx`)
+    .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    .send(Buffer.from(buffer));
+}
+
 module.exports = {
   dailyReport,
   exportDailyReport,
@@ -216,4 +268,5 @@ module.exports = {
   exportTransactionReport,
   reconcileReport,
   exportReconcileReport,
+  exportStockcard,
 };

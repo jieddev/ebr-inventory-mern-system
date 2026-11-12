@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import DateRangeFields from '../../components/ui/DateRangeFields'
 import { useAuth } from '../auth/useAuth'
+import { getErrorMessage } from '../../api/auth'
+import { exportStockcard } from '../../api/reports'
 import { can } from '../../utils/permissions'
 import { isValidRange, rangePeriod } from '../../utils/dateRange'
 import { todayInputValue } from '../../utils/format'
@@ -26,13 +28,14 @@ export default function ReportsPage() {
         <div className="reports-grid">
           {can(user, 'viewDailyReport') && <DailyReportCard />}
           {can(user, 'viewTransactionReport') && <TransactionReportCard />}
+          {can(user, 'viewTransactionReport') && <StockcardCard />}
         </div>
       </section>
     </div>
   )
 }
 
-function ReportCard({ title, description, canGenerate, onGenerate, children }) {
+function ReportCard({ title, description, canGenerate, onGenerate, isLoading = false, error = '', children }) {
   const titleId = useId()
   return (
     <form
@@ -53,8 +56,13 @@ function ReportCard({ title, description, canGenerate, onGenerate, children }) {
         </div>
       </div>
       <div className="reports-card-fields">{children}</div>
+      {error && (
+        <div className="field-error reports-card-error" role="alert">
+          {error}
+        </div>
+      )}
       <footer>
-        <Button type="submit" disabled={!canGenerate}>
+        <Button type="submit" disabled={!canGenerate} isLoading={isLoading}>
           Generate
         </Button>
       </footer>
@@ -98,6 +106,37 @@ function TransactionReportCard() {
       title="Transaction Report"
       canGenerate={isValidRange(range)}
       onGenerate={() => navigate(`/reports/transactions?${new URLSearchParams(rangePeriod(range))}`)}
+    >
+      <DateRangeFields {...range} onChange={setRange} />
+    </ReportCard>
+  )
+}
+
+// Downloads an Excel file with the transactions of each item that moved in the period, instead of opening a page.
+function StockcardCard() {
+  const [range, setRange] = useState(todayRange)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleGenerate() {
+    setIsLoading(true)
+    setError('')
+    try {
+      await exportStockcard(rangePeriod(range))
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not generate the stockcard.'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <ReportCard
+      title="Stockcard"
+      canGenerate={isValidRange(range) && !isLoading}
+      onGenerate={handleGenerate}
+      isLoading={isLoading}
+      error={error}
     >
       <DateRangeFields {...range} onChange={setRange} />
     </ReportCard>

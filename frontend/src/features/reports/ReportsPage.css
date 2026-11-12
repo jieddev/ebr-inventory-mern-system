@@ -50,6 +50,10 @@
   flex-direction: column;
 }
 
+.reports-card-error {
+  margin-top: var(--space-4);
+}
+
 .reports-card footer {
   display: flex;
   justify-content: flex-end;

@@ -6,6 +6,7 @@ const {
   exportTransactionReport,
   reconcileReport,
   exportReconcileReport,
+  exportStockcard,
 } = require('../controllers/reports.controller');
 const { requireAuth, requirePermission, resolveCostCenter } = require('../middleware/auth');
 
@@ -21,6 +22,8 @@ router.get('/daily/export', daily, exportDailyReport);
 const transactions = requirePermission('viewTransactionReport');
 router.get('/transactions', transactions, transactionReport);
 router.get('/transactions/export', transactions, exportTransactionReport);
+// Stockcard: every item's transactions for a period, Excel only.
+router.get('/stockcard/export', transactions, exportStockcard);
 
 // Reconcile: one item's transactions (admins and accounting by default).
 const reconcile = requirePermission('reconcile');
