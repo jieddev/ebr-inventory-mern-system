@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import ActivityToasts from './ActivityToasts'
 import AppBar from './AppBar'
+import ClockWarning from './ClockWarning'
 import Sidebar from './Sidebar'
 import { rememberView } from '../../utils/rememberedViews'
 import CostCenterProvider from '../../features/costCenter/CostCenterProvider'
@@ -20,6 +21,7 @@ export default function AppLayout() {
     <CostCenterProvider>
       <div className="app-layout">
         <AppBar />
+        <ClockWarning />
         <div className="app-body">
           <Sidebar />
           <main className="app-content">

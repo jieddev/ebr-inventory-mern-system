@@ -5,6 +5,7 @@ const { port } = require('./src/config/env');
 const logger = require('./src/config/logger');
 const { backfillItemIds } = require('./src/services/itemId.service');
 const { syncAuditRetention } = require('./src/services/audit.service');
+const { startClockCheck } = require('./src/services/clock.service');
 
 async function start() {
   try {
@@ -15,6 +16,8 @@ async function start() {
   }
 
   if (mongoose.connection.readyState === 1) {
+    startClockCheck();
+
     const backfilled = await backfillItemIds().catch((err) => logger.error({ err }, 'Could not give items an ID'));
     if (backfilled) logger.info(`Gave item IDs to ${backfilled} existing items`);
 

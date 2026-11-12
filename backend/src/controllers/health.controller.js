@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { clockStatus } = require('../services/clock.service');
 
 const DB_STATES = ['disconnected', 'connected', 'connecting', 'disconnecting'];
 
@@ -10,6 +11,7 @@ function getHealth(req, res) {
     db,
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
+    clock: clockStatus(),
   });
 }
 

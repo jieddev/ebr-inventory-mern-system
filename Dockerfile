@@ -10,7 +10,9 @@ RUN npm run build
 
 # 2. Run the backend, which serves ../frontend/dist (see backend/src/app.js).
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=5000
+# Dates like "today" use the server's time zone; without this the container runs on UTC.
+RUN apk add --no-cache tzdata
+ENV NODE_ENV=production PORT=5000 TZ=Asia/Manila
 WORKDIR /app
 COPY backend/package*.json backend/
 RUN cd backend && npm ci --omit=dev
