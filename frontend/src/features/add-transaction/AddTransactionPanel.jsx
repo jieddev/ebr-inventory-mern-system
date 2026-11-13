@@ -17,6 +17,8 @@ import checkIcon from '../../assets/icons/check-circle.svg'
 import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
 import dotReserve from '../../assets/icons/dot-reserve.svg'
+import { useCostCenter } from '../costCenter/useCostCenter'
+import { costCenterLabel } from '../../utils/costCenters'
 import './AddTransactionPanel.css'
 
 // "2026-10-29" → "10/29/2026"
@@ -45,6 +47,7 @@ const TYPE_OPTIONS = [
 // After saving, the item, quantity and customer clear for the next entry. A date the
 // user picked and IN/OUT are kept, since entries are usually typed in batches from the same day.
 function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
+  const { costCenter } = useCostCenter()
   const idRef = useRef(null)
   const codeRef = useRef(null)
   const dateRef = useRef(null)
@@ -235,7 +238,7 @@ function SingleEntryPanel({ onClose, onSaved, modeToggle, isActive }) {
 
   return (
     <SidePanel
-      title="Add Transaction"
+      title={`Add Transaction for ${costCenterLabel(costCenter)}`}
       // Only the visible mode reacts to Esc and the close button.
       onClose={isActive ? onClose : ignoreClose}
       as="form"

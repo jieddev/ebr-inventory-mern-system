@@ -10,6 +10,8 @@ import ItemCodePicker from './ItemCodePicker'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import closeIcon from '../../assets/icons/close.svg'
 import plusIcon from '../../assets/icons/plus-muted.svg'
+import { useCostCenter } from '../costCenter/useCostCenter'
+import { costCenterLabel } from '../../utils/costCenters'
 import './ReceivingReportPanel.css'
 
 // Same limits as the paper slip and the API (backend models/ReceivingReport.js).
@@ -60,6 +62,7 @@ const longDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'lon
 // (kind OUT). Every line is saved as an IN or OUT transaction in one go. After saving, Received by /
 // Released by is kept and everything else clears, including the date, which is always typed from the slip.
 export default function ReceivingReportPanel({ kind = 'IN', onClose, onSaved, modeToggle, isActive }) {
+  const { costCenter } = useCostCenter()
   const slip = SLIPS[kind]
   const sign = kind === 'OUT' ? -1 : 1
   const dateRef = useRef(null)
@@ -196,7 +199,7 @@ export default function ReceivingReportPanel({ kind = 'IN', onClose, onSaved, mo
 
   return (
     <SidePanel
-      title="Add Transaction"
+      title={`Add Transaction for ${costCenterLabel(costCenter)}`}
       subtitle={slip.subtitle}
       onClose={requestClose}
       as="form"

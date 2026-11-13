@@ -9,6 +9,8 @@ import plusIcon from '../../assets/icons/plus.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import ItemFields from './ItemFields'
 import { EMPTY_ITEM_FORM, validateItemForm } from './itemForm'
+import { useCostCenter } from '../costCenter/useCostCenter'
+import { costCenterLabel } from '../../utils/costCenters'
 import './AddItemPanel.css'
 
 // Waits this long after the last keystroke before looking for similar items.
@@ -44,6 +46,7 @@ function useSimilarItems(code) {
 // and the item is added to "Added this session", so many items can be entered in a row.
 // initialCode fills in Item description, e.g. from a search that found nothing.
 export default function AddItemPanel({ onClose, onAdded, addedThisSession, initialCode = '' }) {
+  const { costCenter } = useCostCenter()
   const categoryRef = useRef(null)
   const codeRef = useRef(null)
   const [form, setForm] = useState(() => ({ ...EMPTY_ITEM_FORM, code: initialCode }))
@@ -90,7 +93,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
 
   return (
     <SidePanel
-      title="Add Item"
+      title={`Add Item for ${costCenterLabel(costCenter)}`}
       subtitle="Add a new item to the inventory list."
       onClose={onClose}
       as="form"
