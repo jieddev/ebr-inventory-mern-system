@@ -410,8 +410,14 @@ async function importItems(req, res) {
     if (!firstRowByKey.has(key)) firstRowByKey.set(key, row.row);
   }
 
-  // The opening entry is dated the report's "as of" day, like the first row of an item's ledger.
+  // Each opening entry is dated its row's DATE, or else the report's "as of" day (else today), like
+  // the first row of an item's ledger.
   const date = asOf ?? today();
+  const dateOf = (row) => row.date ?? date;
+  const withBalance = toAdd.filter((row) => row.balance !== 0).map(dateOf);
+  const dated = withBalance.length
+    ? { from: new Date(Math.min(...withBalance)), to: new Date(Math.max(...withBalance)) }
+    : null;
   let importId = null;
   await mongoose.connection.transaction(async (session) => {
     const itemIds = await nextItemIds(toAdd.length, session);
@@ -427,18 +433,20 @@ async function importItems(req, res) {
         // What recalculateItem() would give for a ledger with just the opening entry.
         balance: row.balance,
         transactionCount: row.balance !== 0 ? 1 : 0,
-        lastTransactionDate: row.balance !== 0 ? date : undefined,
+        lastTransactionDate: row.balance !== 0 ? dateOf(row) : undefined,
         lastTransactionType: row.balance !== 0 ? openingEntry(row.balance).type : undefined,
         createdBy: req.user._id,
       })),
       { session },
     );
+    // insertMany keeps the order, so items[i] is toAdd[i].
     await Transaction.insertMany(
       items
-        .filter((item) => item.balanceForwarded !== 0)
-        .map((item) => ({
+        .map((item, i) => ({ item, date: dateOf(toAdd[i]) }))
+        .filter(({ item }) => item.balanceForwarded !== 0)
+        .map(({ item, date: openingDate }) => ({
           item: item._id,
-          date,
+          date: openingDate,
           ...openingEntry(item.balanceForwarded),
           customerName: BALANCE_FORWARDED,
           isBalanceForwarded: true,
@@ -494,6 +502,7 @@ async function importItems(req, res) {
     importId,
     added: toAdd.length,
     asOf: date,
+    dated,
     skippedExisting,
     skippedDuplicates,
     invalid,

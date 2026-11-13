@@ -722,7 +722,10 @@ export default function ItemsPage() {
 
 // What an import did: how many items were added and which rows were skipped and why.
 function ImportResult({ result, onDismiss, onUndo }) {
-  const { fileName, added, asOf, skippedExisting, skippedDuplicates, invalid } = result
+  const { fileName, added, asOf, dated, skippedExisting, skippedDuplicates, invalid } = result
+  // Rows can carry their own DATE, so the opening balances may span several days.
+  const datedText =
+    dated && dated.from !== dated.to ? `${formatDate(dated.from)} – ${formatDate(dated.to)}` : formatDate(dated?.from ?? asOf)
   const problems = [
     ...invalid,
     ...skippedDuplicates.map((row) => ({
@@ -740,7 +743,7 @@ function ImportResult({ result, onDismiss, onUndo }) {
             Imported {pluralize(added, 'new item')} from {fileName}
           </p>
           <p className="import-result-meta">
-            Opening balances dated {formatDate(asOf)}
+            Opening balances dated {datedText}
             {skippedExisting.length > 0 &&
               ` · ${pluralize(skippedExisting.length, 'item')} already existed and were left unchanged`}
           </p>

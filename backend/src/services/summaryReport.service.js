@@ -2,6 +2,7 @@ const ExcelJS = require('exceljs');
 const Item = require('../models/Item');
 const { CATEGORIES } = require('../models/Item');
 const HttpError = require('../utils/httpError');
+const { today } = require('../utils/parse');
 
 const SHEET_NAME = 'Summary Report';
 // How far down the importer looks for the column headers.
@@ -54,10 +55,44 @@ function parseLongDate(text) {
   return month < 0 ? null : new Date(Date.UTC(+match[3], month, +match[2]));
 }
 
-// Reads the "Summary Report" sheet: ITEM DESCRIPTION (or ITEM CODE, in older files), BRAND NAME, TYPE / DESIGN and
-// "ENDING BALANCE AS OF <date>" (CATEGORY is optional). Columns are found by their
-// header, so files exported from the Items page can be imported again.
-// Returns the valid rows, the rows that can't be imported, and the "as of" date.
+// Headers of the per-row date of the ending balance. Matched exactly, so an export's
+// LAST TRANSACTION DATE isn't taken for it.
+const DATE_HEADERS = ['DATE', 'BALANCE DATE', 'AS OF'];
+// Excel's day 0 for serial dates (1900 date system, with its leap-year bug already absorbed).
+const EXCEL_EPOCH = Date.UTC(1899, 11, 30);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const utcDay = (year, month, day) => {
+  const date = new Date(Date.UTC(year, month, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day ? date : null;
+};
+
+// A DATE cell → that calendar day at UTC midnight, or null when it isn't a date. Accepts real Excel
+// dates (ExcelJS reads them as UTC), Excel serial numbers, and text: MM/DD/YYYY, YYYY-MM-DD or
+// "October 26, 2026".
+function parseRowDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : utcDay(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+  }
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value) || value <= 0) return null;
+    const date = new Date(EXCEL_EPOCH + value * DAY_MS);
+    return utcDay(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  }
+  const text = String(value ?? '').trim();
+  let match = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(text);
+  if (match) return utcDay(+match[3], +match[1] - 1, +match[2]);
+  match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+  if (match) return utcDay(+match[1], +match[2] - 1, +match[3]);
+  return parseLongDate(text);
+}
+
+// Reads the "Summary Report" sheet: ITEM DESCRIPTION (or ITEM CODE, in older files), BRAND NAME and
+// "ENDING BALANCE AS OF <date>". Optional: DATE (the day of that row's ending balance; blank uses the
+// "as of" date), TYPE / DESIGN and CATEGORY. Columns are found by their header, so files exported
+// from the Items page can be imported again.
+// Returns the valid rows (each with `date`, or null when it has none), the rows that can't be
+// imported, and the "as of" date.
 async function readSummaryReport(buffer) {
   const workbook = new ExcelJS.Workbook();
   try {
@@ -93,6 +128,7 @@ async function readSummaryReport(buffer) {
     else if (header === 'BRAND NAME') columns.brand = col;
     else if (header === 'TYPE / DESIGN' || header === 'TYPE/DESIGN') columns.typeDesign = col;
     else if (header === 'CATEGORY') columns.category = col;
+    else if (DATE_HEADERS.includes(header)) columns.date = col;
     else if (header.startsWith('ENDING BALANCE')) {
       columns.balance = col;
       columns.asOf = parseLongDate(header);
@@ -101,7 +137,6 @@ async function readSummaryReport(buffer) {
   const missing = [
     ['code', 'ITEM DESCRIPTION'],
     ['brand', 'BRAND NAME'],
-    ['typeDesign', 'TYPE / DESIGN'],
     ['balance', 'ENDING BALANCE'],
   ].filter(([key]) => !columns[key]);
   if (missing.length) {
@@ -113,13 +148,16 @@ async function readSummaryReport(buffer) {
 
   const rows = [];
   const invalid = [];
+  const latestDay = today();
   for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     const code = Item.normalize(cellText(row.getCell(columns.code)));
     const brand = Item.normalize(cellText(row.getCell(columns.brand)));
-    const typeDesign = Item.normalize(cellText(row.getCell(columns.typeDesign)));
+    const typeDesign = columns.typeDesign ? Item.normalize(cellText(row.getCell(columns.typeDesign))) : '';
     const rawBalance = cellValue(row.getCell(columns.balance));
-    if (!code && !brand && !typeDesign && rawBalance == null) continue; // empty row
+    const rawDate = columns.date ? cellValue(row.getCell(columns.date)) : null;
+    const hasDate = rawDate != null && String(rawDate).trim() !== '';
+    if (!code && !brand && !typeDesign && rawBalance == null && !hasDate) continue; // empty row
 
     const entry = { row: r, code, brand, typeDesign };
     if (!code) {
@@ -134,9 +172,19 @@ async function readSummaryReport(buffer) {
       continue;
     }
 
+    const date = hasDate ? parseRowDate(rawDate) : null;
+    if (hasDate && !date) {
+      invalid.push({ ...entry, reason: `Date "${String(rawDate).trim()}" is not a valid date` });
+      continue;
+    }
+    if (date && date > latestDay) {
+      invalid.push({ ...entry, reason: `Date ${longDate(date)} is in the future` });
+      continue;
+    }
+
     const givenCategory = columns.category && Item.normalize(cellText(row.getCell(columns.category)));
     const category = CATEGORIES.includes(givenCategory) ? givenCategory : categoryFor(code, typeDesign);
-    rows.push({ ...entry, category, balance });
+    rows.push({ ...entry, category, balance, date });
   }
 
   return { rows, invalid, asOf: columns.asOf ?? null };
