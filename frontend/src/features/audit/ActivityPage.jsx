@@ -330,7 +330,13 @@ function Details({ entry }) {
         </ul>
       )
     case 'item.create':
-      return `${d.category || 'No category'} · opening balance ${formatNumber(d.balanceForwarded)}`
+      return [
+        d.category || 'No category',
+        `opening balance ${formatNumber(d.balanceForwarded)}`,
+        d.balanceForwardedDate && `as of ${formatDate(`${d.balanceForwardedDate}T00:00:00Z`)}`,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'receiving.create':
     case 'batchout.create':
       return (

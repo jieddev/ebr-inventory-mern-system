@@ -3,7 +3,8 @@ import Button from '../../components/ui/Button'
 import SidePanel from '../../components/ui/SidePanel'
 import { getErrorMessage } from '../../api/auth'
 import { createItem, getSimilarItems } from '../../api/items'
-import { formatNumber } from '../../utils/format'
+import { formatNumber, todayInputValue } from '../../utils/format'
+import TextField from '../../components/ui/TextField'
 import plusIcon from '../../assets/icons/plus.svg'
 import checkIcon from '../../assets/icons/check-circle.svg'
 import ItemFields from './ItemFields'
@@ -46,6 +47,8 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
   const categoryRef = useRef(null)
   const codeRef = useRef(null)
   const [form, setForm] = useState(() => ({ ...EMPTY_ITEM_FORM, code: initialCode }))
+  // Kept between saves, like Category: a batch of opening balances usually shares one date.
+  const [balanceDate, setBalanceDate] = useState(todayInputValue)
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -70,7 +73,8 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
 
     setIsSaving(true)
     try {
-      const item = await createItem({ ...form, balanceForwarded })
+      // An empty date is saved as today (the server's today).
+      const item = await createItem({ ...form, balanceForwarded, balanceForwardedDate: balanceDate })
       setSuccessMessage(`“${item.code}” was added as ${item.itemId}. You can add another item.`)
       setForm({ ...EMPTY_ITEM_FORM, category: form.category })
       onAdded(item)
@@ -122,6 +126,13 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
         categoryRef={categoryRef}
         codeRef={codeRef}
         codeHint={similarItems.length > 0 && <SimilarItems items={similarItems} />}
+      />
+
+      <TextField
+        label="Balance forwarded date"
+        type="date"
+        value={balanceDate}
+        onChange={(e) => setBalanceDate(e.target.value)}
       />
 
       {addedThisSession.length > 0 && (

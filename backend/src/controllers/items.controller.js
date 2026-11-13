@@ -12,7 +12,7 @@ const { readSummaryReport, buildSummaryReport, buildItemList } = require('../ser
 const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
-const { today, parseWholeNumber, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
+const { today, parseDay, parseWholeNumber, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
 const { itemConditions, entryMatch, andFilter, itemSort, startOfToday } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
 const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
@@ -216,8 +216,12 @@ async function assertKeyIsFree(costCenter, key, exceptId) {
 
 // POST /api/items — Add Item. A balance forwarded other than 0 is also saved as an entry marked
 // BALANCE FORWARDED (IN, or OUT when negative), like the opening row of each item in the Excel sheet.
+// It's dated balanceForwardedDate (YYYY-MM-DD), or today when that's left out.
 async function createItem(req, res) {
   const { category, code, brand, typeDesign, balanceForwarded } = parseItemFields(req.body);
+  const openingDate = req.body?.balanceForwardedDate
+    ? parseDay(req.body.balanceForwardedDate, 'Balance forwarded date')
+    : today();
   const { costCenter } = req;
   await assertKeyIsFree(costCenter, { code, brand, typeDesign });
 
@@ -227,14 +231,16 @@ async function createItem(req, res) {
       [{ costCenter, itemId, category, code, brand, typeDesign, balanceForwarded, createdBy: req.user._id }],
       { session },
     );
-    await record(req, { action: 'item.create', target: itemTarget(created), details: { category, balanceForwarded } }, session);
+    const details = { category, balanceForwarded };
+    if (balanceForwarded !== 0) details.balanceForwardedDate = openingDate.toISOString().slice(0, 10);
+    await record(req, { action: 'item.create', target: itemTarget(created), details }, session);
     if (balanceForwarded === 0) return created;
 
     await Transaction.create(
       [
         {
           item: created._id,
-          date: today(),
+          date: openingDate,
           ...openingEntry(balanceForwarded),
           customerName: BALANCE_FORWARDED,
           isBalanceForwarded: true,
