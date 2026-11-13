@@ -3,8 +3,11 @@ const mongoose = require('mongoose');
 const BALANCE_FORWARDED = 'BALANCE FORWARDED';
 
 // IN adds stock. OUT removes it. RESERVE holds stock for a customer: it deducts like OUT
-// until it is confirmed out (becomes OUT) or cancelled (deleted).
-const TYPES = ['IN', 'OUT', 'RESERVE'];
+// until it is confirmed out (becomes OUT) or cancelled (deleted). ADJUST is a physical count
+// (Adjust to Count, admins only): it sets the balance to what was counted (see balance.service.js).
+const TYPES = ['IN', 'OUT', 'RESERVE', 'ADJUST'];
+// The types Add Transaction can enter.
+const ENTRY_TYPES = ['IN', 'OUT', 'RESERVE'];
 
 const transactionSchema = new mongoose.Schema(
   {
@@ -12,12 +15,28 @@ const transactionSchema = new mongoose.Schema(
     // Calendar day only, stored as UTC midnight.
     date: { type: Date, required: true },
     type: { type: String, enum: TYPES, required: true },
+    // For ADJUST, the size of the change the count made (kept by balance.service.js); it can be 0.
     quantity: {
       type: Number,
       required: true,
-      min: [1, 'Quantity must be at least 1'],
-      validate: { validator: Number.isInteger, message: 'Quantity must be a whole number' },
+      validate: [
+        { validator: Number.isInteger, message: 'Quantity must be a whole number' },
+        {
+          validator(value) {
+            return value >= (this.type === 'ADJUST' ? 0 : 1);
+          },
+          message: 'Quantity must be at least 1',
+        },
+      ],
     },
+    // ADJUST only: the physical count entered, and the signed change it made to the balance
+    // (counted − balance before it). adjustment is kept by balance.service.js.
+    countedQuantity: {
+      type: Number,
+      min: [0, 'Physical count cannot be negative'],
+      validate: { validator: Number.isInteger, message: 'Physical count must be a whole number' },
+    },
+    adjustment: Number,
     customerName: { type: String, default: '', trim: true, maxlength: 120 },
     // Reservations only: when the customer will pick it up (calendar day) and free-text notes.
     neededBy: Date,
@@ -45,5 +64,6 @@ const openingEntry = (balance) => ({ type: balance > 0 ? 'IN' : 'OUT', quantity:
 module.exports = mongoose.model('Transaction', transactionSchema);
 module.exports.BALANCE_FORWARDED = BALANCE_FORWARDED;
 module.exports.TYPES = TYPES;
+module.exports.ENTRY_TYPES = ENTRY_TYPES;
 module.exports.openingEntry = openingEntry;
 module.exports.LEDGER_ORDER = { isBalanceForwarded: -1, date: 1, _id: 1 };

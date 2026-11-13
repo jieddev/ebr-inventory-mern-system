@@ -5,6 +5,13 @@ import chevronRight from '../../assets/icons/chevron-right-sm.svg'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
 import './TransactionTable.css'
 
+// The Qty cell: the quantity, or for a physical count the signed change it made to the balance.
+function entryQuantity(entry) {
+  if (entry.type !== 'ADJUST') return formatNumber(entry.quantity)
+  const change = entry.adjustment ?? 0
+  return change > 0 ? `+${formatNumber(change)}` : change < 0 ? `−${formatNumber(-change)}` : '0'
+}
+
 // Clicking an entry (or Enter / Space on it) opens its details; selectedEntryId highlights it.
 export default function TransactionTable({
   groups,
@@ -93,7 +100,7 @@ export default function TransactionTable({
                   role="row"
                   tabIndex={0}
                   aria-selected={entry._id === selectedEntryId}
-                  aria-label={`${entry.type} ${formatNumber(entry.quantity)} on ${formatDate(entry.date)}, view details`}
+                  aria-label={`${entry.type === 'ADJUST' ? 'Physical count' : entry.type} ${entryQuantity(entry)} on ${formatDate(entry.date)}, view details`}
                   onClick={() => onSelectEntry(entry._id)}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' && e.key !== ' ') return
@@ -112,7 +119,7 @@ export default function TransactionTable({
                     <Badge kind={entry.type} />
                   </span>
                   <span className="txn-col-qty" role="cell">
-                    {formatNumber(entry.quantity)}
+                    {entryQuantity(entry)}
                   </span>
                   <span
                     className={`txn-col-balance ${entry.endingBalance < 0 ? 'is-negative' : ''}`}

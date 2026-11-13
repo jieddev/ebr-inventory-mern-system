@@ -22,6 +22,8 @@ const ACTIONS = [
   'transaction.cancel',
   'transaction.rollback',
   'transaction.update',
+  'transaction.adjust',
+  'transaction.count_verified',
   'receiving.create',
   'batchout.create',
   'report.export',

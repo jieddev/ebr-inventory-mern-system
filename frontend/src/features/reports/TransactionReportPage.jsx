@@ -32,7 +32,7 @@ function periodText(from, to) {
   return from === to ? longDate.format(toDate(to)) : longDate.formatRange(toDate(from), toDate(to))
 }
 
-// Transaction Report (design screen 08): the items that had IN or OUT entries in the chosen day or
+// Transaction Report (design screen 08): the items that had IN, OUT or physical count entries in the chosen day or
 // range, with their totals and ending balance, from /reports/transactions?from=&to=.
 // Pages on screen; Print prints every item.
 export default function TransactionReportPage() {
@@ -76,6 +76,8 @@ export default function TransactionReportPage() {
   const { data } = response
   const isLoading = response.key !== requestKey
   const rows = data?.rows ?? []
+  const hasAdjust = rows.some((row) => row.adjust)
+  const signed = (n) => (n > 0 ? `+${formatNumber(n)}` : n < 0 ? `−${formatNumber(-n)}` : '0')
   // A new period starts on page 1.
   const pageNumber = page.period === period ? page.number : 1
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
@@ -150,6 +152,7 @@ export default function TransactionReportPage() {
 
           <div className="report-table-wrap">
             <table className="report-table">
+              {/* Physical count adjustments (Adjust to Count) get a column only when there are any. */}
               <thead>
                 <tr>
                   <th>Item description</th>
@@ -157,6 +160,7 @@ export default function TransactionReportPage() {
                   <th>Type / design</th>
                   <th className="is-number">In</th>
                   <th className="is-number">Out</th>
+                  {hasAdjust && <th className="is-number">Count adj.</th>}
                   <th className="is-number">Ending balance</th>
                 </tr>
               </thead>
@@ -169,6 +173,7 @@ export default function TransactionReportPage() {
                     <td>{row.typeDesign || '—'}</td>
                     <td className="is-number">{formatNumber(row.in)}</td>
                     <td className="is-number">{formatNumber(row.out)}</td>
+                    {hasAdjust && <td className="is-number">{row.adjust ? signed(row.adjust) : '—'}</td>}
                     <td className={`is-number report-balance ${row.endingBalance < 0 ? 'is-negative' : ''}`}>
                       {formatNumber(row.endingBalance)}
                     </td>
@@ -181,6 +186,7 @@ export default function TransactionReportPage() {
                     <td colSpan={3}>Total</td>
                     <td className="is-number">{formatNumber(data.totals.in)}</td>
                     <td className="is-number">{formatNumber(data.totals.out)}</td>
+                    {hasAdjust && <td className="is-number">{signed(data.totals.adjust ?? 0)}</td>}
                     <td />
                   </tr>
                 </tfoot>
@@ -188,7 +194,7 @@ export default function TransactionReportPage() {
             </table>
             {!data && isLoading && <p className="report-empty">Generating the report…</p>}
             {data && rows.length === 0 && (
-              <p className="report-empty">No IN or OUT transactions {isSingleDay ? 'on this day' : 'in this period'}.</p>
+              <p className="report-empty">No IN, OUT or count transactions {isSingleDay ? 'on this day' : 'in this period'}.</p>
             )}
           </div>
 

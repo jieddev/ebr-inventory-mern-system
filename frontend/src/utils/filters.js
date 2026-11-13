@@ -46,7 +46,7 @@ export function countActiveFilters(filters) {
 // addedByNames: { userId: name } for the Added by chips (from the Items list response).
 export function filterChips(filters, { addedByNames } = {}) {
   const chips = []
-  if (filters.type) chips.push({ id: 'type', label: `Type: ${filters.type}`, without: { ...filters, type: '' } })
+  if (filters.type) chips.push({ id: 'type', label: `Type: ${filters.type === 'ADJUST' ? 'COUNT' : filters.type}`, without: { ...filters, type: '' } })
   if (filters.from || filters.to) {
     const label =
       filters.from && filters.to

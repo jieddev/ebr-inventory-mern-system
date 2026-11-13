@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
-const { TYPES } = require('../models/Transaction');
+const { ENTRY_TYPES } = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
-const { recalculateItem } = require('../services/balance.service');
+const { recalculateItem, balanceOn } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
 const { record, diff, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
@@ -65,6 +65,8 @@ async function listTransactions(req, res) {
             neededBy: '$neededBy',
             notes: '$notes',
             endingBalance: '$endingBalance',
+            countedQuantity: '$countedQuantity',
+            adjustment: '$adjustment',
           },
         },
       },
@@ -92,10 +94,16 @@ async function summarize(itemFilter, match) {
   const entryFilter = { ...match, item: { $in: await Item.distinct('_id', itemFilter) } };
   const totals = await Transaction.aggregate([
     { $match: entryFilter },
-    { $group: { _id: '$type', quantity: { $sum: '$quantity' } } },
+    { $group: { _id: '$type', quantity: { $sum: '$quantity' }, adjustment: { $sum: { $ifNull: ['$adjustment', 0] } } } },
   ]);
-  const byType = Object.fromEntries(totals.map((t) => [t._id, t.quantity]));
-  return { in: byType.IN ?? 0, out: byType.OUT ?? 0, reserve: byType.RESERVE ?? 0 };
+  const byType = Object.fromEntries(totals.map((t) => [t._id, t]));
+  return {
+    in: byType.IN?.quantity ?? 0,
+    out: byType.OUT?.quantity ?? 0,
+    reserve: byType.RESERVE?.quantity ?? 0,
+    // The net change made by physical counts.
+    adjust: byType.ADJUST?.adjustment ?? 0,
+  };
 }
 
 // GET /api/transactions/:id — one entry for the details panel: its item, who recorded it
@@ -105,7 +113,7 @@ async function getTransaction(req, res) {
   const [transaction, report] = await Promise.all([
     Transaction.findById(id)
       .select(
-        'item date type quantity customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt releasedAt releasedBy',
+        'item date type quantity countedQuantity adjustment customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt releasedAt releasedBy',
       )
       .populate('item', 'costCenter itemId category code brand typeDesign')
       .populate('createdBy', 'userId name role')
@@ -218,7 +226,7 @@ async function createTransaction(req, res) {
   const itemId = parseObjectId(body.itemId, 'Item');
   const date = parseDay(body.date);
   const type = String(body.type ?? '').toUpperCase();
-  if (!TYPES.includes(type)) throw new HttpError(400, 'Choose IN, OUT or RESERVE');
+  if (!ENTRY_TYPES.includes(type)) throw new HttpError(400, 'Choose IN, OUT or RESERVE');
   const quantity = parseWholeNumber(body.quantity, 'Quantity', { min: 1 });
   const customerName = String(body.customerName ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
   // Reservation details; IN and OUT entries don't keep them.
@@ -409,6 +417,9 @@ async function updateTransaction(req, res) {
     if (entry.isBalanceForwarded) {
       throw new HttpError(409, 'The balance forwarded can only be changed with Edit Item on the Items page.');
     }
+    if (entry.type === 'ADJUST') {
+      throw new HttpError(409, 'A physical count can’t be edited. Roll it back and enter the count again.');
+    }
     const target = await Item.findOne({ _id: entry.item, costCenter: req.costCenter })
       .select('itemId code brand typeDesign archivedAt')
       .session(session)
@@ -422,7 +433,7 @@ async function updateTransaction(req, res) {
     if (has('type')) {
       const type = String(body.type).toUpperCase();
       if (type !== entry.type) {
-        if (entry.type === 'RESERVE' || type === 'RESERVE' || !TYPES.includes(type)) {
+        if (entry.type === 'RESERVE' || type === 'RESERVE' || !ENTRY_TYPES.includes(type)) {
           throw new HttpError(400, 'The type can only change between IN and OUT. Use Confirm out or Cancel for reservations.');
         }
         update.type = type;
@@ -480,6 +491,74 @@ async function updateTransaction(req, res) {
   res.json(result);
 }
 
+// The count date for Adjust to Count: a day, not in the future. Default today.
+function countDay(value) {
+  const day = value ? parseDay(value, 'Count date') : today();
+  if (day > today()) throw new HttpError(400, 'The count date can’t be in the future');
+  return day;
+}
+
+// An active item of the cost center, for Adjust to Count.
+async function loadCountItem(req, itemId, session) {
+  const item = await Item.findOne({ _id: itemId, costCenter: req.costCenter })
+    .select('itemId code brand typeDesign archivedAt')
+    .session(session)
+    .lean();
+  if (!item) throw new HttpError(404, 'Item not found');
+  if (item.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
+  return item;
+}
+
+// GET /api/transactions/adjust/preview?itemId=&date= — admin only. The item's system balance and
+// pending reservations at the end of the count date, so Adjust to Count can show the difference.
+async function adjustPreview(req, res) {
+  const itemId = parseObjectId(req.query.itemId, 'Item');
+  const day = countDay(req.query.date);
+  await loadCountItem(req, itemId);
+  const { balance, reserved } = await balanceOn(itemId, day);
+  res.json({ date: day, systemBalance: balance, reserved });
+}
+
+// POST /api/transactions/adjust { itemId, date, countedQuantity, notes } — admin only. Sets the
+// item's balance on the count date to a physical count with an ADJUST entry (see balance.service.js).
+// A count that matches the system balance saves no entry; it's only logged as verified.
+async function adjustToCount(req, res) {
+  const body = req.body ?? {};
+  const itemId = parseObjectId(body.itemId, 'Item');
+  const date = countDay(body.date);
+  const countedQuantity = parseWholeNumber(body.countedQuantity, 'Physical count', { min: 0 });
+  const notes = String(body.notes ?? '').trim().slice(0, 300);
+
+  const result = await mongoose.connection.transaction(async (session) => {
+    const target = await loadCountItem(req, itemId, session);
+    const { balance: systemBalance, reserved } = await balanceOn(itemId, date, session);
+    const adjustment = countedQuantity - reserved - systemBalance;
+    const details = { date, countedQuantity, systemBalance, reserved, adjustment, notes };
+
+    if (adjustment === 0) {
+      await record(req, { action: 'transaction.count_verified', target: itemTarget(target), details }, session);
+      const item = await Item.findById(itemId).session(session).lean();
+      return { verified: true, transaction: null, item, adjustment };
+    }
+
+    const [transaction] = await Transaction.create(
+      [{ item: itemId, date, type: 'ADJUST', quantity: Math.abs(adjustment), countedQuantity, adjustment, notes, createdBy: req.user._id }],
+      { session },
+    );
+    await record(
+      req,
+      { action: 'transaction.adjust', target: itemTarget(target), details: { transactionId: transaction._id, ...details } },
+      session,
+    );
+    const item = await recalculateItem(itemId, session);
+    const saved = await Transaction.findById(transaction._id).session(session).lean();
+    return { verified: false, transaction: saved, item, adjustment };
+  });
+
+  if (!result.verified) announce(req, result.item, { kind: 'adjust', adjustment: result.adjustment });
+  res.status(result.verified ? 200 : 201).json({ verified: result.verified, transaction: result.transaction, item: result.item });
+}
+
 // The reservation and its item; 404 if it's gone or in another cost center, 409 if it's not
 // a reservation (any more).
 async function loadReservation(req, id, session) {
@@ -518,6 +597,8 @@ module.exports = {
   cancelReservation,
   rollbackTransaction,
   updateTransaction,
+  adjustPreview,
+  adjustToCount,
   // For the dashboard (dashboard.controller.js).
   reservationMatch,
   countReservations,

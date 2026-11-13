@@ -56,13 +56,13 @@ function itemConditions(query) {
   return conditions;
 }
 
-// Entry-level filters for the Transactions page: ?type=IN|OUT|RESERVE&from=YYYY-MM-DD&to=YYYY-MM-DD.
+// Entry-level filters for the Transactions page: ?type=IN|OUT|RESERVE|ADJUST&from=YYYY-MM-DD&to=YYYY-MM-DD.
 // Returns a Transaction match, or null when none are set.
 function entryMatch(query) {
   const match = {};
   const type = String(query.type ?? '').toUpperCase();
   if (type) {
-    if (!TYPES.includes(type)) throw new HttpError(400, 'Transaction type must be IN, OUT or RESERVE');
+    if (!TYPES.includes(type)) throw new HttpError(400, 'Transaction type must be IN, OUT, RESERVE or ADJUST');
     match.type = type;
   }
   if (query.from || query.to) {

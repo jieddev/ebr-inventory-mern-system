@@ -29,6 +29,8 @@
   --color-out-soft: #fcece8; /* status/out-subtle */
   --color-reserve: #8a5a00; /* reserved stock */
   --color-reserve-soft: #fff7d6;
+  --color-adjust: #013b81; /* physical count adjustment */
+  --color-adjust-soft: #e6edf6;
   --color-danger: #b3361e;
   --color-danger-hover: #8f2b18;
   --color-danger-soft: #fcece8;

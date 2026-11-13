@@ -56,6 +56,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   const isLoading = response.key !== requestKey
   const { transaction: t, receiving } = (!isLoading && response.data) || {}
   const isReserved = t?.type === 'RESERVE'
+  const isCount = t?.type === 'ADJUST'
   const canRollback = user.role === 'admin' && t && !t.isBalanceForwarded
 
   const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | null
@@ -158,7 +159,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
                   Rollback
                 </Button>
               )}
-              {canRollback && (
+              {canRollback && !isCount && (
                 <Button variant="secondary" onClick={startEdit}>
                   Edit
                 </Button>
@@ -213,20 +214,40 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
                     <dt>Date</dt>
                     <dd>{formatDate(t.date)}</dd>
                   </div>
-                  <div>
-                    <dt>Quantity</dt>
-                    <dd>
-                      {formatNumber(t.quantity)}
-                      {receiving?.unit && ` ${receiving.unit}`}
-                    </dd>
-                  </div>
+                  {isCount ? (
+                    <>
+                      <div>
+                        <dt>Physical count</dt>
+                        <dd>{formatNumber(t.countedQuantity ?? 0)}</dd>
+                      </div>
+                      <div>
+                        <dt>Change to balance</dt>
+                        <dd>
+                          {(t.adjustment ?? 0) > 0 ? '+' : (t.adjustment ?? 0) < 0 ? '−' : ''}
+                          {formatNumber(Math.abs(t.adjustment ?? 0))}
+                          <span className="txn-details-muted">
+                            {' '}
+                            · system balance was {formatNumber(t.endingBalance - (t.adjustment ?? 0))}
+                          </span>
+                        </dd>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <dt>Quantity</dt>
+                      <dd>
+                        {formatNumber(t.quantity)}
+                        {receiving?.unit && ` ${receiving.unit}`}
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt>Ending balance</dt>
                     <dd className={t.endingBalance < 0 ? 'is-negative' : ''}>{formatNumber(t.endingBalance)}</dd>
                   </div>
                   <div className="txn-details-wide">
-                    <dt>Customer name / Details</dt>
-                    <dd>{t.customerName || '—'}</dd>
+                    <dt>{isCount ? 'Notes' : 'Customer name / Details'}</dt>
+                    <dd>{(isCount ? t.notes : t.customerName) || '—'}</dd>
                   </div>
                 </dl>
               </section>
@@ -311,7 +332,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
       {dialog === 'rollback' && t && (
         <ConfirmDialog
           title="Roll back this transaction?"
-          message={`The ${t.type} of ${formatNumber(t.quantity)} ${t.item?.code ?? ''} on ${formatDate(t.date)} will be removed as if it was never recorded${receiving ? ', including its line on the receiving report' : ''}. The item's balance will be recalculated. This can't be undone.`}
+          message={`The ${isCount ? `physical count of ${formatNumber(t.countedQuantity ?? 0)}` : `${t.type} of ${formatNumber(t.quantity)}`} ${t.item?.code ?? ''} on ${formatDate(t.date)} will be removed as if it was never recorded${receiving ? ', including its line on the receiving report' : ''}. The item's balance will be recalculated. This can't be undone.`}
           cancelLabel="Keep it"
           confirmLabel="Rollback"
           isBusy={rollback.isBusy}

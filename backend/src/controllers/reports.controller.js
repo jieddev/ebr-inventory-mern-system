@@ -102,9 +102,10 @@ function reportPeriod(query) {
   return period;
 }
 
-// The active items in the cost center with IN or OUT entries from `from` to `to` (both days included):
-// their IN and OUT totals for the period and their ending balance at the end of `to`. Pending
-// reservations and the opening balance forwarded entry are not movements, so they aren't counted.
+// The active items in the cost center with IN, OUT or physical count (ADJUST) entries from `from` to
+// `to` (both days included): their IN and OUT totals and net count adjustment for the period and their
+// ending balance at the end of `to`. Pending reservations and the opening balance forwarded entry are
+// not movements, so they aren't counted.
 async function transactionRows(costCenter, from, to) {
   const items = await Item.find({ costCenter, ...ACTIVE })
     .sort({ itemId: 1, _id: 1 })
@@ -121,10 +122,12 @@ async function transactionRows(costCenter, from, to) {
         _id: '$item',
         in: quantityIf({ $and: [{ $eq: ['$type', 'IN'] }, { $ne: ['$isBalanceForwarded', true] }] }),
         out: quantityIf({ $and: [{ $eq: ['$type', 'OUT'] }, { $ne: ['$isBalanceForwarded', true] }] }),
+        adjust: { $sum: { $cond: [{ $and: [inPeriod, { $eq: ['$type', 'ADJUST'] }] }, { $ifNull: ['$adjustment', 0] }, 0] } },
+        hasAdjust: { $max: { $and: [inPeriod, { $eq: ['$type', 'ADJUST'] }] } },
         endingBalance: { $last: '$endingBalance' },
       },
     },
-    { $match: { $or: [{ in: { $gt: 0 } }, { out: { $gt: 0 } }] } },
+    { $match: { $or: [{ in: { $gt: 0 } }, { out: { $gt: 0 } }, { hasAdjust: true }] } },
   ]);
   const byItem = new Map(totals.map((t) => [String(t._id), t]));
 
@@ -132,11 +135,14 @@ async function transactionRows(costCenter, from, to) {
     .filter((item) => byItem.has(String(item._id)))
     .map((item) => {
       const t = byItem.get(String(item._id));
-      return { ...item, in: t.in, out: t.out, endingBalance: t.endingBalance };
+      return { ...item, in: t.in, out: t.out, adjust: t.adjust, endingBalance: t.endingBalance };
     });
   return {
     rows,
-    totals: rows.reduce((sum, row) => ({ in: sum.in + row.in, out: sum.out + row.out }), { in: 0, out: 0 }),
+    totals: rows.reduce(
+      (sum, row) => ({ in: sum.in + row.in, out: sum.out + row.out, adjust: sum.adjust + row.adjust }),
+      { in: 0, out: 0, adjust: 0 },
+    ),
   };
 }
 
@@ -175,7 +181,7 @@ async function reconcileRows(costCenter, itemParam, query) {
   if (!item) throw new HttpError(404, 'Item not found');
   const transactions = await Transaction.find({ item: id, ...match })
     .sort(LEDGER_ORDER)
-    .select('date type quantity customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt')
+    .select('date type quantity countedQuantity adjustment customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt')
     .populate('createdBy', 'userId name')
     .lean();
   return { item, transactions, from: match?.date?.$gte ?? null, to: match?.date?.$lte ?? null };
@@ -226,7 +232,7 @@ async function stockcardRows(costCenter, from, to) {
     balancesBy(itemIds, { $lt: from }),
     Transaction.find({ item: { $in: itemIds }, date: { $gte: from, $lte: to } })
       .sort({ item: 1, ...LEDGER_ORDER })
-      .select('item date type quantity customerName notes endingBalance isBalanceForwarded createdBy')
+      .select('item date type quantity countedQuantity adjustment customerName notes endingBalance isBalanceForwarded createdBy')
       .populate('createdBy', 'name')
       .lean(),
   ]);

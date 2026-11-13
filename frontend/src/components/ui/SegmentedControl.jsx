@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import './SegmentedControl.css'
 
-// options: [{ value, label, icon?, tone? }]. tone ('in' | 'out' | 'reserve') colors the selected option;
+// options: [{ value, label, icon?, tone? }]. tone ('in' | 'out' | 'reserve' | 'adjust') colors the selected option;
 // 'danger' colors the option red whether or not it's selected.
 // hideLabel keeps the label for screen readers only, e.g. inside a toolbar.
 export default function SegmentedControl({ label, options, value, onChange, name, hideLabel = false }) {

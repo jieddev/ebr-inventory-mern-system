@@ -1,0 +1,11 @@
+.count-difference {
+  font-weight: var(--weight-semibold);
+}
+
+.count-difference.is-up {
+  color: var(--color-in);
+}
+
+.count-difference.is-down {
+  color: var(--color-out);
+}

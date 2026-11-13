@@ -60,6 +60,11 @@
   background: var(--color-out-soft);
 }
 
+.segmented-adjust.is-selected {
+  color: var(--color-adjust);
+  background: var(--color-adjust-soft);
+}
+
 .segmented-reserve.is-selected {
   color: var(--color-reserve);
   background: var(--color-reserve-soft);

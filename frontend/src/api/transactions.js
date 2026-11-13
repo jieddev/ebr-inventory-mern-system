@@ -55,3 +55,17 @@ export async function getReservationCounts({ signal } = {}) {
   const { data } = await api.get('/transactions/reservations/count', { signal })
   return data
 }
+
+// Admin, Adjust to Count: the item's system balance and pending reservations at the end of `date`
+// ("YYYY-MM-DD"). { date, systemBalance, reserved }.
+export async function getAdjustPreview(itemId, date, { signal } = {}) {
+  const { data } = await api.get('/transactions/adjust/preview', { params: { itemId, date }, signal })
+  return data
+}
+
+// Admin: sets the item's balance on `date` to a physical count. { verified, transaction, item };
+// verified (no entry saved) when the count matches the system balance.
+export async function adjustToCount({ itemId, date, countedQuantity, notes }) {
+  const { data } = await api.post('/transactions/adjust', { itemId, date, countedQuantity, notes })
+  return data
+}

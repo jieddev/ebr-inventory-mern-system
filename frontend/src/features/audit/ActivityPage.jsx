@@ -38,6 +38,8 @@ const ACTION_LABELS = {
   'transaction.cancel': 'Cancelled reservation',
   'transaction.rollback': 'Rolled back transaction',
   'transaction.update': 'Edited transaction',
+  'transaction.adjust': 'Adjusted to physical count',
+  'transaction.count_verified': 'Verified physical count',
   'receiving.create': 'Receiving report',
   'batchout.create': 'Batch out',
   'report.export': 'Exported Daily Report',
@@ -375,6 +377,20 @@ function Details({ entry }) {
         .join(' · ')
     case 'transaction.cancel':
       return [`RESERVE ${formatNumber(d.quantity)}`, formatDate(d.date), d.customerName].filter(Boolean).join(' · ')
+    case 'transaction.adjust':
+    case 'transaction.count_verified': {
+      const change = d.adjustment > 0 ? `+${formatNumber(d.adjustment)}` : `−${formatNumber(Math.abs(d.adjustment ?? 0))}`
+      return [
+        `Counted ${formatNumber(d.countedQuantity)}`,
+        formatDate(d.date),
+        `system ${formatNumber(d.systemBalance)}`,
+        d.reserved > 0 && `${formatNumber(d.reserved)} reserved`,
+        entry.action === 'transaction.adjust' ? `change ${change}` : 'matched',
+        d.notes,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
     case 'transaction.rollback':
       return [
         `${d.type} ${formatNumber(d.quantity)}`,

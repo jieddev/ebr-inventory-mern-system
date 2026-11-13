@@ -268,6 +268,7 @@ async function buildTransactionReport(rows, totals, from, to, { costCenterName, 
       { header: 'TYPE / DESIGN', key: 'typeDesign', width: 16 },
       { header: `IN (${period})`, key: 'in', width: 18 },
       { header: `OUT (${period})`, key: 'out', width: 18 },
+      { header: 'COUNT ADJUSTMENT', key: 'adjust', width: 18 },
       { header: `ENDING BALANCE AS OF ${longDate(to)}`, key: 'endingBalance', width: 22 },
     ],
     {
@@ -281,7 +282,7 @@ async function buildTransactionReport(rows, totals, from, to, { costCenterName, 
     },
   );
   sheet.addRows(rows);
-  const total = sheet.addRow({ code: 'TOTAL', in: totals.in, out: totals.out });
+  const total = sheet.addRow({ code: 'TOTAL', in: totals.in, out: totals.out, adjust: totals.adjust });
   total.font = { bold: true };
   return workbook.xlsx.writeBuffer();
 }
@@ -314,8 +315,20 @@ async function buildItemList(items, { costCenterName, preparedBy, isFiltered = f
   return workbook.xlsx.writeBuffer();
 }
 
+// A ledger entry's TYPE cell in the Reconcile and Stockcard sheets.
+function entryTypeText(t) {
+  if (t.isBalanceForwarded) return `BALANCE FORWARDED (${t.type})`;
+  if (t.type === 'ADJUST') return `PHYSICAL COUNT (${t.countedQuantity ?? 0})`;
+  return t.type;
+}
+
+// The number under the entry's type column: its quantity, or for a physical count the signed
+// change it made to the balance.
+const entryAmount = (t) => (t.type === 'ADJUST' ? (t.adjustment ?? 0) : t.quantity);
+
 // Builds the Reconcile .xlsx: one item's transactions in ledger order (oldest first), each with its
-// quantity under IN, OUT or RESERVE and the running balance after it, plus a TOTAL row.
+// quantity under IN, OUT or RESERVE (a physical count's change under ADJ) and the running balance
+// after it, plus a TOTAL row.
 // from / to: the period the entries were limited to (either may be null: no limit on that side).
 async function buildReconcileReport(item, transactions, { from = null, to = null, costCenterName, preparedBy } = {}) {
   const workbook = new ExcelJS.Workbook();
@@ -330,10 +343,11 @@ async function buildReconcileReport(item, transactions, { from = null, to = null
     sheet,
     [
       { header: 'DATE', key: 'date', width: 14, style: { numFmt: 'mm/dd/yyyy' } },
-      { header: 'TYPE', key: 'type', width: 20 },
+      { header: 'TYPE', key: 'type', width: 24 },
       { header: 'IN', key: 'in', width: 10 },
       { header: 'OUT', key: 'out', width: 10 },
       { header: 'RESERVE', key: 'reserve', width: 10 },
+      { header: 'ADJ', key: 'adjust', width: 10 },
       { header: 'CUSTOMER', key: 'customerName', width: 28 },
       { header: 'NOTES', key: 'notes', width: 36 },
       { header: 'RECORDED BY', key: 'recordedBy', width: 22 },
@@ -350,15 +364,16 @@ async function buildReconcileReport(item, transactions, { from = null, to = null
     },
   );
 
-  const totals = { in: 0, out: 0, reserve: 0 };
+  const totals = { in: 0, out: 0, reserve: 0, adjust: 0 };
   for (const t of transactions) {
     const key = t.type.toLowerCase();
-    totals[key] += t.quantity;
+    const amount = entryAmount(t);
+    totals[key] += amount;
     sheet.addRow({
       // ExcelJS writes Dates in UTC, which is how calendar days are stored.
       date: t.date,
-      type: t.isBalanceForwarded ? `BALANCE FORWARDED (${t.type})` : t.type,
-      [key]: t.quantity,
+      type: entryTypeText(t),
+      [key]: amount,
       customerName: t.customerName || '',
       notes: t.notes || '',
       recordedBy: t.createdBy?.name ?? '',
@@ -376,8 +391,8 @@ async function buildReconcileReport(item, transactions, { from = null, to = null
 // Builds the Stockcard .xlsx: each item in `items` (in that order) as its own block —
 //   <item ID · description · brand · type / design · category>
 //   BEGINNING BALANCE                       <balance when `from` starts>
-//   <each entry in the period, ledger order: quantity under IN, OUT or RESERVE, running balance>
-//   ENDING BALANCE       <IN> <OUT> <RES>   <balance at the end of `to`>
+//   <each entry in the period, ledger order: quantity under IN, OUT, RESERVE or ADJ, running balance>
+//   ENDING BALANCE       <IN> <OUT> <RES> <ADJ>   <balance at the end of `to`>
 // transactionsByItem: item _id (string) → its entries in the period, oldest first.
 // beginningByItem: item _id (string) → balance at the end of the day before `from` (missing: 0).
 async function buildStockcard(items, transactionsByItem, beginningByItem, from, to, { costCenterName, preparedBy } = {}) {
@@ -390,6 +405,7 @@ async function buildStockcard(items, transactionsByItem, beginningByItem, from, 
     { header: 'IN', key: 'in', width: 10 },
     { header: 'OUT', key: 'out', width: 10 },
     { header: 'RESERVE', key: 'reserve', width: 10 },
+    { header: 'ADJ', key: 'adjust', width: 10 },
     { header: 'CUSTOMER', key: 'customerName', width: 28 },
     { header: 'NOTES', key: 'notes', width: 36 },
     { header: 'RECORDED BY', key: 'recordedBy', width: 22 },
@@ -423,17 +439,18 @@ async function buildStockcard(items, transactionsByItem, beginningByItem, from, 
     const beginningRow = sheet.addRow({ date: from, type: 'BEGINNING BALANCE', balance: beginning });
     beginningRow.font = { italic: true, color: MUTED };
 
-    const totals = { in: 0, out: 0, reserve: 0 };
+    const totals = { in: 0, out: 0, reserve: 0, adjust: 0 };
     let balance = beginning;
     for (const t of entries) {
       const typeKey = t.type.toLowerCase();
-      totals[typeKey] += t.quantity;
+      const amount = entryAmount(t);
+      totals[typeKey] += amount;
       balance = t.endingBalance;
       sheet.addRow({
         // ExcelJS writes Dates in UTC, which is how calendar days are stored.
         date: t.date,
-        type: t.isBalanceForwarded ? `BALANCE FORWARDED (${t.type})` : t.type,
-        [typeKey]: t.quantity,
+        type: entryTypeText(t),
+        [typeKey]: amount,
         customerName: t.customerName || '',
         notes: t.notes || '',
         recordedBy: t.createdBy?.name ?? '',

@@ -11,6 +11,7 @@ import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { useAuth } from '../auth/useAuth'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
+import AdjustCountPanel from '../adjust-count/AdjustCountPanel'
 import TransactionDetailsPanel from './TransactionDetailsPanel'
 import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
@@ -45,10 +46,11 @@ export default function TransactionsPage() {
   const [expandedEntries, setExpandedEntries] = useState(() => new Map())
   const [loadingAll, setLoadingAll] = useState(null)
 
-  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'details' | null
+  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'adjust' | 'details' | null
   const [selectedEntryId, setSelectedEntryId] = useState(null) // the 'details' panel's entry
   const { user } = useAuth()
   const canAddItems = can(user, 'addItems')
+  const isAdmin = user?.role === 'admin'
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
   // Item description for the Add Item panel when it's opened from a search that found nothing.
   const [newItemCode, setNewItemCode] = useState('')
@@ -207,6 +209,11 @@ export default function TransactionsPage() {
       <section className="workspace-content">
         <header className="page-header">
           <div className="page-actions">
+            {isAdmin && (
+              <Button variant="secondary" onClick={() => setPanel('adjust')} aria-pressed={panel === 'adjust'}>
+                Adjust to Count
+              </Button>
+            )}
             <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
               <img src={plusIcon} alt="" />
               Add Transaction
@@ -244,6 +251,16 @@ export default function TransactionsPage() {
                   <>
                     {' '}
                     · Reserved <strong>{formatNumber(data.summary.reserve)}</strong>
+                  </>
+                )}
+                {data.summary.adjust !== 0 && data.summary.adjust != null && (
+                  <>
+                    {' '}
+                    · Count adjustments{' '}
+                    <strong>
+                      {data.summary.adjust > 0 ? '+' : '−'}
+                      {formatNumber(Math.abs(data.summary.adjust))}
+                    </strong>
                   </>
                 )}
               </>
@@ -372,6 +389,7 @@ export default function TransactionsPage() {
         />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
+      {panel === 'adjust' && isAdmin && <AdjustCountPanel onClose={closePanel} onSaved={handleEntryChanged} />}
       {panel === 'details' && (
         <TransactionDetailsPanel
           key={selectedEntryId}

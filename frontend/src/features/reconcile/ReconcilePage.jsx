@@ -97,10 +97,12 @@ export default function ReconcilePage() {
   const data = isCurrent ? response.data : null
   const isLoading = Boolean(requestKey) && !isCurrent
   const transactions = data?.transactions ?? []
+  // ADJUST (a physical count) adds its signed change to the balance.
   const totals = transactions.reduce(
-    (sum, t) => ({ ...sum, [t.type]: sum[t.type] + t.quantity }),
-    { IN: 0, OUT: 0, RESERVE: 0 },
+    (sum, t) => ({ ...sum, [t.type]: sum[t.type] + (t.type === 'ADJUST' ? (t.adjustment ?? 0) : t.quantity) }),
+    { IN: 0, OUT: 0, RESERVE: 0, ADJUST: 0 },
   )
+  const signed = (n) => (n > 0 ? `+${formatNumber(n)}` : n < 0 ? `−${formatNumber(-n)}` : '0')
   const forText = periodText(from, to)
 
   return (
@@ -247,9 +249,14 @@ export default function ReconcilePage() {
                         <span className="reconcile-type">
                           <Badge kind={t.type} />
                           {t.isBalanceForwarded && <span className="report-muted">Balance forwarded</span>}
+                          {t.type === 'ADJUST' && (
+                            <span className="report-muted">Counted {formatNumber(t.countedQuantity ?? 0)}</span>
+                          )}
                         </span>
                       </td>
-                      <td className="is-number">{formatNumber(t.quantity)}</td>
+                      <td className="is-number">
+                        {t.type === 'ADJUST' ? signed(t.adjustment ?? 0) : formatNumber(t.quantity)}
+                      </td>
                       <td>{t.customerName || '—'}</td>
                       <td className="reconcile-notes">{t.notes || '—'}</td>
                       <td>{t.createdBy?.name ?? '—'}</td>
@@ -274,6 +281,7 @@ export default function ReconcilePage() {
                 <span>
                   IN {formatNumber(totals.IN)} · OUT {formatNumber(totals.OUT)}
                   {totals.RESERVE > 0 && ` · RESERVE ${formatNumber(totals.RESERVE)}`}
+                  {transactions.some((t) => t.type === 'ADJUST') && ` · COUNT ${signed(totals.ADJUST)}`}
                 </span>
               </footer>
             )}

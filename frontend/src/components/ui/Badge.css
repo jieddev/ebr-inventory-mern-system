@@ -22,6 +22,11 @@
   background: var(--color-out-soft);
 }
 
+.badge-adjust {
+  color: var(--color-adjust);
+  background: var(--color-adjust-soft);
+}
+
 .badge-reserve {
   color: var(--color-reserve);
   background: var(--color-reserve-soft);
