@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import Badge from '../ui/Badge'
 import { CLIENT_ID } from '../../api/client'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
-import { formatNumber } from '../../utils/format'
+import { formatNumber, pluralize } from '../../utils/format'
+import { costCenterLabel } from '../../utils/costCenters'
 import closeIcon from '../../assets/icons/close.svg'
 import './ActivityToasts.css'
 
@@ -14,7 +15,7 @@ let nextId = 1
 // Flash messages like "Maria Santos has added a transaction" or "… has added an item",
 // shown on every page of every other open tab. The tab that saved already shows its own
 // confirmation. Encoders only ever receive item notices (backend events.service.js).
-const TOAST_KINDS = ['transaction', 'release', 'cancel', 'rollback', 'edit', 'adjust', 'item', 'import', 'import_undo']
+const TOAST_KINDS = ['transaction', 'release', 'cancel', 'rollback', 'edit', 'adjust', 'item', 'import', 'import_undo', 'transfer']
 export default function ActivityToasts() {
   const [toasts, setToasts] = useState([])
 
@@ -97,6 +98,18 @@ function ActivityToast({ toast, onDismiss }) {
               <span>
                 {toast.adjustment > 0 ? '+' : '−'}
                 {formatNumber(Math.abs(toast.adjustment))} on {toast.itemCode}
+              </span>
+            </p>
+          </>
+        )}
+        {toast.kind === 'transfer' && (
+          <>
+            <p className="activity-toast-title">{toast.actorName} has transferred stock</p>
+            <p className="activity-toast-detail">
+              <span>
+                {costCenterLabel(toast.fromCostCenter)} → {costCenterLabel(toast.toCostCenter)} ·{' '}
+                {pluralize(toast.lineCount, 'line')}, Out {formatNumber(toast.totalOut ?? toast.quantity)} · In{' '}
+                {formatNumber(toast.totalIn ?? toast.quantity)}
               </span>
             </p>
           </>

@@ -1,7 +1,7 @@
 const { can } = require('../config/permissions');
 
 // Open Server-Sent Events connections, one per browser tab, with the signed-in user's ID,
-// role, permissions and cost center (none for admins).
+// role, permissions and cost centers (every one for admins).
 // Kept in memory, which is fine while there is a single API process.
 const clients = new Map();
 
@@ -9,8 +9,8 @@ const clients = new Map();
 // so by default only users who add transactions get them; item-only events go to EVERYONE.
 const EVERYONE = null;
 
-function addClient(res, { userId, role, permissions, costCenter }) {
-  clients.set(res, { userId: String(userId), role, permissions, costCenter });
+function addClient(res, { userId, role, permissions, costCenters }) {
+  clients.set(res, { userId: String(userId), role, permissions, costCenters });
   return () => clients.delete(res);
 }
 
@@ -22,15 +22,15 @@ function disconnectUser(userId) {
 }
 
 // Sends one event about `costCenter`'s data to every connected browser whose user has
-// `permission` (and not `unless`) and works in that cost center. Admins have every permission,
-// get every cost center's events, tagged with costCenter, and skip the ones for a cost center
-// they aren't viewing (frontend useLiveUpdates.js).
+// `permission` (and not `unless`) and may work in that cost center. Admins have every permission.
+// Events are tagged with costCenter, and users with several cost centers skip the ones for a
+// cost center they aren't viewing (frontend useLiveUpdates.js).
 function broadcast(event, data, { permission = 'addTransactions', unless, costCenter }) {
   const message = `event: ${event}\ndata: ${JSON.stringify({ ...data, costCenter })}\n\n`;
   for (const [res, client] of clients) {
     if (permission && !can(client, permission)) continue;
     if (unless && can(client, unless)) continue;
-    if (client.role !== 'admin' && client.costCenter !== costCenter) continue;
+    if (!client.costCenters.includes(costCenter)) continue;
     res.write(message);
   }
 }

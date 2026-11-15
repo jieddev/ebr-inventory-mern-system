@@ -11,7 +11,8 @@ import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { useAuth } from '../auth/useAuth'
 import AddItemPanel from '../items/AddItemPanel'
 import AddTransactionPanel from '../add-transaction/AddTransactionPanel'
-import AdjustCountPanel from '../adjust-count/AdjustCountPanel'
+import StockTransferPanel from '../stock-transfer/StockTransferPanel'
+import { useCostCenter } from '../costCenter/useCostCenter'
 import TransactionDetailsPanel from './TransactionDetailsPanel'
 import TransactionTable from './TransactionTable'
 import { formatNumber, pluralize } from '../../utils/format'
@@ -46,11 +47,13 @@ export default function TransactionsPage() {
   const [expandedEntries, setExpandedEntries] = useState(() => new Map())
   const [loadingAll, setLoadingAll] = useState(null)
 
-  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'adjust' | 'details' | null
+  const [panel, setPanel] = useState(null) // 'item' | 'transaction' | 'transfer' | 'details' | null
   const [selectedEntryId, setSelectedEntryId] = useState(null) // the 'details' panel's entry
   const { user } = useAuth()
   const canAddItems = can(user, 'addItems')
-  const isAdmin = user?.role === 'admin'
+  // Stock Transfer needs two cost centers to move stock between (admins have all of them).
+  const { allowed } = useCostCenter()
+  const canTransfer = can(user, 'addTransactions') && allowed.length > 1
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
   // Item description for the Add Item panel when it's opened from a search that found nothing.
   const [newItemCode, setNewItemCode] = useState('')
@@ -209,9 +212,9 @@ export default function TransactionsPage() {
       <section className="workspace-content">
         <header className="page-header">
           <div className="page-actions">
-            {isAdmin && (
-              <Button variant="secondary" onClick={() => setPanel('adjust')} aria-pressed={panel === 'adjust'}>
-                Adjust to Count
+            {canTransfer && (
+              <Button variant="secondary" onClick={() => setPanel('transfer')} aria-pressed={panel === 'transfer'}>
+                Stock Transfer
               </Button>
             )}
             <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
@@ -389,7 +392,7 @@ export default function TransactionsPage() {
         />
       )}
       {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
-      {panel === 'adjust' && isAdmin && <AdjustCountPanel onClose={closePanel} onSaved={handleEntryChanged} />}
+      {panel === 'transfer' && canTransfer && <StockTransferPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'details' && (
         <TransactionDetailsPanel
           key={selectedEntryId}

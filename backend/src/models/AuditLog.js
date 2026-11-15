@@ -30,6 +30,8 @@ const ACTIONS = [
   'transaction.count_verified',
   'receiving.create',
   'batchout.create',
+  'transfer.create',
+  'transfer.rollback',
   'report.export',
   'report.transactions_export',
   'report.reconcile_export',
@@ -55,7 +57,7 @@ const auditLogSchema = new mongoose.Schema(
       role: String,
     },
     target: {
-      type: { type: String, enum: ['item', 'user', 'transaction', 'receiving'] },
+      type: { type: String, enum: ['item', 'user', 'transaction', 'receiving', 'transfer'] },
       id: mongoose.Schema.Types.ObjectId,
       label: String,
     },

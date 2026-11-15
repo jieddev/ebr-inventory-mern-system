@@ -4,6 +4,8 @@ const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { ENTRY_TYPES } = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
+const StockTransfer = require('../models/StockTransfer');
+const { lineQuantities } = require('../models/StockTransfer');
 const { recalculateItem, balanceOn } = require('../services/balance.service');
 const { broadcast, sourceClientId } = require('../services/events.service');
 const { record, diff, itemTarget } = require('../services/audit.service');
@@ -113,7 +115,7 @@ async function getTransaction(req, res) {
   const [transaction, report] = await Promise.all([
     Transaction.findById(id)
       .select(
-        'item date type quantity countedQuantity adjustment customerName neededBy notes endingBalance isBalanceForwarded createdBy createdAt releasedAt releasedBy',
+        'item date type quantity countedQuantity adjustment customerName neededBy notes endingBalance isBalanceForwarded transfer createdBy createdAt releasedAt releasedBy',
       )
       .populate('item', 'costCenter itemId category code brand typeDesign')
       .populate('createdBy', 'userId name role')
@@ -131,7 +133,27 @@ async function getTransaction(req, res) {
     releasedBy: report.releasedBy,
     unit: report.lines[0]?.unit,
   };
-  res.json({ transaction, receiving: receiving ?? null });
+  res.json({ transaction, receiving: receiving ?? null, transfer: await transferInfo(transaction) });
+}
+
+// For a Stock Transfer leg: both cost centers, the reference and the item on the other side.
+async function transferInfo(transaction) {
+  if (!transaction.transfer) return null;
+  const transfer = await StockTransfer.findById(transaction.transfer).lean();
+  const found = transfer && StockTransfer.hydrate(transfer).lineOf(transaction._id);
+  if (!found) return null;
+  const partnerId = found.side === 'OUT' ? found.line.toItem : found.line.fromItem;
+  const partner = await Item.findById(partnerId).select('itemId code brand typeDesign').lean();
+  return {
+    fromCostCenter: transfer.fromCostCenter,
+    toCostCenter: transfer.toCostCenter,
+    reference: transfer.reference,
+    notes: transfer.notes,
+    side: found.side,
+    outQuantity: lineQuantities(found.line).out,
+    inQuantity: lineQuantities(found.line).in,
+    partner,
+  };
 }
 
 // Pending reservations are few, so the Reservations page gets them all at once.
@@ -337,7 +359,7 @@ async function rollbackTransaction(req, res) {
 
   const result = await mongoose.connection.transaction(async (session) => {
     const entry = await Transaction.findById(id)
-      .select('item date type quantity customerName neededBy notes isBalanceForwarded releasedAt')
+      .select('item date type quantity customerName neededBy notes isBalanceForwarded releasedAt transfer')
       .session(session)
       .lean();
     if (!entry) throw new HttpError(404, 'Transaction not found');
@@ -350,6 +372,7 @@ async function rollbackTransaction(req, res) {
       .lean();
     if (!target) throw new HttpError(404, 'Transaction not found');
     if (target.archivedAt) throw new HttpError(409, 'This item is archived. Restore it on the Items page first.');
+    if (entry.transfer) return rollbackTransferLine(req, entry, session);
 
     await Transaction.deleteOne({ _id: id }, { session });
     const report = await ReceivingReport.findOneAndUpdate(
@@ -380,8 +403,75 @@ async function rollbackTransaction(req, res) {
     return { item, type: entry.type, quantity: entry.quantity };
   });
 
+  if (result.partner) {
+    // A transfer line: both legs went, so both cost centers hear about it.
+    const activity = { kind: 'rollback', quantity: result.quantity };
+    announceIn(req, result.partner.costCenter, [result.partner.item], { ...activity, type: result.partner.type, quantity: result.partner.quantity });
+  }
   announce(req, result.item, { kind: 'rollback', type: result.type, quantity: result.quantity });
   res.json({ item: result.item });
+}
+
+// The other leg of a Stock Transfer line, with the transfer and the line, for rollback and edit.
+async function loadTransferLine(entry, session) {
+  const transfer = await StockTransfer.findById(entry.transfer).session(session);
+  const found = transfer?.lineOf(entry._id);
+  if (!found) throw new HttpError(409, "This entry's stock transfer could not be found.");
+  const otherId = found.side === 'OUT' ? found.line.inTransaction : found.line.outTransaction;
+  const other = await Transaction.findById(otherId).select('item date type quantity customerName').session(session).lean();
+  if (!other) throw new HttpError(409, "The other side of this stock transfer could not be found.");
+  const otherItem = await Item.findById(other.item).select('costCenter itemId code brand typeDesign archivedAt').session(session).lean();
+  if (otherItem?.archivedAt) {
+    throw new HttpError(409, `The other side of this transfer (${otherItem.itemId}) is archived. Restore it on the Items page first.`);
+  }
+  const otherCostCenter = found.side === 'OUT' ? transfer.toCostCenter : transfer.fromCostCenter;
+  return { transfer, ...found, other, otherItem, otherCostCenter };
+}
+
+// Rolls back both legs of a Stock Transfer line: the line comes off the transfer (which goes
+// when it has no lines left), both items' ledgers are re-run, and both Activity logs record it.
+async function rollbackTransferLine(req, entry, session) {
+  const { transfer, index, other, otherItem, otherCostCenter } = await loadTransferLine(entry, session);
+  await Transaction.deleteMany({ _id: { $in: [entry._id, other._id] } }, { session });
+  transfer.lines.splice(index, 1);
+  if (transfer.lines.length) await transfer.save({ session });
+  else await transfer.deleteOne({ session });
+
+  const target = await Item.findById(entry.item).select('itemId code brand typeDesign').session(session).lean();
+  const details = {
+    transferId: transfer._id,
+    reference: transfer.reference,
+    fromCostCenter: transfer.fromCostCenter,
+    toCostCenter: transfer.toCostCenter,
+    date: entry.date,
+    quantity: entry.quantity,
+  };
+  await record(
+    req,
+    {
+      action: 'transfer.rollback',
+      target: itemTarget(target),
+      details: { ...details, transactionId: entry._id, type: entry.type, otherQuantity: other.quantity },
+    },
+    session,
+  );
+  await record(
+    inCostCenter(req, otherCostCenter),
+    {
+      action: 'transfer.rollback',
+      target: itemTarget(otherItem),
+      details: { ...details, transactionId: other._id, type: other.type, quantity: other.quantity, otherQuantity: entry.quantity },
+    },
+    session,
+  );
+  const item = await recalculateItem(entry.item, session);
+  const partnerItem = await recalculateItem(other.item, session);
+  return {
+    item,
+    type: entry.type,
+    quantity: entry.quantity,
+    partner: { item: partnerItem, costCenter: otherCostCenter, type: other.type, quantity: other.quantity },
+  };
 }
 
 const EDIT_FIELDS = ['date', 'type', 'quantity', 'customerName', 'neededBy', 'notes'];
@@ -402,7 +492,8 @@ const editable = (entry) => ({
 // or entries of archived items. IN ↔ OUT only (reservations keep their type: use Confirm out or
 // Cancel); needed-by and notes are for pending reservations. Entries on a receiving report /
 // batch out slip keep the slip's date and type; a new quantity also goes on the slip's line.
-// The item's ledger is re-run.
+// Stock Transfer entries keep their type; a new date also goes on the other leg, a new quantity
+// only on this one (each side has its own), and both go on the transfer's line. The item's ledger is re-run.
 async function updateTransaction(req, res) {
   const id = parseObjectId(req.params.id, 'Transaction');
   const body = req.body ?? {};
@@ -410,7 +501,7 @@ async function updateTransaction(req, res) {
 
   const result = await mongoose.connection.transaction(async (session) => {
     const entry = await Transaction.findById(id)
-      .select('item date type quantity customerName neededBy notes isBalanceForwarded')
+      .select('item date type quantity customerName neededBy notes isBalanceForwarded transfer')
       .session(session)
       .lean();
     if (!entry) throw new HttpError(404, 'Transaction not found');
@@ -462,7 +553,44 @@ async function updateTransaction(req, res) {
       );
     }
 
+    if (entry.transfer && changes.type) {
+      throw new HttpError(400, 'Stock transfer entries keep their OUT / IN type. Roll it back and transfer again instead.');
+    }
+    const linked = entry.transfer && (changes.date || changes.quantity) ? await loadTransferLine(entry, session) : null;
+
     await Transaction.updateOne({ _id: id }, update, { session, runValidators: true });
+    let partner = null;
+    if (linked) {
+      // This side's quantity goes on the line; lines saved with one quantity get both sides now.
+      if (changes.quantity) {
+        const { out, in: inQty } = lineQuantities(linked.line);
+        linked.line.outQuantity = linked.side === 'OUT' ? update.quantity : out;
+        linked.line.inQuantity = linked.side === 'IN' ? update.quantity : inQty;
+      }
+      if (changes.date && linked.transfer.lines.length === 1) linked.transfer.date = update.date;
+      await linked.transfer.save({ session });
+      // Only the date moves the other leg.
+      if (changes.date) {
+        const otherChanges = diff(editable(linked.other), editable({ ...linked.other, date: update.date }), EDIT_FIELDS);
+        await Transaction.updateOne({ _id: linked.other._id }, { date: update.date }, { session, runValidators: true });
+        await record(
+          inCostCenter(req, linked.otherCostCenter),
+          {
+            action: 'transaction.update',
+            target: itemTarget(linked.otherItem),
+            changes: otherChanges,
+            details: { transactionId: linked.other._id, transferId: linked.transfer._id, linkedTo: id },
+          },
+          session,
+        );
+        partner = {
+          item: await recalculateItem(linked.other.item, session),
+          costCenter: linked.otherCostCenter,
+          type: linked.other.type,
+          quantity: linked.other.quantity,
+        };
+      }
+    }
     if (slip && changes.quantity) {
       await ReceivingReport.updateOne(
         { 'lines.transaction': id },
@@ -476,19 +604,25 @@ async function updateTransaction(req, res) {
         action: 'transaction.update',
         target: itemTarget(target),
         changes,
-        details: { transactionId: id, ...(slip && { reportNo: slip.reportNo }) },
+        details: {
+          transactionId: id,
+          ...(slip && { reportNo: slip.reportNo }),
+          ...(entry.transfer && { transferId: entry.transfer }),
+        },
       },
       session,
     );
     const item = await recalculateItem(entry.item, session);
     const saved = await Transaction.findById(id).session(session).lean();
-    return { transaction: saved, item };
+    return { transaction: saved, item, partner };
   });
 
+  const { partner, ...saved } = result;
   if (result.item) {
     announce(req, result.item, { kind: 'edit', type: result.transaction.type, quantity: result.transaction.quantity });
   }
-  res.json(result);
+  if (partner) announceIn(req, partner.costCenter, [partner.item], { kind: 'edit', type: partner.type, quantity: partner.quantity });
+  res.json(saved);
 }
 
 // The count date for Adjust to Count: a day, not in the future. Default today.
@@ -573,21 +707,34 @@ async function loadReservation(req, id, session) {
 
 // Sent after the MongoDB transaction commits, so other PCs re-fetch the saved data.
 // `activity` is shown to everyone else, e.g. "[name] has added a transaction".
-function announce(req, item, activity) {
+// costCenter: the item's cost center, when it isn't the request's (Stock Transfer).
+function announce(req, item, activity, costCenter = req.costCenter) {
   broadcast('item-changed', {
     itemId: String(item._id),
-    activity: { ...activity, actorName: req.user.name, itemCode: item.code },
+    activity: activity && { ...activity, actorName: req.user.name, itemCode: item.code },
     sourceClientId: sourceClientId(req),
-  }, { costCenter: req.costCenter });
+  }, { costCenter });
   // Items page users who don't add transactions only learn that the item changed (its balance).
   broadcast('item-changed', { itemId: String(item._id) }, {
     permission: 'viewItems',
     unless: 'addTransactions',
-    costCenter: req.costCenter,
+    costCenter,
   });
 }
 
+// Announces several items of one cost center; only the first carries `activity`, so other PCs
+// get one notice per cost center instead of one per item.
+function announceIn(req, costCenter, items, activity) {
+  items.forEach((item, i) => announce(req, item, i === 0 ? activity : undefined, costCenter));
+}
+
+// The request seen from another cost center, so its audit entry lands in that cost center's
+// Activity log (audit.service.js record() reads req.costCenter).
+const inCostCenter = (req, costCenter) => Object.assign(Object.create(req), { costCenter });
+
 module.exports = {
+  announceIn,
+  inCostCenter,
   listTransactions,
   getTransaction,
   createTransaction,

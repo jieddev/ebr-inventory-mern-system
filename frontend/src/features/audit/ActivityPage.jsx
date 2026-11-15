@@ -46,6 +46,8 @@ const ACTION_LABELS = {
   'transaction.count_verified': 'Verified physical count',
   'receiving.create': 'Receiving report',
   'batchout.create': 'Batch out',
+  'transfer.create': 'Stock transfer',
+  'transfer.rollback': 'Rolled back stock transfer',
   'report.export': 'Exported Daily Report',
   'report.transactions_export': 'Exported Transaction Report',
   'report.reconcile_export': 'Exported Reconcile Report',
@@ -363,6 +365,43 @@ function Details({ entry }) {
           </ul>
         </>
       )
+    case 'transfer.create':
+      return (
+        <>
+          <span>
+            {[
+              `${costCenterLabel(d.fromCostCenter)} → ${costCenterLabel(d.toCostCenter)}`,
+              d.totalOut != null
+                ? `Out ${formatNumber(d.totalOut)} · In ${formatNumber(d.totalIn)}`
+                : `${formatNumber(d.totalQuantity)} total`,
+              formatDate(d.date),
+              d.reference && `No. ${d.reference}`,
+              d.notes,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <ul className="activity-changes">
+            {(d.lines ?? []).map((line, i) => (
+              <li key={i} className="items-muted">
+                {formatNumber(line.outQuantity ?? line.quantity)} × {line.from?.itemId} {line.from?.code} →{' '}
+                {formatNumber(line.inQuantity ?? line.quantity)} × {line.to?.itemId} {line.to?.code}
+              </li>
+            ))}
+          </ul>
+        </>
+      )
+    case 'transfer.rollback':
+      return [
+        `${d.type} ${formatNumber(d.quantity)}`,
+        d.otherQuantity != null && d.otherQuantity !== d.quantity && `other side ${formatNumber(d.otherQuantity)}`,
+        `${costCenterLabel(d.fromCostCenter)} → ${costCenterLabel(d.toCostCenter)}`,
+        formatDate(d.date),
+        d.reference && `No. ${d.reference}`,
+        'both sides removed',
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'transaction.create':
       return [
         `${d.type} ${formatNumber(d.quantity)}`,
@@ -452,11 +491,13 @@ function Details({ entry }) {
     case 'item.batch_balance_uncheck':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`
     case 'user.update': {
-      const { costCenter, permissions, isActive } = entry.changes ?? {}
+      const { costCenter, costCenters, permissions, isActive } = entry.changes ?? {}
+      const centersText = (list) => (list?.length ? list.map(costCenterLabel).join(', ') : '(not set)')
       const added = permissions?.to.filter((p) => !permissions.from.includes(p)) ?? []
       const removed = permissions?.from.filter((p) => !permissions.to.includes(p)) ?? []
       return [
         costCenter && `Cost center: ${costCenterLabel(costCenter.from) || '(not set)'} → ${costCenterLabel(costCenter.to)}`,
+        costCenters && `Cost centers: ${centersText(costCenters.from)} → ${centersText(costCenters.to)}`,
         added.length && `Allowed: ${added.map(permissionShortLabel).join(', ')}`,
         removed.length && `Removed: ${removed.map(permissionShortLabel).join(', ')}`,
         isActive && (isActive.to ? 'Enabled account' : 'Disabled account'),
@@ -468,6 +509,7 @@ function Details({ entry }) {
       return [
         `Role: ${d.role}`,
         d.costCenter && `Cost center: ${costCenterLabel(d.costCenter)}`,
+        d.costCenters?.length && `Cost centers: ${d.costCenters.map(costCenterLabel).join(', ')}`,
         d.permissions?.length && `Permissions: ${d.permissions.map(permissionShortLabel).join(', ')}`,
       ]
         .filter(Boolean)

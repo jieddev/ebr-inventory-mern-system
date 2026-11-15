@@ -1,0 +1,65 @@
+.transfer-lines {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* One line: a header (title, remove), then the OUT side and the IN side, each with its quantity. */
+.transfer-line {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.transfer-line.has-error {
+  border-color: var(--color-danger);
+}
+
+.transfer-line-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.transfer-line-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.transfer-qty {
+  height: 36px;
+  padding: 0 var(--space-2);
+  text-align: right;
+}
+
+.transfer-side {
+  display: grid;
+  gap: 4px;
+}
+
+.transfer-side-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.transfer-side .field {
+  gap: 0;
+}
+
+.transfer-side .field-input {
+  height: 36px;
+  padding: 0 var(--space-2);
+}
+
+.transfer-side-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}

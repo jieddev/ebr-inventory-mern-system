@@ -7,6 +7,7 @@ import SegmentedControl from '../../components/ui/SegmentedControl'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { getTransaction, rollbackTransaction, updateTransaction } from '../../api/transactions'
+import { costCenterLabel } from '../../utils/costCenters'
 import { formatDate, formatNumber } from '../../utils/format'
 import ReservationDialogs from '../reservations/ReservationDialogs'
 import { useAuth } from '../auth/useAuth'
@@ -54,7 +55,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   }, [transactionId, requestKey])
 
   const isLoading = response.key !== requestKey
-  const { transaction: t, receiving } = (!isLoading && response.data) || {}
+  const { transaction: t, receiving, transfer } = (!isLoading && response.data) || {}
   const isReserved = t?.type === 'RESERVE'
   const isCount = t?.type === 'ADJUST'
   const canRollback = user.role === 'admin' && t && !t.isBalanceForwarded
@@ -94,7 +95,8 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
       customerName: form.customerName,
     }
     if (!receiving) changes.date = form.date
-    if (!receiving && !isReserved) changes.type = form.type
+    // Stock transfer entries keep their type; a new date also goes on the other side.
+    if (!receiving && !isReserved && !transfer) changes.type = form.type
     if (isReserved) Object.assign(changes, { neededBy: form.neededBy, notes: form.notes })
     setEdit((prev) => ({ ...prev, isBusy: true, error: '' }))
     try {
@@ -196,6 +198,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
               error={edit.error}
               isReserved={isReserved}
               slipKind={receiving ? receiving.kind : null}
+              isTransfer={Boolean(transfer)}
               onChange={setField}
               onSubmit={handleSave}
             />
@@ -285,6 +288,46 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
             </section>
           )}
 
+          {transfer && (
+            <section className="txn-details-section">
+              <h3>Stock transfer</h3>
+              <dl>
+                <div>
+                  <dt>From</dt>
+                  <dd>{costCenterLabel(transfer.fromCostCenter)}</dd>
+                </div>
+                <div>
+                  <dt>To</dt>
+                  <dd>{costCenterLabel(transfer.toCostCenter)}</dd>
+                </div>
+                <div>
+                  <dt>Quantities</dt>
+                  <dd>
+                    Out {formatNumber(transfer.outQuantity)} → In {formatNumber(transfer.inQuantity)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Reference no.</dt>
+                  <dd>{transfer.reference || '—'}</dd>
+                </div>
+                <div>
+                  <dt>{transfer.side === 'OUT' ? 'Went into' : 'Came from'}</dt>
+                  <dd>
+                    {transfer.partner
+                      ? [transfer.partner.itemId, transfer.partner.code, transfer.partner.brand].filter(Boolean).join(' · ')
+                      : '—'}
+                  </dd>
+                </div>
+                {transfer.notes && (
+                  <div className="txn-details-wide">
+                    <dt>Notes</dt>
+                    <dd>{transfer.notes}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
+
           {receiving && (
             <section className="txn-details-section">
               <h3>{receiving.kind === 'OUT' ? 'Batch out' : 'Receiving report'}</h3>
@@ -332,7 +375,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
       {dialog === 'rollback' && t && (
         <ConfirmDialog
           title="Roll back this transaction?"
-          message={`The ${isCount ? `physical count of ${formatNumber(t.countedQuantity ?? 0)}` : `${t.type} of ${formatNumber(t.quantity)}`} ${t.item?.code ?? ''} on ${formatDate(t.date)} will be removed as if it was never recorded${receiving ? ', including its line on the receiving report' : ''}. The item's balance will be recalculated. This can't be undone.`}
+          message={`The ${isCount ? `physical count of ${formatNumber(t.countedQuantity ?? 0)}` : `${t.type} of ${formatNumber(t.quantity)}`} ${t.item?.code ?? ''} on ${formatDate(t.date)} will be removed as if it was never recorded${receiving ? ', including its line on the receiving report' : ''}${transfer ? `, together with its ${transfer.side === 'OUT' ? 'IN' : 'OUT'} in ${costCenterLabel(transfer.side === 'OUT' ? transfer.toCostCenter : transfer.fromCostCenter)} (stock transfer)` : ''}. The item's balance will be recalculated. This can't be undone.`}
           cancelLabel="Keep it"
           confirmLabel="Rollback"
           isBusy={rollback.isBusy}
@@ -350,8 +393,9 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
 }
 
 // The Edit form for one entry (admin). slipKind: 'IN' | 'OUT' when it's on a receiving report /
-// batch out slip, which sets its date and type.
-function EditForm({ form, error, isReserved, slipKind, onChange, onSubmit }) {
+// batch out slip, which sets its date and type. isTransfer: a stock transfer entry, which keeps
+// its type; its date and quantity also change on the other side.
+function EditForm({ form, error, isReserved, slipKind, isTransfer, onChange, onSubmit }) {
   const slipNote = slipKind && `Set by the ${slipKind === 'OUT' ? 'batch out slip' : 'receiving report'}`
   return (
     <form id={FORM_ID} className="txn-details-section txn-edit-form" onSubmit={onSubmit}>
@@ -370,7 +414,10 @@ function EditForm({ form, error, isReserved, slipKind, onChange, onSubmit }) {
         hint={slipNote || undefined}
         onChange={(e) => onChange({ date: e.target.value })}
       />
-      {!isReserved && !slipKind && (
+      {isTransfer && (
+        <p className="field-hint">Stock transfer: a new date also changes the other side; the quantity only changes this side.</p>
+      )}
+      {!isReserved && !slipKind && !isTransfer && (
         <SegmentedControl
           label="Transaction type"
           name="txn-edit-type"

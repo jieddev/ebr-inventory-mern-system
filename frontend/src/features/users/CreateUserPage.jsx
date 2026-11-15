@@ -4,19 +4,20 @@ import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { createUser } from '../../api/users'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
+import CostCenterChecklist from './CostCenterChecklist'
 import { ROLE_DEFAULTS } from '../../utils/permissions'
 import { useCostCenter } from '../costCenter/useCostCenter'
 import PermissionChecklist from './PermissionChecklist'
 import './CreateUserPage.css'
 
-// costCenter starts as the one on screen (see CreateUserPage); permissions as the role's defaults.
+// costCenters starts as the one on screen (see CreateUserPage); permissions as the role's defaults.
 const EMPTY_FORM = {
   userId: '',
   name: '',
   password: '',
   confirmPassword: '',
   role: 'warehouse',
-  costCenter: '',
+  costCenters: [],
   permissions: ROLE_DEFAULTS.warehouse,
 }
 
@@ -29,14 +30,14 @@ function validate(form) {
   if (!form.password) errors.password = 'Enter a password'
   else if (form.password.length < 8) errors.password = 'Password must be at least 8 characters'
   if (form.confirmPassword !== form.password) errors.confirmPassword = 'Passwords do not match'
+  if (form.role !== 'admin' && !form.costCenters.length) errors.costCenters = 'Pick at least one cost center'
   return errors
 }
 
 export default function CreateUserPage() {
   const roleId = useId()
-  const costCenterId = useId()
   const { costCenter } = useCostCenter()
-  const emptyForm = { ...EMPTY_FORM, costCenter }
+  const emptyForm = { ...EMPTY_FORM, costCenters: costCenter ? [costCenter] : [] }
 
   const [form, setForm] = useState(emptyForm)
   const isAdminRole = form.role === 'admin'
@@ -67,10 +68,10 @@ export default function CreateUserPage() {
         password: form.password,
         role: form.role,
         // Admins switch between every cost center and can do everything.
-        costCenter: isAdminRole ? undefined : form.costCenter,
+        costCenters: isAdminRole ? undefined : COST_CENTERS.map((c) => c.value).filter((c) => form.costCenters.includes(c)),
         permissions: isAdminRole ? undefined : form.permissions,
       })
-      const where = created.costCenter ? `, ${costCenterLabel(created.costCenter)}` : ''
+      const where = created.costCenters?.length ? `, ${created.costCenters.map(costCenterLabel).join(', ')}` : ''
       setSuccessMessage(`User "${created.userId}" (${created.role}${where}) created.`)
       setForm(emptyForm)
     } catch (err) {
@@ -167,25 +168,14 @@ export default function CreateUserPage() {
         {isAdminRole ? (
           <p className="field-hint">Admins can switch between every cost center.</p>
         ) : (
-          <div className="field">
-            <label className="field-label" htmlFor={costCenterId}>
-              Cost center
-            </label>
-            <select
-              id={costCenterId}
-              name="costCenter"
-              className="field-input"
-              value={form.costCenter}
-              onChange={handleChange}
-            >
-              {COST_CENTERS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <p className="field-hint">They will only see this cost center&apos;s items and transactions.</p>
-          </div>
+          <CostCenterChecklist
+            value={form.costCenters}
+            onChange={(costCenters) => {
+              setForm((f) => ({ ...f, costCenters }))
+              setFieldErrors((e) => ({ ...e, costCenters: undefined }))
+            }}
+            error={fieldErrors.costCenters}
+          />
         )}
 
         <Button type="submit" size="lg" block isLoading={isSubmitting}>

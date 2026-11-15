@@ -56,8 +56,10 @@ export async function getItemByItemId(itemId, { signal } = {}) {
   return data.item
 }
 
-export async function searchItems(q, { signal } = {}) {
-  const { data } = await api.get('/items/search', { params: { q }, signal })
+// costCenter: search another cost center than the one on screen (Stock Transfer's To side).
+export async function searchItems(q, { signal, costCenter } = {}) {
+  const headers = costCenter ? { 'X-Cost-Center': costCenter } : undefined
+  const { data } = await api.get('/items/search', { params: { q }, signal, headers })
   return data.items
 }
 

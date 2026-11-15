@@ -44,6 +44,9 @@ const transactionSchema = new mongoose.Schema(
     // Set when a reservation is confirmed out.
     releasedAt: Date,
     releasedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Set on both legs of a Stock Transfer line (the OUT in the From cost center and the IN in the
+    // To cost center), so rolling back or editing one also does the other (models/StockTransfer.js).
+    transfer: { type: mongoose.Schema.Types.ObjectId, ref: 'StockTransfer' },
     // The opening stock entry created by Add Item. It always comes first in the item's ledger.
     isBalanceForwarded: { type: Boolean, default: false },
     // Item balance right after this entry. Recalculated by services/balance.service.js.
@@ -56,6 +59,7 @@ const transactionSchema = new mongoose.Schema(
 // Ledger order for one item: balance forwarded first, then by date, then by entry order.
 transactionSchema.index({ item: 1, isBalanceForwarded: -1, date: 1, _id: 1 });
 transactionSchema.index({ date: 1 });
+transactionSchema.index({ transfer: 1 }, { sparse: true });
 
 // The BALANCE FORWARDED entry's type and quantity for an opening balance: IN for stock on hand,
 // OUT for a negative opening balance (quantity is always 1 or more). Call only with a balance other than 0.

@@ -25,9 +25,13 @@ const userSchema = new mongoose.Schema(
     // Ticked per account by an admin, starting from the role's defaults (config/permissions.js).
     // Empty for admins, who can do everything. Missing on accounts saved before permissions.
     permissions: { type: [{ type: String, enum: PERMISSION_VALUES }], default: undefined },
-    // The only cost center a warehouse user or encoder sees. Admins have none: they switch
-    // between all of them (see middleware/auth.js resolveCostCenter).
-    costCenter: { type: String, enum: [...COST_CENTER_VALUES, null], default: null },
+    // The cost centers a warehouse user or encoder may work in (and switch between when there
+    // are several). Admins have none: they switch between all of them (see middleware/auth.js
+    // resolveCostCenter and config/costCenters.js userCostCenters).
+    costCenters: { type: [{ type: String, enum: COST_CENTER_VALUES }], default: undefined },
+    // Before costCenters: the single cost center. Only read on accounts not yet migrated
+    // (scripts/migrate-user-cost-centers.js).
+    costCenter: { type: String, enum: [...COST_CENTER_VALUES, null], default: undefined },
     isActive: { type: Boolean, default: true },
     lastLoginAt: Date,
   },

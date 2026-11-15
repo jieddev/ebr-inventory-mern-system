@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { ROLES } = require('../models/User');
-const { COST_CENTERS, isCostCenter } = require('../config/costCenters');
+const { COST_CENTERS, COST_CENTER_VALUES, isCostCenter, userCostCenters } = require('../config/costCenters');
 const { defaultPermissions, isPermission } = require('../config/permissions');
 const HttpError = require('../utils/httpError');
 const { record } = require('../services/audit.service');
@@ -18,6 +18,16 @@ function parsePermissions(value) {
   return [...new Set(value)].sort();
 }
 
+// The cost centers sent for a user: at least one, de-duplicated, in the COST_CENTERS order.
+function parseCostCenters(value) {
+  const list = Array.isArray(value) ? value.map(String) : [];
+  const unknown = list.find((c) => !isCostCenter(c));
+  if (unknown !== undefined || !list.length) {
+    throw new HttpError(400, `Pick at least one cost center: ${COST_CENTERS.map((c) => c.label).join(', ')}`);
+  }
+  return COST_CENTER_VALUES.filter((c) => list.includes(c));
+}
+
 // Accounts saved before permissions existed have their role's defaults (config/permissions.js).
 const permissionsOf = (user) => [...(user.permissions ?? defaultPermissions(user.role))].sort();
 
@@ -25,15 +35,15 @@ const permissionsOf = (user) => [...(user.permissions ?? defaultPermissions(user
 async function listUsers(req, res) {
   const users = await User.find()
     .sort({ name: 1, userId: 1 })
-    .select('userId name role permissions costCenter isActive lastLoginAt createdAt')
+    .select('userId name role permissions costCenter costCenters isActive lastLoginAt createdAt')
     .lean();
   res.json({ users });
 }
 
-// PATCH /api/users/:id { costCenter?, permissions?, isActive? } — Edit user (admin). All apply
-// from the user's next request, since every request reloads the user: a new cost center
-// switches the data they see, new permissions change what they can open, and a disabled
-// account is signed out (middleware/auth.js) and can't sign in. Admins have no cost center
+// PATCH /api/users/:id { costCenters?, permissions?, isActive? } — Edit user (admin). All apply
+// from the user's next request, since every request reloads the user: new cost centers
+// change the data they can switch to, new permissions change what they can open, and a disabled
+// account is signed out (middleware/auth.js) and can't sign in. Admins have no cost centers
 // (they switch between all) and no permissions (they can do everything), and no one can
 // disable themselves, so there is always an active admin.
 async function updateUser(req, res) {
@@ -43,13 +53,10 @@ async function updateUser(req, res) {
   if (!user) throw new HttpError(404, 'User not found');
 
   const updates = {};
-  if (body.costCenter !== undefined) {
-    const costCenter = String(body.costCenter);
-    if (!isCostCenter(costCenter)) {
-      throw new HttpError(400, `Cost center must be one of: ${COST_CENTERS.map((c) => c.label).join(', ')}`);
-    }
+  if (body.costCenters !== undefined) {
+    const costCenters = parseCostCenters(body.costCenters);
     if (user.role === 'admin') throw new HttpError(409, 'Admins switch between every cost center, so they have none to set.');
-    updates.costCenter = costCenter;
+    updates.costCenters = costCenters;
   }
   if (body.permissions !== undefined) {
     const permissions = parsePermissions(body.permissions);
@@ -64,9 +71,9 @@ async function updateUser(req, res) {
 
   const changes = {};
   for (const [field, to] of Object.entries(updates)) {
-    if (field === 'permissions') {
-      const from = permissionsOf(user);
-      if (from.join() !== to.join()) changes.permissions = { from, to };
+    if (field === 'permissions' || field === 'costCenters') {
+      const from = field === 'permissions' ? permissionsOf(user) : userCostCenters(user);
+      if (from.join() !== to.join()) changes[field] = { from, to };
       continue;
     }
     const from = user[field] ?? '';
@@ -74,6 +81,7 @@ async function updateUser(req, res) {
   }
   if (Object.keys(changes).length) {
     user.set(updates);
+    if (updates.costCenters) user.costCenter = undefined; // replaced by costCenters
     await user.save();
     await record(req, {
       action: 'user.update',
@@ -81,7 +89,7 @@ async function updateUser(req, res) {
       changes,
     });
     // Live updates reconnect with the new permissions (or are refused for a disabled account).
-    if (changes.isActive?.to === false || changes.permissions) disconnectUser(user._id);
+    if (changes.isActive?.to === false || changes.permissions || changes.costCenters) disconnectUser(user._id);
   }
   res.json({ user });
 }
@@ -91,17 +99,14 @@ async function createUser(req, res) {
   const name = String(req.body?.name ?? '').trim();
   const password = String(req.body?.password ?? '');
   const role = String(req.body?.role ?? 'warehouse');
-  // Admins switch between every cost center; everyone else works in one.
-  const costCenter = role === 'admin' ? null : String(req.body?.costCenter ?? '');
+  // Admins switch between every cost center; everyone else works in the ones picked.
 
   if (!userId || !name || !password) throw new HttpError(400, 'Enter an ID, name, and password');
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new HttpError(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
   if (!ROLES.includes(role)) throw new HttpError(400, `Role must be one of: ${ROLES.join(', ')}`);
-  if (costCenter !== null && !isCostCenter(costCenter)) {
-    throw new HttpError(400, `Cost center must be one of: ${COST_CENTERS.map((c) => c.label).join(', ')}`);
-  }
+  const costCenters = role === 'admin' ? undefined : parseCostCenters(req.body?.costCenters);
   // The role's defaults unless the admin ticked others; admins can do everything.
   let permissions = [];
   if (role !== 'admin') {
@@ -109,7 +114,7 @@ async function createUser(req, res) {
   }
   if (await User.exists({ userId })) throw new HttpError(409, 'That ID is already taken');
 
-  const user = new User({ userId, name, role, permissions, costCenter });
+  const user = new User({ userId, name, role, permissions, costCenters });
   await user.setPassword(password);
 
   try {
@@ -126,7 +131,7 @@ async function createUser(req, res) {
   await record(req, {
     action: 'user.create',
     target: { type: 'user', id: user._id, label: `${user.name} (${user.userId})` },
-    details: { userId, name: user.name, role, permissions, costCenter },
+    details: { userId, name: user.name, role, permissions, costCenters },
   });
   res.status(201).json({ user });
 }

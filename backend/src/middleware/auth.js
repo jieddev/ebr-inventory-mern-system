@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const HttpError = require('../utils/httpError');
 const { jwtSecret } = require('../config/env');
-const { DEFAULT_COST_CENTER, isCostCenter } = require('../config/costCenters');
+const { DEFAULT_COST_CENTER, isCostCenter, userCostCenters } = require('../config/costCenters');
 const { can } = require('../config/permissions');
 
 const AUTH_COOKIE = 'ebr_token';
@@ -32,16 +32,19 @@ function requireRole(...roles) {
   };
 }
 
-// Sets req.costCenter, the cost center whose data the request reads and writes. Warehouse users
-// and encoders always get their own; admins pick one with the X-Cost-Center header (frontend
-// api/client.js), the default cost center (Servitek) when it's missing.
+// Sets req.costCenter, the cost center whose data the request reads and writes, picked with the
+// X-Cost-Center header (frontend api/client.js). Warehouse users and encoders may only pick one
+// of their assigned cost centers (their first when the header is missing); admins may pick any,
+// the default cost center (Servitek) when it's missing.
 function resolveCostCenter(req, res, next) {
+  const requested = req.get('X-Cost-Center');
   if (req.user.role !== 'admin') {
-    if (!isCostCenter(req.user.costCenter)) throw new HttpError(403, 'Your account has no cost center. Ask an admin to set one.');
-    req.costCenter = req.user.costCenter;
+    const allowed = userCostCenters(req.user);
+    if (!allowed.length) throw new HttpError(403, 'Your account has no cost center. Ask an admin to set one.');
+    if (requested && !allowed.includes(requested)) throw new HttpError(403, "You don't have access to that cost center");
+    req.costCenter = requested || allowed[0];
     return next();
   }
-  const requested = req.get('X-Cost-Center');
   if (requested && !isCostCenter(requested)) throw new HttpError(400, `Unknown cost center: ${requested}`);
   req.costCenter = requested || DEFAULT_COST_CENTER;
   next();

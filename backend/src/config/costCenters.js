@@ -23,4 +23,22 @@ const costCenterFileName = (value) =>
     .replace(/_?-_?/g, '-')
     .replace(/^_+|_+$/g, '');
 
-module.exports = { COST_CENTERS, COST_CENTER_VALUES, DEFAULT_COST_CENTER, isCostCenter, costCenterLabel, costCenterFileName };
+// The cost centers a user may work in. Admins: every one. Everyone else: the ones an admin
+// assigned (costCenters), or the single costCenter on accounts saved before that
+// (scripts/migrate-user-cost-centers.js moves them over). Keep in step with frontend utils/costCenters.js.
+function userCostCenters(user) {
+  if (!user) return [];
+  if (user.role === 'admin') return [...COST_CENTER_VALUES];
+  if (user.costCenters?.length) return COST_CENTER_VALUES.filter((value) => user.costCenters.includes(value));
+  return isCostCenter(user.costCenter) ? [user.costCenter] : [];
+}
+
+module.exports = {
+  COST_CENTERS,
+  COST_CENTER_VALUES,
+  DEFAULT_COST_CENTER,
+  isCostCenter,
+  costCenterLabel,
+  costCenterFileName,
+  userCostCenters,
+};

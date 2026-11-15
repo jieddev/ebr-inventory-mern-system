@@ -26,7 +26,8 @@ export function getRequestCostCenter() {
 }
 
 api.interceptors.request.use((config) => {
-  if (costCenter) config.headers['X-Cost-Center'] = costCenter
+  // A request may name its own cost center (Stock Transfer searching the other side).
+  if (costCenter && !config.headers['X-Cost-Center']) config.headers['X-Cost-Center'] = costCenter
   return config
 })
 

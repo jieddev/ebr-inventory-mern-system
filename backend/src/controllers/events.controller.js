@@ -1,4 +1,5 @@
 const { addClient } = require('../services/events.service');
+const { userCostCenters } = require('../config/costCenters');
 
 // Proxies and routers drop connections that stay silent too long.
 const HEARTBEAT_MS = 25_000;
@@ -21,7 +22,7 @@ function streamEvents(req, res) {
     userId: req.user._id,
     role: req.user.role,
     permissions: req.user.permissions,
-    costCenter: req.costCenter,
+    costCenters: userCostCenters(req.user),
   });
   const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS);
 

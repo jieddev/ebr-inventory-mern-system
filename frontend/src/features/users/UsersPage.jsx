@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import { getErrorMessage } from '../../api/auth'
 import { getUsers } from '../../api/users'
-import { costCenterLabel } from '../../utils/costCenters'
+import { costCenterLabel, userCostCenters } from '../../utils/costCenters'
 import { formatDate } from '../../utils/format'
 import { ROLE_LABELS } from '../../utils/roles'
 import { permissionShortLabel, permissionsOf } from '../../utils/permissions'
@@ -38,7 +38,7 @@ export default function UsersPage() {
 
   function handleSaved(saved) {
     setUsers((list) =>
-      list.map((u) => (u._id === saved._id ? { ...u, costCenter: saved.costCenter, isActive: saved.isActive } : u)),
+      list.map((u) => (u._id === saved._id ? { ...u, costCenter: saved.costCenter, costCenters: saved.costCenters, isActive: saved.isActive } : u)),
     )
     setSelectedId(null)
   }
@@ -106,8 +106,8 @@ export default function UsersPage() {
                         <td>
                           {user.role === 'admin' ? (
                             <span className="items-muted">All cost centers</span>
-                          ) : user.costCenter ? (
-                            <span className="users-cost-center">{costCenterLabel(user.costCenter)}</span>
+                          ) : userCostCenters(user).length ? (
+                            <span className="users-cost-center">{userCostCenters(user).map(costCenterLabel).join(', ')}</span>
                           ) : (
                             <span className="items-muted">Not set</span>
                           )}

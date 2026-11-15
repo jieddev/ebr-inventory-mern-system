@@ -32,7 +32,7 @@ export default function Sidebar() {
     return !link.permission || canAny(user, [].concat(link.permission))
   })
   const reservations = usePendingReservations({ enabled: links.some((link) => link.to === '/reservations') })
-  const { costCenter, canSwitch, setCostCenter } = useCostCenter()
+  const { costCenter, allowed, canSwitch, setCostCenter } = useCostCenter()
   const label = costCenterLabel(costCenter)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const triggerRef = useRef(null)
@@ -48,7 +48,7 @@ export default function Sidebar() {
       {/* Stays expanded while the cost center card is open, so the card stays beside it. */}
       <nav className={`sidebar-panel ${isPickerOpen ? 'is-pinned' : ''}`} aria-label="Main">
         {/* Collapsed: the cost center's initial. Expanded: its name, a button that opens the
-            cost center card for admins. */}
+            cost center card for users with several cost centers. */}
         {canSwitch ? (
           <button
             ref={triggerRef}
@@ -112,6 +112,7 @@ export default function Sidebar() {
         <CostCenterCard
           id={pickerId}
           value={costCenter}
+          options={COST_CENTERS.filter((c) => allowed.includes(c.value))}
           triggerRef={triggerRef}
           onSelect={(value) => {
             setCostCenter(value)
@@ -124,9 +125,9 @@ export default function Sidebar() {
   )
 }
 
-// The admin's cost center choices, in a card beside the sidebar. Arrow keys move between them,
+// The cost center choices, in a card beside the sidebar. Arrow keys move between them,
 // Escape closes it, and pressing outside it (except on its trigger) closes it too.
-function CostCenterCard({ id, value, triggerRef, onSelect, onClose }) {
+function CostCenterCard({ id, value, options, triggerRef, onSelect, onClose }) {
   const cardRef = useRef(null)
   const titleId = useId()
 
@@ -172,7 +173,7 @@ function CostCenterCard({ id, value, triggerRef, onSelect, onClose }) {
         <p className="cost-center-card-hint">Pages show this cost center's items and transactions.</p>
       </div>
       <div role="menu" aria-labelledby={titleId}>
-        {COST_CENTERS.map((c) => (
+        {options.map((c) => (
           <button
             key={c.value}
             type="button"

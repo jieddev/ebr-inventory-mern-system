@@ -156,7 +156,6 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
         value={form.lowStockThreshold ?? ''}
         onChange={(e) => onChange('lowStockThreshold', e.target.value)}
         error={errors.lowStockThreshold}
-        hint="Flags the item as low stock when its balance drops to this number or below. Leave blank for no alert."
       />
     </>
   )

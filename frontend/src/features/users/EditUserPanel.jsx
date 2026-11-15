@@ -1,49 +1,45 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useState } from 'react'
 import Button from '../../components/ui/Button'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { updateUser } from '../../api/users'
-import { COST_CENTERS } from '../../utils/costCenters'
+import { COST_CENTERS, userCostCenters } from '../../utils/costCenters'
 import { ROLE_LABELS } from '../../utils/roles'
 import { permissionsOf } from '../../utils/permissions'
-import chevronIcon from '../../assets/icons/chevron-down.svg'
 import { useAuth } from '../auth/useAuth'
 import PermissionChecklist from './PermissionChecklist'
+import CostCenterChecklist from './CostCenterChecklist'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Enable' },
   { value: 'disabled', label: 'Disable', tone: 'danger' },
 ]
 
-// Opened by clicking a row on User management. Warehouse users and encoders get a cost
-// center and permissions (admins have neither: they switch between all cost centers and can
+// Opened by clicking a row on User management. Warehouse users and encoders get cost
+// centers and permissions (admins have neither: they switch between all cost centers and can
 // do everything), and any account but your own can be disabled. All apply from the user's
 // next request.
 export default function EditUserPanel({ user, onClose, onSaved }) {
   const { user: me } = useAuth()
-  const costCenterId = useId()
-  const costCenterRef = useRef(null)
   const isAdmin = user.role === 'admin'
   const isMe = user._id === me._id
-  const [costCenter, setCostCenter] = useState(user.costCenter ?? '')
+  const [costCenters, setCostCenters] = useState(() => userCostCenters(user))
   const [permissions, setPermissions] = useState(() => permissionsOf(user))
   const [isActive, setIsActive] = useState(user.isActive)
   const [error, setError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
-  useEffect(() => {
-    costCenterRef.current?.focus()
-  }, [])
-
   async function handleSubmit(event) {
     event.preventDefault()
     setFormError('')
-    if (!isAdmin && !costCenter) return setError('Select a cost center')
+    if (!isAdmin && !costCenters.length) return setError('Pick at least one cost center')
     const changes = {}
-    if (!isAdmin && costCenter !== user.costCenter) changes.costCenter = costCenter
+    // In the COST_CENTERS order, so the comparison doesn't depend on the order they were ticked.
+    const picked = COST_CENTERS.map((c) => c.value).filter((c) => costCenters.includes(c))
+    if (!isAdmin && picked.join() !== userCostCenters(user).join()) changes.costCenters = picked
     if (!isAdmin && [...permissions].sort().join() !== [...permissionsOf(user)].sort().join()) {
       changes.permissions = permissions
     }
@@ -97,49 +93,21 @@ export default function EditUserPanel({ user, onClose, onSaved }) {
 
       {isAdmin ? (
         <TextField
-          label="Cost center"
+          label="Cost centers"
           readOnly
           tabIndex={-1}
           value="All cost centers"
           hint="Admins switch between every cost center in the sidebar, so they aren't assigned one."
         />
       ) : (
-        <div className={`field ${error ? 'has-error' : ''}`}>
-          <label className="field-label" htmlFor={costCenterId}>
-            Cost center
-            <span className="field-required"> *</span>
-          </label>
-          <div className="field-control">
-            <select
-              ref={costCenterRef}
-              id={costCenterId}
-              className="field-input field-select"
-              required
-              aria-invalid={!!error}
-              aria-describedby={`${costCenterId}-help`}
-              value={costCenter}
-              onChange={(e) => {
-                setCostCenter(e.target.value)
-                setError('')
-              }}
-            >
-              <option value="" disabled>
-                Select cost center
-              </option>
-              {COST_CENTERS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <div className="field-adornment field-adornment-icon" aria-hidden="true">
-              <img src={chevronIcon} alt="" width="20" height="20" />
-            </div>
-          </div>
-          <p id={`${costCenterId}-help`} className={error ? 'field-error' : 'field-hint'}>
-            {error || "They'll only see this cost center's items, transactions and reports."}
-          </p>
-        </div>
+        <CostCenterChecklist
+          value={costCenters}
+          onChange={(value) => {
+            setCostCenters(value)
+            setError('')
+          }}
+          error={error}
+        />
       )}
 
       {isAdmin ? (

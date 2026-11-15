@@ -14,6 +14,7 @@ const transactionRoutes = require('./routes/transactions.routes');
 const eventRoutes = require('./routes/events.routes');
 const auditRoutes = require('./routes/audit.routes');
 const receivingRoutes = require('./routes/receiving.routes');
+const transferRoutes = require('./routes/transfers.routes');
 const reportRoutes = require('./routes/reports.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const { notFound, errorHandler } = require('./middleware/error');
@@ -49,6 +50,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/receiving-reports', receivingRoutes);
+app.use('/api/transfers', transferRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 

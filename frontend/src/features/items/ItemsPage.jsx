@@ -32,6 +32,7 @@ import checkIcon from '../../assets/icons/check-circle.svg'
 import closeIcon from '../../assets/icons/close.svg'
 import EditItemPanel from './EditItemPanel'
 import AddItemPanel from './AddItemPanel'
+import AdjustCountPanel from '../adjust-count/AdjustCountPanel'
 import { useAuth } from '../auth/useAuth'
 import { can } from '../../utils/permissions'
 import { ITEM_SORTS, readSort } from '../../utils/sorts'
@@ -97,6 +98,7 @@ export default function ItemsPage() {
   const [confirmUndo, setConfirmUndo] = useState(null) // { isBusy, error }
 
   const [editing, setEditing] = useState(null)
+  const [isAdjusting, setIsAdjusting] = useState(false) // Adjust to Count panel (admin)
   const [isAdding, setIsAdding] = useState(false)
   const [addedThisSession, setAddedThisSession] = useState([])
   const [confirmArchive, setConfirmArchive] = useState(null) // { item, isBusy, error }
@@ -363,6 +365,7 @@ export default function ItemsPage() {
                 <Button
                   onClick={() => {
                     setEditing(null)
+                    setIsAdjusting(false)
                     setIsAdding(true)
                   }}
                   aria-pressed={isAdding}
@@ -373,6 +376,17 @@ export default function ItemsPage() {
               )}
               {isAdmin && (
                 <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditing(null)
+                      setIsAdding(false)
+                      setIsAdjusting(true)
+                    }}
+                    aria-pressed={isAdjusting}
+                  >
+                    Adjust to Count
+                  </Button>
                   <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" hidden onChange={handleFileChosen} />
                   <Button variant="secondary" onClick={() => fileInputRef.current?.click()} isLoading={isImporting}>
                     {!isImporting && <img src={uploadIcon} alt="" />}
@@ -599,6 +613,7 @@ export default function ItemsPage() {
                                 size="sm"
                                 onClick={() => {
                                   setIsAdding(false)
+                                  setIsAdjusting(false)
                                   setEditing(item)
                                 }}
                                 aria-pressed={editing?._id === item._id}
@@ -706,6 +721,9 @@ export default function ItemsPage() {
           onToggleCheck={() => handleToggleCheck(editing)}
           isChecking={checkingId === editing._id}
         />
+      )}
+      {isAdjusting && !editing && !isAdding && isAdmin && (
+        <AdjustCountPanel onClose={() => setIsAdjusting(false)} onSaved={reload} />
       )}
       {isAdding && !editing && canAddItems && (
         <AddItemPanel

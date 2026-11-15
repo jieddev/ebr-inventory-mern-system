@@ -9,6 +9,7 @@ const SEARCH_DELAY_MS = 200
 // Type-ahead for item codes (or item IDs). One code can belong to several items (different
 // brand or type), so each match shows its ID, brand and type, and the user picks the exact one.
 // hideLabel keeps the label for screen readers only (BRR template lines); hint is optional.
+// costCenter: search that cost center instead of the one on screen (Stock Transfer).
 export default function ItemCodePicker({
   value,
   onChange,
@@ -21,6 +22,7 @@ export default function ItemCodePicker({
   hideLabel = false,
   required = true,
   placeholder = 'Start typing an item description',
+  costCenter,
 }) {
   const id = useId()
   const listId = `${id}-list`
@@ -37,7 +39,7 @@ export default function ItemCodePicker({
     if (!query || selected) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
-      searchItems(query, { signal: controller.signal })
+      searchItems(query, { signal: controller.signal, costCenter })
         .then((items) => {
           setFound({ query, items })
           setActiveIndex(0)
@@ -50,7 +52,7 @@ export default function ItemCodePicker({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [query, selected])
+  }, [query, selected, costCenter])
 
   function choose(item) {
     onSelect(item)
