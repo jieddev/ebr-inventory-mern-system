@@ -69,7 +69,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
 
   async function handleSubmit(event) {
     event.preventDefault()
-    const { errors: nextErrors, balanceForwarded } = validateItemForm(form)
+    const { errors: nextErrors, balanceForwarded, lowStockThreshold } = validateItemForm(form)
     setErrors(nextErrors)
     setFormError('')
     if (Object.keys(nextErrors).length) return
@@ -77,7 +77,7 @@ export default function AddItemPanel({ onClose, onAdded, addedThisSession, initi
     setIsSaving(true)
     try {
       // An empty date is saved as today (the server's today).
-      const item = await createItem({ ...form, balanceForwarded, balanceForwardedDate: balanceDate })
+      const item = await createItem({ ...form, balanceForwarded, lowStockThreshold, balanceForwardedDate: balanceDate })
       setSuccessMessage(`“${item.code}” was added as ${item.itemId}. You can add another item.`)
       setForm({ ...EMPTY_ITEM_FORM, category: form.category })
       onAdded(item)

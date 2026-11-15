@@ -58,6 +58,7 @@ const FIELD_LABELS = {
   brand: 'Brand',
   typeDesign: 'Type / Design',
   balanceForwarded: 'Balance forwarded',
+  lowStockThreshold: 'Low stock at',
   // Edited transactions
   date: 'Date',
   type: 'Type',
@@ -340,6 +341,7 @@ function Details({ entry }) {
         d.category || 'No category',
         `opening balance ${formatNumber(d.balanceForwarded)}`,
         d.balanceForwardedDate && `as of ${formatDate(`${d.balanceForwardedDate}T00:00:00Z`)}`,
+        d.lowStockThreshold != null && `low stock at ${formatNumber(d.lowStockThreshold)}`,
       ]
         .filter(Boolean)
         .join(' · ')

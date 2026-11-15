@@ -43,9 +43,18 @@ async function dashboard(req, res) {
   const day = today();
 
   const itemIds = seesToday || seesEntries ? await Item.distinct('_id', itemFilter) : [];
-  const [items, outOfStock, totals, reservations, recent] = await Promise.all([
+  const [items, outOfStock, lowStock, totals, reservations, recent] = await Promise.all([
     seesItems ? Item.countDocuments(itemFilter) : null,
     seesStock ? Item.countDocuments({ ...itemFilter, balance: 0 }) : null,
+    // Low = 0 < balance <= the item's threshold (0 and below already count as out of stock).
+    seesStock
+      ? Item.countDocuments({
+          ...itemFilter,
+          lowStockThreshold: { $ne: null },
+          balance: { $gt: 0 },
+          $expr: { $lte: ['$balance', '$lowStockThreshold'] },
+        })
+      : null,
     seesToday ? todayTotals(itemIds, day) : null,
     seesEntries ? reservationMatch(req.costCenter, '').then((match) => countReservations(match, day)) : null,
     seesEntries ? recentEntries(itemIds) : null,
@@ -53,7 +62,7 @@ async function dashboard(req, res) {
 
   res.json({
     date: day,
-    stock: seesItems ? { items, outOfStock } : null,
+    stock: seesItems ? { items, outOfStock, lowStock } : null,
     today: totals,
     reservations: reservations && { pending: reservations.all, overdue: reservations.overdue, dueToday: reservations.today },
     recent,

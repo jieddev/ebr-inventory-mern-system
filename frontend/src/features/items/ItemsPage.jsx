@@ -574,6 +574,7 @@ export default function ItemsPage() {
                       <td>{item.brand || '—'}</td>
                       <td className={`is-number ${item.balance < 0 ? 'is-negative' : ''}`}>
                         <span className="items-balance">
+                          {isLowStock(item) && <LowStockTag item={item} />}
                           {item.balanceCheck && <CorrectBalanceTag check={item.balanceCheck} />}
                           {formatNumber(item.balance)}
                         </span>
@@ -790,6 +791,18 @@ export default function ItemsPage() {
         />
       )}
     </div>
+  )
+}
+
+// Low = 0 < balance <= the item's threshold. 0 and below already show as out of stock.
+const isLowStock = (item) => item.lowStockThreshold != null && item.balance > 0 && item.balance <= item.lowStockThreshold
+
+function LowStockTag({ item }) {
+  const title = `Low stock: ${formatNumber(item.balance)} left (alert at ${formatNumber(item.lowStockThreshold)}).`
+  return (
+    <span className="items-low-tag" title={title} aria-label={title}>
+      Low
+    </span>
   )
 }
 

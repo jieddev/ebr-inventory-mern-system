@@ -77,6 +77,14 @@ const itemSchema = new mongoose.Schema(
       validate: { validator: Number.isInteger, message: 'Balance forwarded must be a whole number' },
     },
 
+    // Admin-set: the item is "low stock" when 0 < balance <= this. null means no alert.
+    lowStockThreshold: {
+      type: Number,
+      default: null,
+      min: [0, 'Low stock threshold must be 0 or more'],
+      validate: { validator: (v) => v == null || Number.isInteger(v), message: 'Low stock threshold must be a whole number' },
+    },
+
     // Kept in sync by services/balance.service.js. Never set these directly.
     balance: { type: Number, default: 0 },
     transactionCount: { type: Number, default: 0 },

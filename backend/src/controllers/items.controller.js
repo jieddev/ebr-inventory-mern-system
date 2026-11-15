@@ -20,9 +20,9 @@ const { can } = require('../config/permissions');
 
 // What users without viewItemStock see of an item: its details and current ending balance,
 // but nothing about its transactions (no last transaction date or type, no count).
-const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance balanceCheck';
+const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance balanceCheck lowStockThreshold';
 const ITEM_FIELDS =
-  'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt balanceCheck';
+  'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt balanceCheck lowStockThreshold';
 
 // GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&sort=&page=&limit=
 // Every item in the cost center, by item ID or ?sort= (see utils/filters.js itemSort) (Items page). See utils/filters.js for the filters.
@@ -214,6 +214,12 @@ function parseItemFields(body = {}) {
   const balanceForwarded = body.balanceForwarded === '' || body.balanceForwarded == null ? 0 : Number(body.balanceForwarded);
   if (!Number.isInteger(balanceForwarded)) throw new HttpError(400, 'Balance forwarded must be a whole number');
   fields.balanceForwarded = balanceForwarded;
+  // Optional: blank means no low-stock alert.
+  const threshold = body.lowStockThreshold === '' || body.lowStockThreshold == null ? null : Number(body.lowStockThreshold);
+  if (threshold !== null && !(Number.isInteger(threshold) && threshold >= 0)) {
+    throw new HttpError(400, 'Low stock threshold must be a whole number of 0 or more');
+  }
+  fields.lowStockThreshold = threshold;
   return fields;
 }
 
@@ -233,7 +239,7 @@ async function assertKeyIsFree(costCenter, key, exceptId) {
 // BALANCE FORWARDED (IN, or OUT when negative), like the opening row of each item in the Excel sheet.
 // It's dated balanceForwardedDate (YYYY-MM-DD), or today when that's left out.
 async function createItem(req, res) {
-  const { category, code, brand, typeDesign, balanceForwarded } = parseItemFields(req.body);
+  const { category, code, brand, typeDesign, balanceForwarded, lowStockThreshold } = parseItemFields(req.body);
   const openingDate = req.body?.balanceForwardedDate
     ? parseDay(req.body.balanceForwardedDate, 'Balance forwarded date')
     : today();
@@ -243,10 +249,11 @@ async function createItem(req, res) {
   const item = await mongoose.connection.transaction(async (session) => {
     const [itemId] = await nextItemIds(1, session);
     const [created] = await Item.create(
-      [{ costCenter, itemId, category, code, brand, typeDesign, balanceForwarded, createdBy: req.user._id }],
+      [{ costCenter, itemId, category, code, brand, typeDesign, balanceForwarded, lowStockThreshold, createdBy: req.user._id }],
       { session },
     );
     const details = { category, balanceForwarded };
+    if (lowStockThreshold !== null) details.lowStockThreshold = lowStockThreshold;
     if (balanceForwarded !== 0) details.balanceForwardedDate = openingDate.toISOString().slice(0, 10);
     await record(req, { action: 'item.create', target: itemTarget(created), details }, session);
     if (balanceForwarded === 0) return created;
@@ -293,7 +300,7 @@ async function updateItem(req, res) {
     if (current.archivedAt) throw new HttpError(409, 'This item is archived. Restore it before editing.');
     await assertKeyIsFree(req.costCenter, fields, id);
 
-    const changes = diff(current, fields, ['category', 'code', 'brand', 'typeDesign', 'balanceForwarded']);
+    const changes = diff(current, fields, ['category', 'code', 'brand', 'typeDesign', 'balanceForwarded', 'lowStockThreshold']);
     const balanceChanged = current.balanceForwarded !== fields.balanceForwarded;
     current.set(fields);
     await current.save({ session });

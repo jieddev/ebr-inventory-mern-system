@@ -21,6 +21,7 @@ export default function EditItemPanel({ item, onClose, onSaved, onToggleCheck, i
     // No longer editable, but sent back unchanged so saving doesn't clear it.
     typeDesign: item.typeDesign ?? '',
     balanceForwarded: String(item.balanceForwarded ?? 0),
+    lowStockThreshold: item.lowStockThreshold == null ? '' : String(item.lowStockThreshold),
   }))
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -43,14 +44,14 @@ export default function EditItemPanel({ item, onClose, onSaved, onToggleCheck, i
 
   async function handleSubmit(event) {
     event.preventDefault()
-    const { errors: nextErrors, balanceForwarded } = validateItemForm(form)
+    const { errors: nextErrors, balanceForwarded, lowStockThreshold } = validateItemForm(form)
     setErrors(nextErrors)
     setFormError('')
     if (Object.keys(nextErrors).length) return
 
     setIsSaving(true)
     try {
-      const saved = await updateItem(item._id, { ...form, balanceForwarded })
+      const saved = await updateItem(item._id, { ...form, balanceForwarded, lowStockThreshold })
       onSaved(saved)
     } catch (err) {
       if (err.response?.status === 409) setErrors({ code: err.response.data.message })

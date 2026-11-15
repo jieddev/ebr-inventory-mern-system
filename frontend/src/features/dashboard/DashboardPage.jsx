@@ -135,6 +135,23 @@ function StatTiles({ data, user }) {
           to={can(user, 'viewItems') ? (stock.outOfStock && canFilterStock ? '/items?stock=out' : '/items') : null}
         />
       )}
+      {stock?.lowStock != null && (
+        <StatTile
+          label="Low stock"
+          value={formatNumber(stock.lowStock)}
+          detail={
+            stock.lowStock > 0 ? (
+              <span className="stat-status is-warning">
+                <img src={alertIcon} alt="" width="14" height="14" />
+                At or below their alert level
+              </span>
+            ) : (
+              'None below their alert level'
+            )
+          }
+          to={can(user, 'viewItems') ? '/items' : null}
+        />
+      )}
     </div>
   )
 }
