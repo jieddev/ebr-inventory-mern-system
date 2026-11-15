@@ -95,11 +95,22 @@ export async function archiveItem(itemId) {
   return data.item
 }
 
-// Archive or restore many items: { ids } for picked items, or { all: true, query } for every
+// Archive, restore, mark correct ('balance_check') or unmark ('balance_uncheck') many items: { ids } for picked items, or { all: true, query } for every
 // item matching the Items page's search and filters. Returns how many changed.
 export async function batchItems(action, { ids, all, query } = {}) {
   const { data } = await api.post('/items/batch', all ? { action, all: true, query } : { action, ids })
   return data.count
+}
+
+// Marks the item's balance as correct (it matches the actual count) as of today (admin).
+export async function markBalanceCorrect(itemId) {
+  const { data } = await api.post(`/items/${itemId}/balance-check`)
+  return data.item
+}
+
+export async function unmarkBalanceCorrect(itemId) {
+  const { data } = await api.delete(`/items/${itemId}/balance-check`)
+  return data.item
 }
 
 export async function restoreItem(itemId) {

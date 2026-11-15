@@ -2,7 +2,7 @@ import { useState } from 'react'
 import SegmentedControl from '../ui/SegmentedControl'
 import { getItemFacets } from '../../api/items'
 import { formatNumber } from '../../utils/format'
-import { EMPTY_FILTERS, LIST_FILTERS, STOCK_OPTIONS, countActiveFilters } from '../../utils/filters'
+import { CHECKED_OPTIONS, EMPTY_FILTERS, LIST_FILTERS, STOCK_OPTIONS, countActiveFilters } from '../../utils/filters'
 import FilterPopover from './FilterPopover'
 import { ChecklistSection, DateRangeSection } from './FilterSections'
 import dotIn from '../../assets/icons/dot-in.svg'
@@ -30,13 +30,15 @@ function addedByOptions(users, draft) {
 // The item filter of the Transactions and Items pages (see utils/filters.js).
 // withEntryFilters adds transaction type and date range (Transactions page only).
 // withStock: false hides stock status (encoders don't see stock). withAdded: the "Added today"
-// and "Added by" filters (Items page only). align: see FilterPopover.
+// and "Added by" filters (Items page only). withChecked: the Balance filter (marked correct or not;
+// Items page only). align: see FilterPopover.
 export default function FilterDropdown({
   filters,
   onApply,
   withEntryFilters = false,
   withStock = true,
   withAdded = false,
+  withChecked = false,
   align = 'end',
 }) {
   const [facets, setFacets] = useState(null)
@@ -92,6 +94,28 @@ export default function FilterDropdown({
                     <span className="filter-option-label">{option.label}</span>
                     {option.value && facets && (
                       <span className="filter-option-count">{formatNumber(facets.stock[option.value])}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {withChecked && (
+            <section className="filter-section">
+              <h3 className="filter-title">Balance</h3>
+              <div className="filter-options" role="radiogroup" aria-label="Balance">
+                {CHECKED_OPTIONS.map((option) => (
+                  <label key={option.value} className="filter-option">
+                    <input
+                      type="radio"
+                      name={`${idPrefix}-checked`}
+                      checked={draft.checked === option.value}
+                      onChange={() => set({ checked: option.value })}
+                    />
+                    <span className="filter-option-label">{option.label}</span>
+                    {option.value && facets?.checked && (
+                      <span className="filter-option-count">{formatNumber(facets.checked[option.value])}</span>
                     )}
                   </label>
                 ))}

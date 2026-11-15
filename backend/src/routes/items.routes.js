@@ -12,6 +12,8 @@ const {
   updateItem,
   archiveItem,
   restoreItem,
+  markBalanceCorrect,
+  unmarkBalanceCorrect,
   batchItems,
   importItems,
   latestImport,
@@ -58,5 +60,8 @@ router.get('/:id/transactions', canAddTransactions, listItemTransactions);
 router.patch('/:id', adminOnly, updateItem);
 router.delete('/:id', adminOnly, archiveItem);
 router.post('/:id/restore', adminOnly, restoreItem);
+// The "Correct balance" mark.
+router.post('/:id/balance-check', adminOnly, markBalanceCorrect);
+router.delete('/:id/balance-check', adminOnly, unmarkBalanceCorrect);
 
 module.exports = router;

@@ -16,8 +16,10 @@ import {
   getItems,
   getLatestImport,
   importItems,
+  markBalanceCorrect,
   restoreItem,
   undoImport,
+  unmarkBalanceCorrect,
 } from '../../api/items'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { formatDate, formatNumber, pluralize } from '../../utils/format'
@@ -45,12 +47,21 @@ const SEARCH_DELAY_MS = 300
 // all: every item matching the current search, filters and view, on every page.
 const NO_SELECTION = { scope: null, ids: new Set(), all: false }
 
+// The batch actions on ticked rows. Restore is for the Archived view, the others for Active.
+const BATCH_ACTIONS = {
+  archive: { verb: 'Archive', tone: 'danger', done: 'archived. Find them under Archived to restore them.' },
+  restore: { verb: 'Restore', tone: 'primary', done: 'restored.' },
+  balance_check: { verb: 'Mark correct balance for', tone: 'primary', done: 'marked as correct balance.' },
+  balance_uncheck: { verb: 'Unmark correct balance for', tone: 'primary', done: 'unmarked.' },
+}
+
 // Every unique item with its item ID, for users with viewItems; Add Item with addItems.
 // Everyone sees the current ending balance and can export the item list (with the page's search,
 // filters and sort) as Excel. With viewItemStock: the stock filter and the last
 // transaction date (the API leaves them out otherwise). Admins also get: Excel import and
 // export, Edit / Archive per item, the Archived view (with Restore), and ticked rows
-// (or "Select all N matching") archived or restored in one go.
+// (or "Select all N matching") archived or restored in one go, and the "Correct balance" mark
+// (the balance matches the actual count as of a date), per item or for ticked rows.
 export default function ItemsPage() {
   const { user } = useAuth()
   const isAdmin = user.role === 'admin'
@@ -62,8 +73,8 @@ export default function ItemsPage() {
   const isArchivedView = isAdmin && searchParams.get('archived') === '1'
   // The Items page only uses the item filters (stock, date added, added by, category, brand).
   const filters = useMemo(() => {
-    const { stock, added, addedBy, category, brand } = readFilters(searchParams)
-    return { ...EMPTY_FILTERS, stock, added, addedBy, category, brand }
+    const { stock, checked, added, addedBy, category, brand } = readFilters(searchParams)
+    return { ...EMPTY_FILTERS, stock, checked, added, addedBy, category, brand }
   }, [searchParams])
   const sort = readSort(searchParams, ITEM_SORTS)
 
@@ -90,6 +101,7 @@ export default function ItemsPage() {
   const [addedThisSession, setAddedThisSession] = useState([])
   const [confirmArchive, setConfirmArchive] = useState(null) // { item, isBusy, error }
   const [restoringId, setRestoringId] = useState(null)
+  const [checkingId, setCheckingId] = useState(null) // marking / unmarking "Correct balance"
   const [notice, setNotice] = useState('')
 
   // The selection belongs to one search + filters + view (page excluded, so it survives
@@ -101,7 +113,7 @@ export default function ItemsPage() {
   }, [searchParams])
   const [selectionState, setSelectionState] = useState(NO_SELECTION)
   const selection = selectionState.scope === selectionScope ? selectionState : NO_SELECTION
-  const [confirmBatch, setConfirmBatch] = useState(null) // { isBusy, error }
+  const [confirmBatch, setConfirmBatch] = useState(null) // { action, isBusy, error }
 
   const updateParams = useCallback(
     (changes) => {
@@ -234,6 +246,25 @@ export default function ItemsPage() {
     }
   }
 
+  async function handleToggleCheck(item) {
+    setCheckingId(item._id)
+    setError('')
+    try {
+      if (item.balanceCheck) {
+        await unmarkBalanceCorrect(item._id)
+        setNotice(`${item.itemId} · ${item.code}: "Correct balance" removed.`)
+      } else {
+        await markBalanceCorrect(item._id)
+        setNotice(`${item.itemId} · ${item.code} was marked as correct balance.`)
+      }
+      reload()
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not update the item.'))
+    } finally {
+      setCheckingId(null)
+    }
+  }
+
   const setSelection = (ids, all = false) => setSelectionState({ scope: selectionScope, ids, all })
   const clearSelection = () => setSelectionState(NO_SELECTION)
 
@@ -253,29 +284,26 @@ export default function ItemsPage() {
   }
 
   async function handleBatch() {
-    const action = isArchivedView ? 'restore' : 'archive'
-    setConfirmBatch({ isBusy: true, error: '' })
+    const { action } = confirmBatch
+    setConfirmBatch({ action, isBusy: true, error: '' })
     try {
-      const { stock, added, addedBy, category, brand } = filters
+      const { stock, checked, added, addedBy, category, brand } = filters
       const count = await batchItems(
         action,
         selection.all
-          ? { all: true, query: { search, stock, added, addedBy, category, brand } }
+          ? { all: true, query: { search, stock, checked, added, addedBy, category, brand } }
           : { ids: [...selection.ids] },
       )
       setConfirmBatch(null)
       clearSelection()
       setEditing(null)
-      setNotice(
-        action === 'archive'
-          ? `${pluralize(count, 'item')} archived. Find them under Archived to restore them.`
-          : `${pluralize(count, 'item')} restored.`,
-      )
+      setNotice(`${pluralize(count, 'item')} ${BATCH_ACTIONS[action].done}`)
       reload()
     } catch (err) {
       setConfirmBatch({
+        action,
         isBusy: false,
-        error: getErrorMessage(err, `Could not ${action} the items.`),
+        error: getErrorMessage(err, 'Could not update the items.'),
       })
     }
   }
@@ -315,7 +343,8 @@ export default function ItemsPage() {
   const selectedOnPage = items.filter((item) => isRowSelected(item._id)).length
   const isPageSelected = items.length > 0 && selectedOnPage === items.length
   const selectedCount = selection.all ? total : selection.ids.size
-  const batchVerb = isArchivedView ? 'Restore' : 'Archive'
+  const batchVerb = BATCH_ACTIONS[confirmBatch?.action]?.verb
+  const openBatch = (action) => setConfirmBatch({ action, isBusy: false, error: '' })
 
   function applyFilters(next) {
     updateParams({ ...next, page: null })
@@ -393,7 +422,14 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
-            <FilterDropdown filters={filters} onApply={applyFilters} align="start" withStock={seesStock} withAdded />
+            <FilterDropdown
+              filters={filters}
+              onApply={applyFilters}
+              align="start"
+              withStock={seesStock}
+              withAdded
+              withChecked
+            />
 
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
@@ -463,14 +499,28 @@ export default function ItemsPage() {
               <button type="button" className="filter-link" onClick={clearSelection}>
                 Clear selection
               </button>
-              <Button
-                size="sm"
-                variant={isArchivedView ? 'primary' : 'danger'}
-                className="items-bulk-action"
-                onClick={() => setConfirmBatch({ isBusy: false, error: '' })}
-              >
-                {batchVerb} {selection.all ? 'all' : 'selected'}
-              </Button>
+              {isArchivedView ? (
+                <Button size="sm" className="items-bulk-action" onClick={() => openBatch('restore')}>
+                  Restore {selection.all ? 'all' : 'selected'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="items-bulk-action"
+                    onClick={() => openBatch('balance_check')}
+                  >
+                    Mark correct balance
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => openBatch('balance_uncheck')}>
+                    Unmark
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => openBatch('archive')}>
+                    Archive {selection.all ? 'all' : 'selected'}
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
@@ -521,7 +571,10 @@ export default function ItemsPage() {
                       <td className="items-code">{item.code}</td>
                       <td>{item.brand || '—'}</td>
                       <td className={`is-number ${item.balance < 0 ? 'is-negative' : ''}`}>
-                        {formatNumber(item.balance)}
+                        <span className="items-balance">
+                          {item.balanceCheck && <CorrectBalanceTag check={item.balanceCheck} />}
+                          {formatNumber(item.balance)}
+                        </span>
                       </td>
                       {seesStock && <td className="items-muted">{formatDate(item.lastTransactionDate)}</td>}
                       {isAdmin && (
@@ -549,6 +602,20 @@ export default function ItemsPage() {
                                 aria-label={`Edit ${item.itemId}`}
                               >
                                 Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleCheck(item)}
+                                isLoading={checkingId === item._id}
+                                title={
+                                  item.balanceCheck
+                                    ? 'Remove the "Correct balance" mark'
+                                    : 'The current balance matches the actual count'
+                                }
+                                aria-label={`${item.balanceCheck ? 'Unmark' : 'Mark'} correct balance for ${item.itemId}`}
+                              >
+                                {item.balanceCheck ? 'Unmark' : 'Mark correct'}
                               </Button>
                               <Button
                                 variant="ghost"
@@ -659,8 +726,19 @@ export default function ItemsPage() {
         <ConfirmDialog
           title={`${batchVerb} ${selection.all ? 'all ' : ''}${pluralize(selectedCount, 'item')}?`}
           message={
-            isArchivedView ? (
+            confirmBatch.action === 'restore' ? (
               <p>They'll be back in transactions, search, filters and exports, and can get new transactions again.</p>
+            ) : confirmBatch.action === 'balance_check' ? (
+              <p>
+                {selection.all && 'Every item matching the current search and filters, on every page. '}
+                Everyone will see their current balance as correct (matching the actual count). New transactions
+                keep the mark; it's removed automatically if an earlier entry is edited, rolled back or back-dated.
+              </p>
+            ) : confirmBatch.action === 'balance_uncheck' ? (
+              <p>
+                {selection.all && 'Every item matching the current search and filters, on every page. '}
+                Their "Correct balance" mark will be removed.
+              </p>
             ) : (
               <p>
                 {selection.all && isFiltered && 'Every item matching the current search and filters, on every page. '}
@@ -671,7 +749,7 @@ export default function ItemsPage() {
             )
           }
           confirmLabel={`${batchVerb} ${pluralize(selectedCount, 'item')}`}
-          tone={isArchivedView ? 'primary' : 'danger'}
+          tone={BATCH_ACTIONS[confirmBatch.action].tone}
           isBusy={confirmBatch.isBusy}
           error={confirmBatch.error}
           onConfirm={handleBatch}
@@ -717,6 +795,17 @@ export default function ItemsPage() {
         />
       )}
     </div>
+  )
+}
+
+// The Balance cell's "Correct" tag: an admin marked the balance as matching the actual count.
+function CorrectBalanceTag({ check }) {
+  const title = `Correct balance as of ${formatDate(check.on)}${check.byName ? `, checked by ${check.byName}` : ''}. Balance then: ${formatNumber(check.balance)}.`
+  return (
+    <span className="items-correct-tag" title={title} aria-label={title}>
+      <img src={checkIcon} alt="" width="12" height="12" />
+      Correct · {formatDate(check.on)}
+    </span>
   )
 }
 

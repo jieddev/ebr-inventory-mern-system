@@ -29,6 +29,10 @@ const ACTION_LABELS = {
   'item.restore': 'Restored item',
   'item.batch_archive': 'Archived items',
   'item.batch_restore': 'Restored items',
+  'item.balance_check': 'Marked balance correct',
+  'item.balance_uncheck': 'Unmarked correct balance',
+  'item.batch_balance_check': 'Marked balances correct',
+  'item.batch_balance_uncheck': 'Unmarked correct balances',
   'item.import': 'Imported Excel',
   'item.import_undo': 'Undid import',
   'item.export': 'Exported Excel',
@@ -438,8 +442,12 @@ function Details({ entry }) {
       else if (d.to) period = `up to ${day(d.to)}`
       return [d.itemId, d.code, period, pluralize(d.count, 'transaction')].filter(Boolean).join(' · ')
     }
+    case 'item.balance_check':
+      return `Balance: ${formatNumber(d.balance)}`
     case 'item.batch_archive':
     case 'item.batch_restore':
+    case 'item.batch_balance_check':
+    case 'item.batch_balance_uncheck':
       return `${pluralize(d.count, 'item')}${d.all ? ' · all matching' : ''}`
     case 'user.update': {
       const { costCenter, permissions, isActive } = entry.changes ?? {}

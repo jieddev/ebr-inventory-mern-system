@@ -14,19 +14,30 @@ function step(balance, reserved, entry) {
 // Walks an item's ledger in order and rewrites every entry's ending balance (and each count's
 // change), then refreshes the item's balance and last-transaction fields. Running the whole
 // ledger (instead of "previous balance ± quantity") keeps back-dated entries correct.
-// Items have tens of entries, so this stays cheap.
+// Items have tens of entries, so this stays cheap. Also clears the "Correct balance" mark when
+// the balance at the time it was marked no longer matches.
 async function recalculateItem(itemId, session) {
-  const entries = await Transaction.find({ item: itemId })
-    .sort(LEDGER_ORDER)
-    .select('date type quantity countedQuantity adjustment endingBalance')
-    .session(session)
-    .lean();
+  const [entries, current] = await Promise.all([
+    Transaction.find({ item: itemId })
+      .sort(LEDGER_ORDER)
+      .select('date type quantity countedQuantity adjustment endingBalance isBalanceForwarded createdAt')
+      .session(session)
+      .lean(),
+    Item.findById(itemId).select('balanceCheck').session(session).lean(),
+  ]);
+  const check = current?.balanceCheck;
 
   let balance = 0;
   let reserved = 0;
+  // The balance when it was marked correct: entries dated before that day, and that day's entries
+  // already recorded then. Entries recorded later that day are after the check.
+  const isBeforeCheck = (entry) =>
+    entry.isBalanceForwarded || entry.date < check.on || (entry.date.getTime() === check.on.getTime() && entry.createdAt <= check.at);
+  let balanceAtCheck = 0;
   const updates = [];
   for (const entry of entries) {
     const next = step(balance, reserved, entry);
+    if (check && isBeforeCheck(entry)) balanceAtCheck = next;
     const update = {};
     if (entry.type === 'ADJUST') {
       const adjustment = next - balance;
@@ -50,6 +61,9 @@ async function recalculateItem(itemId, session) {
       transactionCount: entries.length,
       lastTransactionDate: last?.date ?? null,
       lastTransactionType: last?.type ?? null,
+      // A change to the entries before the mark (an edit, rollback or back-dated entry) made the
+      // balance then differ: the mark no longer holds. Later entries don't clear it.
+      ...(check && balanceAtCheck !== check.balance ? { balanceCheck: null } : {}),
     },
     { returnDocument: 'after', session },
   );

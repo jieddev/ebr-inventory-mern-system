@@ -6,7 +6,7 @@ const ReceivingReport = require('../models/ReceivingReport');
 const User = require('../models/User');
 const { DEFAULT_TYPES, DEFAULT_BRANDS, CATEGORIES, ACTIVE } = require('../models/Item');
 const { BALANCE_FORWARDED, openingEntry } = require('../models/Transaction');
-const { recalculateItem } = require('../services/balance.service');
+const { recalculateItem, balanceOn } = require('../services/balance.service');
 const { nextItemIds, parseItemId } = require('../services/itemId.service');
 const { readSummaryReport, buildSummaryReport, buildItemList } = require('../services/summaryReport.service');
 const { broadcast, sourceClientId, EVERYONE } = require('../services/events.service');
@@ -20,9 +20,9 @@ const { can } = require('../config/permissions');
 
 // What users without viewItemStock see of an item: its details and current ending balance,
 // but nothing about its transactions (no last transaction date or type, no count).
-const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance';
+const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance balanceCheck';
 const ITEM_FIELDS =
-  'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt';
+  'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt balanceCheck';
 
 // GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&sort=&page=&limit=
 // Every item in the cost center, by item ID or ?sort= (see utils/filters.js itemSort) (Items page). See utils/filters.js for the filters.
@@ -64,11 +64,23 @@ async function addedByNames(addedBy) {
   return Object.fromEntries(users.map((user) => [String(user._id), user.name]));
 }
 
+// The Balance filter (Items page only): marked correct, or not.
+const CHECKED_FILTERS = {
+  yes: { balanceCheck: { $ne: null } },
+  no: { balanceCheck: null },
+};
+
 // The Items page's cost center, search, filters and Active / Archived view as one Item filter.
 // Shared by the list and the batch actions, so "all matching" means what the page shows.
+// ?checked=yes|no: balance marked correct or not.
 function itemsPageFilter(costCenter, query) {
   const conditions = [{ costCenter }, ...itemConditions(query)];
   conditions.push(query.archived === '1' ? { archivedAt: { $ne: null } } : ACTIVE);
+  const checked = String(query.checked ?? '').toLowerCase();
+  if (checked) {
+    if (!CHECKED_FILTERS[checked]) throw new HttpError(400, 'Balance must be yes or no');
+    conditions.push(CHECKED_FILTERS[checked]);
+  }
   const search = allWordsFilter(query.search, ['itemId', 'code', 'brand', 'typeDesign']);
   if (search) conditions.push(search);
   return andFilter(conditions);
@@ -148,6 +160,8 @@ async function listFacets(req, res) {
           },
           { $project: { _id: 0 } },
         ],
+        // The Balance filter (marked correct or not).
+        checked: [{ $group: { _id: null, yes: whenBalance({ $gt: ['$balanceCheck', null] }), total: { $sum: 1 } } }],
         addedToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, { $count: 'count' }],
         addedBy: countBy('createdBy'),
         addedByToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, ...countBy('createdBy')],
@@ -176,6 +190,7 @@ async function listFacets(req, res) {
     brands: facets.brands,
     addedToday: facets.addedToday[0]?.count ?? 0,
     addedBy,
+    checked: { yes: facets.checked[0]?.yes ?? 0, no: (facets.checked[0]?.total ?? 0) - (facets.checked[0]?.yes ?? 0) },
     ...((can(req.user, 'viewItemStock') || can(req.user, 'addTransactions')) && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
   });
 }
@@ -355,17 +370,70 @@ async function restoreItem(req, res) {
   res.json({ item: result });
 }
 
-const MAX_BATCH_IDS = 1000;
+// The "Correct balance" mark for an item: its balance now (every entry up to today), by the
+// signed-in admin. See balance.service.js recalculateItem() for when it's cleared.
+async function newBalanceCheck(req, itemId, day, session) {
+  const at = new Date();
+  const { balance } = await balanceOn(itemId, day, session);
+  return { on: day, balance, by: req.user._id, byName: req.user.name, at };
+}
 
-// POST /api/items/batch — archive or restore many items at once (admin).
-// Body: { action: 'archive' | 'restore', ids: [...] } for picked items, or
+// POST /api/items/:id/balance-check — mark the item's balance as correct (admin): it matches the
+// actual count as of now. Stays until an entry recorded before the mark is changed or removed, or
+// a back-dated entry (before today) is added. New entries from now on keep it.
+async function markBalanceCorrect(req, res) {
+  const id = parseObjectId(req.params.id, 'Item');
+  const item = await mongoose.connection.transaction(async (session) => {
+    const current = await Item.findOne({ _id: id, costCenter: req.costCenter }).session(session);
+    if (!current) throw new HttpError(404, 'Item not found');
+    if (current.archivedAt) throw new HttpError(409, 'This item is archived. Restore it first.');
+    current.balanceCheck = await newBalanceCheck(req, id, today(), session);
+    await current.save({ session });
+    await record(
+      req,
+      { action: 'item.balance_check', target: itemTarget(current), details: { balance: current.balanceCheck.balance } },
+      session,
+    );
+    return current;
+  });
+
+  broadcast('item-changed', { itemId: String(id) }, { permission: EVERYONE, costCenter: req.costCenter });
+  res.json({ item: pickFields(item) });
+}
+
+// DELETE /api/items/:id/balance-check — remove the "Correct balance" mark (admin).
+async function unmarkBalanceCorrect(req, res) {
+  const id = parseObjectId(req.params.id, 'Item');
+  const item = await Item.findOneAndUpdate(
+    { _id: id, costCenter: req.costCenter, balanceCheck: { $ne: null } },
+    { balanceCheck: null },
+    { returnDocument: 'after' },
+  )
+    .select(ITEM_FIELDS)
+    .lean();
+  // Not marked: nothing to do.
+  const result = item ?? (await Item.findOne({ _id: id, costCenter: req.costCenter }).select(ITEM_FIELDS).lean());
+  if (!result) throw new HttpError(404, 'Item not found');
+
+  if (item) {
+    await record(req, { action: 'item.balance_uncheck', target: itemTarget(item) });
+    broadcast('item-changed', { itemId: String(id) }, { permission: EVERYONE, costCenter: req.costCenter });
+  }
+  res.json({ item: result });
+}
+
+const MAX_BATCH_IDS = 1000;
+const BATCH_ACTIONS = ['archive', 'restore', 'balance_check', 'balance_uncheck'];
+
+// POST /api/items/batch — archive, restore, mark correct or unmark many items at once (admin).
+// Body: { action: 'archive' | 'restore' | 'balance_check' | 'balance_uncheck', ids: [...] } for picked items, or
 // { action, all: true, query: { search, stock, added, addedBy, category, typeDesign, brand } } for every
 // item matching the Items page's current search and filters.
 async function batchItems(req, res) {
   const { action, ids, all, query = {} } = req.body ?? {};
-  if (action !== 'archive' && action !== 'restore') throw new HttpError(400, 'Action must be archive or restore');
+  if (!BATCH_ACTIONS.includes(action)) throw new HttpError(400, 'Unknown action');
 
-  // Archive acts on active items, restore on archived ones: the view the action comes from.
+  // Restore acts on archived items, the others on active ones: the view the action comes from.
   const filter = itemsPageFilter(req.costCenter, { ...(all ? query : {}), archived: action === 'restore' ? '1' : '' });
   if (!all) {
     if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, 'Select at least one item');
@@ -373,11 +441,18 @@ async function batchItems(req, res) {
     filter._id = { $in: ids.map((id) => parseObjectId(id, 'Item')) };
   }
 
-  const update =
-    action === 'archive'
-      ? { archivedAt: new Date(), archivedBy: req.user._id }
-      : { archivedAt: null, $unset: { archivedBy: 1 } };
-  const { modifiedCount } = await Item.updateMany(filter, update);
+  let modifiedCount;
+  if (action === 'balance_check') {
+    modifiedCount = await markManyCorrect(req, filter);
+  } else {
+    const updates = {
+      archive: { archivedAt: new Date(), archivedBy: req.user._id },
+      restore: { archivedAt: null, $unset: { archivedBy: 1 } },
+      balance_uncheck: { balanceCheck: null },
+    };
+    if (action === 'balance_uncheck') filter.balanceCheck = { $ne: null };
+    ({ modifiedCount } = await Item.updateMany(filter, updates[action]));
+  }
 
   if (modifiedCount) {
     await record(req, {
@@ -387,6 +462,20 @@ async function batchItems(req, res) {
     broadcast('item-changed', { batch: action, count: modifiedCount }, { permission: EVERYONE, costCenter: req.costCenter });
   }
   res.json({ action, count: modifiedCount });
+}
+
+// Marks every item matching `filter` as correct as of today, each with its own balance on that day.
+async function markManyCorrect(req, filter) {
+  const day = today();
+  return mongoose.connection.transaction(async (session) => {
+    const ids = await Item.find(filter).select('_id').session(session).lean();
+    const writes = [];
+    for (const { _id } of ids) {
+      writes.push({ updateOne: { filter: { _id }, update: { balanceCheck: await newBalanceCheck(req, _id, day, session) } } });
+    }
+    if (writes.length) await Item.bulkWrite(writes, { session });
+    return writes.length;
+  });
 }
 
 // POST /api/items/import — body is an Excel file in the Summary Report format.
@@ -695,6 +784,8 @@ module.exports = {
   updateItem,
   archiveItem,
   restoreItem,
+  markBalanceCorrect,
+  unmarkBalanceCorrect,
   batchItems,
   importItems,
   latestImport,

@@ -2,8 +2,8 @@ import { formatDate } from './format'
 
 // Filters live in the URL query string, so a filtered view survives a refresh and can be shared.
 // Entry filters (type, from, to) only apply on the Transactions page; added (date added) and
-// addedBy (user _ids) only on the Items page.
-export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', added: '', addedBy: [], category: [], brand: [] }
+// addedBy (user _ids) and checked (balance marked correct: yes / no) only on the Items page.
+export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', checked: '', added: '', addedBy: [], category: [], brand: [] }
 
 // facet: where the dropdown finds the choices in GET /api/items/facets.
 export const LIST_FILTERS = [
@@ -18,12 +18,20 @@ export const STOCK_OPTIONS = [
   { value: 'negative', label: 'Negative' },
 ]
 
+// The Items page's Balance filter: items an admin marked as "Correct balance", or not.
+export const CHECKED_OPTIONS = [
+  { value: '', label: 'Any' },
+  { value: 'yes', label: 'Correct balance' },
+  { value: 'no', label: 'Not checked' },
+]
+
 export function readFilters(searchParams) {
   return {
     type: searchParams.get('type') ?? '',
     from: searchParams.get('from') ?? '',
     to: searchParams.get('to') ?? '',
     stock: searchParams.get('stock') ?? '',
+    checked: searchParams.get('checked') ?? '',
     added: searchParams.get('added') ?? '',
     addedBy: searchParams.getAll('addedBy'),
     category: searchParams.getAll('category'),
@@ -36,6 +44,7 @@ export function countActiveFilters(filters) {
     (filters.type ? 1 : 0) +
     (filters.from || filters.to ? 1 : 0) +
     (filters.stock ? 1 : 0) +
+    (filters.checked ? 1 : 0) +
     (filters.added ? 1 : 0) +
     filters.addedBy.length +
     LIST_FILTERS.reduce((sum, { key }) => sum + filters[key].length, 0)
@@ -61,6 +70,10 @@ export function filterChips(filters, { addedByNames } = {}) {
   if (filters.stock) {
     const label = STOCK_OPTIONS.find((o) => o.value === filters.stock)?.label ?? filters.stock
     chips.push({ id: 'stock', label: `Stock: ${label}`, without: { ...filters, stock: '' } })
+  }
+  if (filters.checked) {
+    const label = CHECKED_OPTIONS.find((o) => o.value === filters.checked)?.label ?? filters.checked
+    chips.push({ id: 'checked', label: `Balance: ${label}`, without: { ...filters, checked: '' } })
   }
   if (filters.added) chips.push({ id: 'added', label: 'Added today', without: { ...filters, added: '' } })
   for (const id of filters.addedBy) {
