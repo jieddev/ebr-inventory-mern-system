@@ -4,13 +4,15 @@ import SidePanel from '../../components/ui/SidePanel'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { updateItem } from '../../api/items'
-import { formatNumber } from '../../utils/format'
+import { formatDate, formatNumber } from '../../utils/format'
+import checkIcon from '../../assets/icons/check-circle.svg'
 import ItemFields from './ItemFields'
 import { validateItemForm } from './itemForm'
 
 // Admin only. Changing the balance forwarded also moves the item's current balance by
-// the same amount, because the opening entry is re-run through the ledger.
-export default function EditItemPanel({ item, onClose, onSaved }) {
+// the same amount, because the opening entry is re-run through the ledger. The "Correct balance"
+// mark is toggled right away (not on Save) through onToggleCheck.
+export default function EditItemPanel({ item, onClose, onSaved, onToggleCheck, isChecking = false }) {
   const categoryRef = useRef(null)
   const [form, setForm] = useState(() => ({
     category: item.category ?? '',
@@ -90,6 +92,37 @@ export default function EditItemPanel({ item, onClose, onSaved }) {
         categoryRef={categoryRef}
         balanceHint={balanceHint}
       />
+
+      <BalanceCheck check={item.balanceCheck} onToggle={onToggleCheck} isBusy={isChecking} />
     </SidePanel>
+  )
+}
+
+// Whether an admin marked the current balance as matching the actual count, with the toggle.
+function BalanceCheck({ check, onToggle, isBusy }) {
+  return (
+    <div className="edit-item-check">
+      <div className="edit-item-check-text">
+        <span className="edit-item-check-label">Correct balance</span>
+        {check ? (
+          <span className="edit-item-check-status">
+            <img src={checkIcon} alt="" width="16" height="16" />
+            {formatDate(check.on)}
+            {check.byName && ` · ${check.byName}`} · balance then {formatNumber(check.balance)}
+          </span>
+        ) : (
+          <span className="edit-item-check-status">Not marked yet.</span>
+        )}
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onToggle}
+        isLoading={isBusy}
+        title={check ? 'Remove the "Correct balance" mark' : 'The current balance matches the actual count'}
+      >
+        {check ? 'Unmark' : 'Mark correct'}
+      </Button>
+    </div>
   )
 }

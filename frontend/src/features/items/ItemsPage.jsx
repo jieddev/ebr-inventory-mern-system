@@ -249,14 +249,16 @@ export default function ItemsPage() {
   async function handleToggleCheck(item) {
     setCheckingId(item._id)
     setError('')
+    let updated
     try {
       if (item.balanceCheck) {
-        await unmarkBalanceCorrect(item._id)
+        updated = await unmarkBalanceCorrect(item._id)
         setNotice(`${item.itemId} · ${item.code}: "Correct balance" removed.`)
       } else {
-        await markBalanceCorrect(item._id)
+        updated = await markBalanceCorrect(item._id)
         setNotice(`${item.itemId} · ${item.code} was marked as correct balance.`)
       }
+      setEditing((current) => (current?._id === item._id ? { ...current, balanceCheck: updated?.balanceCheck ?? null } : current))
       reload()
     } catch (err) {
       setError(getErrorMessage(err, 'Could not update the item.'))
@@ -606,20 +608,6 @@ export default function ItemsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleToggleCheck(item)}
-                                isLoading={checkingId === item._id}
-                                title={
-                                  item.balanceCheck
-                                    ? 'Remove the "Correct balance" mark'
-                                    : 'The current balance matches the actual count'
-                                }
-                                aria-label={`${item.balanceCheck ? 'Unmark' : 'Mark'} correct balance for ${item.itemId}`}
-                              >
-                                {item.balanceCheck ? 'Unmark' : 'Mark correct'}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
                                 className="items-archive-btn"
                                 onClick={() =>
                                   setConfirmArchive({
@@ -709,7 +697,14 @@ export default function ItemsPage() {
       </section>
 
       {editing && (
-        <EditItemPanel key={editing._id} item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
+        <EditItemPanel
+          key={editing._id}
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+          onToggleCheck={() => handleToggleCheck(editing)}
+          isChecking={checkingId === editing._id}
+        />
       )}
       {isAdding && !editing && canAddItems && (
         <AddItemPanel
@@ -798,13 +793,12 @@ export default function ItemsPage() {
   )
 }
 
-// The Balance cell's "Correct" tag: an admin marked the balance as matching the actual count.
+// The Balance cell's green check: an admin marked the balance as matching the actual count.
 function CorrectBalanceTag({ check }) {
   const title = `Correct balance as of ${formatDate(check.on)}${check.byName ? `, checked by ${check.byName}` : ''}. Balance then: ${formatNumber(check.balance)}.`
   return (
-    <span className="items-correct-tag" title={title} aria-label={title}>
-      <img src={checkIcon} alt="" width="12" height="12" />
-      Correct · {formatDate(check.on)}
+    <span className="items-correct-tag" title={title} aria-label={title} role="img">
+      <img src={checkIcon} alt="" width="16" height="16" />
     </span>
   )
 }
