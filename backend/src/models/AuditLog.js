@@ -21,6 +21,7 @@ const ACTIONS = [
   'item.import_undo',
   'item.export',
   'item.list_export',
+  'item.move',
   'transaction.create',
   'transaction.release',
   'transaction.cancel',

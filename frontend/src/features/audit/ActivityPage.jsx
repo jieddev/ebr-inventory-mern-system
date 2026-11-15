@@ -37,6 +37,7 @@ const ACTION_LABELS = {
   'item.import_undo': 'Undid import',
   'item.export': 'Exported Excel',
   'item.list_export': 'Exported item list',
+  'item.move': 'Moved item to another cost center',
   'transaction.create': 'Added transaction',
   'transaction.release': 'Released reservation',
   'transaction.cancel': 'Cancelled reservation',
@@ -365,6 +366,14 @@ function Details({ entry }) {
           </ul>
         </>
       )
+    case 'item.move':
+      return [
+        `${costCenterLabel(d.fromCostCenter)} → ${costCenterLabel(d.toCostCenter)}`,
+        d.mergedInto && `merged into ${d.mergedInto}`,
+        d.transactionCount != null && pluralize(d.transactionCount, 'transaction'),
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'transfer.create':
       return (
         <>
