@@ -745,8 +745,8 @@ export default function ItemsPage() {
             ) : confirmBatch.action === 'balance_check' ? (
               <p>
                 {selection.all && 'Every item matching the current search and filters, on every page. '}
-                Everyone will see their current balance as correct (matching the actual count). New transactions
-                keep the mark; it's removed automatically if an earlier entry is edited, rolled back or back-dated.
+                Everyone will see their current balance as correct (matching the actual count). The mark stays,
+                even when transactions change the balance, until an admin unmarks it.
               </p>
             ) : confirmBatch.action === 'balance_uncheck' ? (
               <p>

@@ -92,8 +92,8 @@ const itemSchema = new mongoose.Schema(
     lastTransactionType: { type: String, enum: ['IN', 'OUT', 'RESERVE', 'ADJUST'] },
 
     // Set when an admin marks the balance as correct (it matched the actual count) on day `on` at `at`.
-    // `balance` is the item's balance then; services/balance.service.js clears the mark when a change
-    // to the entries before it makes that balance differ. Entries recorded after the mark keep it.
+    // `balance` is the item's balance then (shown as "Balance then"). It stays, whatever entries are
+    // added, edited or rolled back later, until an admin unmarks it.
     balanceCheck: {
       type: new mongoose.Schema(
         {

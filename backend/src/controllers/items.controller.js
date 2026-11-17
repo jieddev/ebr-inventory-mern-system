@@ -378,7 +378,7 @@ async function restoreItem(req, res) {
 }
 
 // The "Correct balance" mark for an item: its balance now (every entry up to today), by the
-// signed-in admin. See balance.service.js recalculateItem() for when it's cleared.
+// signed-in admin. It's only removed by Unmark.
 async function newBalanceCheck(req, itemId, day, session) {
   const at = new Date();
   const { balance } = await balanceOn(itemId, day, session);
@@ -386,8 +386,7 @@ async function newBalanceCheck(req, itemId, day, session) {
 }
 
 // POST /api/items/:id/balance-check — mark the item's balance as correct (admin): it matches the
-// actual count as of now. Stays until an entry recorded before the mark is changed or removed, or
-// a back-dated entry (before today) is added. New entries from now on keep it.
+// actual count as of now. Stays until an admin unmarks it, whatever transactions change after.
 async function markBalanceCorrect(req, res) {
   const id = parseObjectId(req.params.id, 'Item');
   const item = await mongoose.connection.transaction(async (session) => {
