@@ -46,7 +46,7 @@ router.get('/', canViewItems, listItems);
 router.get('/search', requirePermission('addTransactions', 'reconcile'), searchItems);
 router.get('/by-item-id/:itemId', canAddTransactions, findByItemId);
 // The filter dropdown on the Items and Transactions pages.
-router.get('/facets', requirePermission('viewItems', 'addTransactions'), listFacets);
+router.get('/facets', requirePermission('viewItems', 'addTransactions', 'viewTransactions'), listFacets);
 router.get('/export', adminOnly, exportItems);
 // The Items page's item list (no stock) as Excel.
 router.get('/export/list', canViewItems, exportItemList);
@@ -56,7 +56,8 @@ router.post('/import', adminOnly, express.raw({ type: () => true, limit: '25mb' 
 // Undo import: the newest import, and undoing it.
 router.get('/imports/latest', adminOnly, latestImport);
 router.post('/imports/:id/undo', adminOnly, undoImport);
-router.get('/:id/transactions', canAddTransactions, listItemTransactions);
+// An item's entries, when its row is expanded on the Transactions page.
+router.get('/:id/transactions', requirePermission('addTransactions', 'viewTransactions'), listItemTransactions);
 router.patch('/:id', adminOnly, updateItem);
 router.delete('/:id', adminOnly, archiveItem);
 router.post('/:id/restore', adminOnly, restoreItem);

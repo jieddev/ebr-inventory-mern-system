@@ -11,6 +11,7 @@ import { costCenterLabel } from '../../utils/costCenters'
 import { formatDate, formatNumber } from '../../utils/format'
 import ReservationDialogs from '../reservations/ReservationDialogs'
 import { useAuth } from '../auth/useAuth'
+import { can } from '../../utils/permissions'
 import { ROLE_LABELS } from '../../utils/roles'
 import dotIn from '../../assets/icons/dot-in.svg'
 import dotOut from '../../assets/icons/dot-out.svg'
@@ -62,6 +63,8 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   const isBalanceForwarded = Boolean(t?.isBalanceForwarded)
   const canRollback = user.role === 'admin' && t && !isBalanceForwarded
   const canEdit = user.role === 'admin' && t && !isCount
+  // Users with only viewTransactions see reservations but can't confirm or cancel them.
+  const canManageReservation = isReserved && can(user, 'addTransactions')
 
   const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | null
   const [rollback, setRollback] = useState({ isBusy: false, error: '' })
@@ -163,7 +166,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
             </Button>
           </Fragment>
         ) : (
-          (isReserved || canEdit) && (
+          (canManageReservation || canEdit) && (
             <Fragment key="viewing">
               {canRollback && (
                 <Button variant="danger" className="txn-details-rollback" onClick={() => setDialog('rollback')}>
@@ -175,7 +178,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
                   Edit
                 </Button>
               )}
-              {isReserved && (
+              {canManageReservation && (
                 <>
                   <Button variant="secondary" onClick={() => setDialog('cancel')}>
                     Cancel reservation

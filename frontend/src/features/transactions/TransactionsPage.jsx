@@ -53,7 +53,9 @@ export default function TransactionsPage() {
   const canAddItems = can(user, 'addItems')
   // Stock Transfer needs two cost centers to move stock between (admins have all of them).
   const { allowed } = useCostCenter()
-  const canTransfer = can(user, 'addTransactions') && allowed.length > 1
+  // viewTransactions alone is read-only: no Add Transaction or Stock Transfer.
+  const canAddTransactions = can(user, 'addTransactions')
+  const canTransfer = canAddTransactions && allowed.length > 1
   const [itemsAddedThisSession, setItemsAddedThisSession] = useState([])
   // Item description for the Add Item panel when it's opened from a search that found nothing.
   const [newItemCode, setNewItemCode] = useState('')
@@ -217,10 +219,12 @@ export default function TransactionsPage() {
                 Stock Transfer
               </Button>
             )}
-            <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
-              <img src={plusIcon} alt="" />
-              Add Transaction
-            </Button>
+            {canAddTransactions && (
+              <Button onClick={() => setPanel('transaction')} aria-pressed={panel === 'transaction'}>
+                <img src={plusIcon} alt="" />
+                Add Transaction
+              </Button>
+            )}
           </div>
         </header>
 
@@ -391,7 +395,7 @@ export default function TransactionsPage() {
           addedThisSession={itemsAddedThisSession}
         />
       )}
-      {panel === 'transaction' && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
+      {panel === 'transaction' && canAddTransactions && <AddTransactionPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'transfer' && canTransfer && <StockTransferPanel onClose={closePanel} onSaved={reload} />}
       {panel === 'details' && (
         <TransactionDetailsPanel

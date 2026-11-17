@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../api/auth'
 import { getDashboard } from '../../api/dashboard'
 import { useLiveUpdates } from '../../hooks/useLiveUpdates'
 import { useAuth } from '../auth/useAuth'
-import { can } from '../../utils/permissions'
+import { TRANSACTION_VIEW_PERMISSIONS, can, canAny } from '../../utils/permissions'
 import { costCenterLabel } from '../../utils/costCenters'
 import { useCostCenter } from '../costCenter/useCostCenter'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
@@ -87,7 +87,7 @@ function StatTiles({ data, user }) {
   const day = todayInputValue()
   // Today's IN or OUT entries on the Transactions page, for users who can open it.
   const todayEntries = (type) =>
-    can(user, 'addTransactions') ? `/transactions?${new URLSearchParams({ type, from: day, to: day })}` : null
+    canAny(user, TRANSACTION_VIEW_PERMISSIONS) ? `/transactions?${new URLSearchParams({ type, from: day, to: day })}` : null
   const canFilterStock = can(user, 'viewItems') && can(user, 'viewItemStock')
 
   return (

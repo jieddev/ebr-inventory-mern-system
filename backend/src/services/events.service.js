@@ -8,6 +8,8 @@ const clients = new Map();
 // Who may receive an event. Most events carry transaction details (quantities, customers),
 // so by default only users who add transactions get them; item-only events go to EVERYONE.
 const EVERYONE = null;
+// Users who can open the Transactions page (frontend utils/permissions.js TRANSACTION_VIEW_PERMISSIONS).
+const TRANSACTION_VIEWERS = ['addTransactions', 'viewTransactions'];
 
 function addClient(res, { userId, role, permissions, costCenters }) {
   clients.set(res, { userId: String(userId), role, permissions, costCenters });
@@ -22,14 +24,16 @@ function disconnectUser(userId) {
 }
 
 // Sends one event about `costCenter`'s data to every connected browser whose user has
-// `permission` (and not `unless`) and may work in that cost center. Admins have every permission.
+// `permission` (and not `unless`; each one permission or a list of any) and may work in that cost
+// center. Admins have every permission. By default, everyone who can open the Transactions page.
 // Events are tagged with costCenter, and users with several cost centers skip the ones for a
 // cost center they aren't viewing (frontend useLiveUpdates.js).
-function broadcast(event, data, { permission = 'addTransactions', unless, costCenter }) {
+function broadcast(event, data, { permission = TRANSACTION_VIEWERS, unless, costCenter }) {
   const message = `event: ${event}\ndata: ${JSON.stringify({ ...data, costCenter })}\n\n`;
+  const canAny = (client, permissions) => [].concat(permissions).some((p) => can(client, p));
   for (const [res, client] of clients) {
-    if (permission && !can(client, permission)) continue;
-    if (unless && can(client, unless)) continue;
+    if (permission && !canAny(client, permission)) continue;
+    if (unless && canAny(client, unless)) continue;
     if (!client.costCenters.includes(costCenter)) continue;
     res.write(message);
   }
@@ -41,4 +45,4 @@ function sourceClientId(req) {
   return String(req.get('X-Client-Id') ?? '').slice(0, 64);
 }
 
-module.exports = { addClient, broadcast, disconnectUser, sourceClientId, EVERYONE };
+module.exports = { addClient, broadcast, disconnectUser, sourceClientId, EVERYONE, TRANSACTION_VIEWERS };

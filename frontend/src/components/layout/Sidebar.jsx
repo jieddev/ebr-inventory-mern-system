@@ -4,7 +4,7 @@ import { useAuth } from '../../features/auth/useAuth'
 import { useCostCenter } from '../../features/costCenter/useCostCenter'
 import { usePendingReservations } from '../../hooks/usePendingReservations'
 import { viewPath } from '../../utils/rememberedViews'
-import { REPORT_PERMISSIONS, canAny } from '../../utils/permissions'
+import { REPORT_PERMISSIONS, TRANSACTION_VIEW_PERMISSIONS, canAny } from '../../utils/permissions'
 import { COST_CENTERS, costCenterLabel } from '../../utils/costCenters'
 import chevronIcon from '../../assets/icons/chevron-right-sm.svg'
 import checkIcon from '../../assets/icons/check.svg'
@@ -14,7 +14,7 @@ import './Sidebar.css'
 // PermissionRoute/AdminRoute wrappers in App.jsx.
 const LINKS = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/transactions', label: 'Transactions', icon: 'transactions', permission: 'addTransactions' },
+  { to: '/transactions', label: 'Transactions', icon: 'transactions', permission: TRANSACTION_VIEW_PERMISSIONS },
   { to: '/reservations', label: 'Reservations', icon: 'reservations', permission: 'addTransactions' },
   { to: '/items', label: 'Items', icon: 'items', permission: 'viewItems' },
   { to: '/reports', label: 'Reports', icon: 'reports', permission: REPORT_PERMISSIONS },

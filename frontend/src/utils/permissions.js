@@ -8,6 +8,12 @@ export const PERMISSIONS = [
     short: 'Add transactions',
     hint: 'Transactions, Reservations and receiving reports',
   },
+  {
+    value: 'viewTransactions',
+    label: 'Allow user to view the Transactions page',
+    short: 'View transactions',
+    hint: 'Read-only: no adding, reservations or stock transfers',
+  },
   { value: 'viewDailyReport', label: 'Allow user to view the daily report', short: 'Daily report' },
   { value: 'viewTransactionReport', label: 'Allow user to view the transaction report', short: 'Transaction report' },
   { value: 'viewItems', label: 'Allow user to open the Items page', short: 'Items page' },
@@ -44,6 +50,9 @@ export function can(user, permission) {
 
 // True when the user has at least one of `permissions`.
 export const canAny = (user, permissions) => permissions.some((p) => can(user, p))
+
+// The Transactions page opens with either; only addTransactions can add or change entries there.
+export const TRANSACTION_VIEW_PERMISSIONS = ['addTransactions', 'viewTransactions']
 
 // Each report has its own permission; the Reports page opens for users with any of them.
 export const REPORT_PERMISSIONS = ['viewDailyReport', 'viewTransactionReport']

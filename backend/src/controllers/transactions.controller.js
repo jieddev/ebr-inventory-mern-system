@@ -7,7 +7,7 @@ const ReceivingReport = require('../models/ReceivingReport');
 const StockTransfer = require('../models/StockTransfer');
 const { lineQuantities } = require('../models/StockTransfer');
 const { recalculateItem, balanceOn } = require('../services/balance.service');
-const { broadcast, sourceClientId } = require('../services/events.service');
+const { broadcast, sourceClientId, TRANSACTION_VIEWERS } = require('../services/events.service');
 const { record, diff, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { parseDay, today, parseWholeNumber, parseObjectId, containsRegex, searchWords, parsePage } = require('../utils/parse');
@@ -727,10 +727,10 @@ function announce(req, item, activity, costCenter = req.costCenter) {
     activity: activity && { ...activity, actorName: req.user.name, itemCode: item.code },
     sourceClientId: sourceClientId(req),
   }, { costCenter });
-  // Items page users who don't add transactions only learn that the item changed (its balance).
+  // Items page users who can't open the Transactions page only learn that the item changed (its balance).
   broadcast('item-changed', { itemId: String(item._id) }, {
     permission: 'viewItems',
-    unless: 'addTransactions',
+    unless: TRANSACTION_VIEWERS,
     costCenter,
   });
 }

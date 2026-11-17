@@ -17,7 +17,7 @@ import ReportsPage from './features/reports/ReportsPage'
 import TransactionReportPage from './features/reports/TransactionReportPage'
 import ReservationsPage from './features/reservations/ReservationsPage'
 import ReconcilePage from './features/reconcile/ReconcilePage'
-import { REPORT_PERMISSIONS } from './utils/permissions'
+import { REPORT_PERMISSIONS, TRANSACTION_VIEW_PERMISSIONS } from './utils/permissions'
 
 export default function App() {
   return (
@@ -30,8 +30,10 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
-              <Route element={<PermissionRoute permission="addTransactions" />}>
+              <Route element={<PermissionRoute permission={TRANSACTION_VIEW_PERMISSIONS} />}>
                 <Route path="/transactions" element={<TransactionsPage />} />
+              </Route>
+              <Route element={<PermissionRoute permission="addTransactions" />}>
                 <Route path="/reservations" element={<ReservationsPage />} />
               </Route>
               <Route element={<PermissionRoute permission={REPORT_PERMISSIONS} />}>

@@ -2,6 +2,7 @@
 // do everything and have none stored. Keep in step with frontend utils/permissions.js.
 const PERMISSIONS = [
   { value: 'addTransactions', label: 'Allow user to add transactions' },
+  { value: 'viewTransactions', label: 'Allow user to view the Transactions page (read-only)' },
   { value: 'viewDailyReport', label: 'Allow user to view the daily report' },
   { value: 'viewTransactionReport', label: 'Allow user to view the transaction report' },
   { value: 'viewItems', label: 'Allow user to open the Items page' },
