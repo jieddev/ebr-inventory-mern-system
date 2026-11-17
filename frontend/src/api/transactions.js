@@ -37,7 +37,8 @@ export async function rollbackTransaction(id) {
 }
 
 // Admin: corrects an entry in place (date, type, quantity, customerName, neededBy, notes; only
-// the fields given change). The item's balance is recalculated. { transaction, item }.
+// the fields given change; the balance forwarded takes only date). The item's balance is
+// recalculated. { transaction, item }.
 export async function updateTransaction(id, changes) {
   const { data } = await api.patch(`/transactions/${id}`, changes)
   return data

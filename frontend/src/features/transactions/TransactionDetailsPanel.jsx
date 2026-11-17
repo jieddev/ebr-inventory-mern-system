@@ -35,7 +35,8 @@ const dateTime = new Intl.DateTimeFormat('en-US', {
 
 // Details of one ledger entry, opened by clicking it in the Transactions table.
 // Reservations also get Confirm out and Cancel reservation, and admins get Edit and Rollback on any
-// entry but the balance forwarded. onChanged(itemId) runs after each.
+// entry (Edit only changes the date of the balance forwarded, which can't be rolled back).
+// onChanged(itemId) runs after each.
 export default function TransactionDetailsPanel({ transactionId, onClose, onChanged }) {
   const { user } = useAuth()
   // The last finished request; it's loading while that isn't the current one.
@@ -58,7 +59,9 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   const { transaction: t, receiving, transfer } = (!isLoading && response.data) || {}
   const isReserved = t?.type === 'RESERVE'
   const isCount = t?.type === 'ADJUST'
-  const canRollback = user.role === 'admin' && t && !t.isBalanceForwarded
+  const isBalanceForwarded = Boolean(t?.isBalanceForwarded)
+  const canRollback = user.role === 'admin' && t && !isBalanceForwarded
+  const canEdit = user.role === 'admin' && t && !isCount
 
   const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | null
   const [rollback, setRollback] = useState({ isBusy: false, error: '' })
@@ -89,15 +92,8 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   async function handleSave(event) {
     event.preventDefault()
     const { form } = edit
-    // Slip entries keep the slip's date and type; only reservations have needed-by and notes.
-    const changes = {
-      quantity: form.quantity,
-      customerName: form.customerName,
-    }
-    if (!receiving) changes.date = form.date
-    // Stock transfer entries keep their type; a new date also goes on the other side.
-    if (!receiving && !isReserved && !transfer) changes.type = form.type
-    if (isReserved) Object.assign(changes, { neededBy: form.neededBy, notes: form.notes })
+    // The balance forwarded only changes its date; its amount is set with Edit Item.
+    const changes = isBalanceForwarded ? { date: form.date } : editChanges(form)
     setEdit((prev) => ({ ...prev, isBusy: true, error: '' }))
     try {
       await updateTransaction(t._id, changes)
@@ -111,6 +107,19 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
         error: getErrorMessage(err, 'Could not save the changes.'),
       }))
     }
+  }
+
+  function editChanges(form) {
+    // Slip entries keep the slip's date and type; only reservations have needed-by and notes.
+    const changes = {
+      quantity: form.quantity,
+      customerName: form.customerName,
+    }
+    if (!receiving) changes.date = form.date
+    // Stock transfer entries keep their type; a new date also goes on the other side.
+    if (!receiving && !isReserved && !transfer) changes.type = form.type
+    if (isReserved) Object.assign(changes, { neededBy: form.neededBy, notes: form.notes })
+    return changes
   }
 
   // Released: show it again as OUT. Cancelled or rolled back: the entry is gone, so the panel closes.
@@ -154,14 +163,14 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
             </Button>
           </Fragment>
         ) : (
-          (isReserved || canRollback) && (
+          (isReserved || canEdit) && (
             <Fragment key="viewing">
               {canRollback && (
                 <Button variant="danger" className="txn-details-rollback" onClick={() => setDialog('rollback')}>
                   Rollback
                 </Button>
               )}
-              {canRollback && !isCount && (
+              {canEdit && (
                 <Button variant="secondary" onClick={startEdit}>
                   Edit
                 </Button>
@@ -199,6 +208,7 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
               isReserved={isReserved}
               slipKind={receiving ? receiving.kind : null}
               isTransfer={Boolean(transfer)}
+              isBalanceForwarded={isBalanceForwarded}
               onChange={setField}
               onSubmit={handleSave}
             />
@@ -394,8 +404,9 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
 
 // The Edit form for one entry (admin). slipKind: 'IN' | 'OUT' when it's on a receiving report /
 // batch out slip, which sets its date and type. isTransfer: a stock transfer entry, which keeps
-// its type; its date and quantity also change on the other side.
-function EditForm({ form, error, isReserved, slipKind, isTransfer, onChange, onSubmit }) {
+// its type; its date and quantity also change on the other side. isBalanceForwarded: only the
+// date shows; the amount is set with Edit Item.
+function EditForm({ form, error, isReserved, slipKind, isTransfer, isBalanceForwarded, onChange, onSubmit }) {
   const slipNote = slipKind && `Set by the ${slipKind === 'OUT' ? 'batch out slip' : 'receiving report'}`
   return (
     <form id={FORM_ID} className="txn-details-section txn-edit-form" onSubmit={onSubmit}>
@@ -414,10 +425,16 @@ function EditForm({ form, error, isReserved, slipKind, isTransfer, onChange, onS
         hint={slipNote || undefined}
         onChange={(e) => onChange({ date: e.target.value })}
       />
+      {isBalanceForwarded && (
+        <p className="field-hint">
+          Balance forwarded: only its date can change here, and not to a day after the item’s first transaction.
+          Change its amount with Edit Item on the Items page.
+        </p>
+      )}
       {isTransfer && (
         <p className="field-hint">Stock transfer: a new date also changes the other side; the quantity only changes this side.</p>
       )}
-      {!isReserved && !slipKind && !isTransfer && (
+      {!isReserved && !slipKind && !isTransfer && !isBalanceForwarded && (
         <SegmentedControl
           label="Transaction type"
           name="txn-edit-type"
@@ -426,25 +443,27 @@ function EditForm({ form, error, isReserved, slipKind, isTransfer, onChange, onS
           onChange={(type) => onChange({ type })}
         />
       )}
-      <div className="txn-edit-row">
-        <TextField
-          label="Quantity"
-          type="number"
-          inputMode="numeric"
-          min="1"
-          step="1"
-          required
-          value={form.quantity}
-          onChange={(e) => onChange({ quantity: e.target.value })}
-        />
-        <TextField
-          label="Customer name / Details"
-          autoComplete="off"
-          maxLength={120}
-          value={form.customerName}
-          onChange={(e) => onChange({ customerName: e.target.value })}
-        />
-      </div>
+      {!isBalanceForwarded && (
+        <div className="txn-edit-row">
+          <TextField
+            label="Quantity"
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            required
+            value={form.quantity}
+            onChange={(e) => onChange({ quantity: e.target.value })}
+          />
+          <TextField
+            label="Customer name / Details"
+            autoComplete="off"
+            maxLength={120}
+            value={form.customerName}
+            onChange={(e) => onChange({ customerName: e.target.value })}
+          />
+        </div>
+      )}
       {isReserved && (
         <div className="txn-edit-row">
           <TextField

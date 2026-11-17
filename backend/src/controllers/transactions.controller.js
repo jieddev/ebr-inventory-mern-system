@@ -488,8 +488,9 @@ const editable = (entry) => ({
 });
 
 // PATCH /api/transactions/:id { date?, type?, quantity?, customerName?, neededBy?, notes? } — admin only.
-// Corrects an entry in place; only the fields sent change. Not the balance forwarded (Edit Item)
-// or entries of archived items. IN ↔ OUT only (reservations keep their type: use Confirm out or
+// Corrects an entry in place; only the fields sent change. Not entries of archived items. The
+// balance forwarded can only change its date (its amount is set with Edit Item), and not to a day
+// after the item's first other entry. IN ↔ OUT only (reservations keep their type: use Confirm out or
 // Cancel); needed-by and notes are for pending reservations. Entries on a receiving report /
 // batch out slip keep the slip's date and type; a new quantity also goes on the slip's line.
 // Stock Transfer entries keep their type; a new date also goes on the other leg, a new quantity
@@ -505,8 +506,8 @@ async function updateTransaction(req, res) {
       .session(session)
       .lean();
     if (!entry) throw new HttpError(404, 'Transaction not found');
-    if (entry.isBalanceForwarded) {
-      throw new HttpError(409, 'The balance forwarded can only be changed with Edit Item on the Items page.');
+    if (entry.isBalanceForwarded && ['type', 'quantity', 'customerName', 'neededBy', 'notes'].some(has)) {
+      throw new HttpError(400, 'Only the date of the balance forwarded can change here. Change its amount with Edit Item on the Items page.');
     }
     if (entry.type === 'ADJUST') {
       throw new HttpError(409, 'A physical count can’t be edited. Roll it back and enter the count again.');
@@ -521,6 +522,18 @@ async function updateTransaction(req, res) {
 
     const update = {};
     if (has('date')) update.date = parseDay(body.date);
+    // The balance forwarded opens the ledger, so it can't be dated after the item's first entry.
+    if (entry.isBalanceForwarded && update.date) {
+      const first = await Transaction.findOne({ item: entry.item, isBalanceForwarded: { $ne: true } })
+        .sort({ date: 1 })
+        .select('date')
+        .session(session)
+        .lean();
+      if (first && update.date > first.date) {
+        const [y, m, d] = dayText(first.date).split('-');
+        throw new HttpError(400, `The balance forwarded date can't be after the item's first transaction (${m}/${d}/${y}).`);
+      }
+    }
     if (has('type')) {
       const type = String(body.type).toUpperCase();
       if (type !== entry.type) {
