@@ -10,7 +10,8 @@
     "migrate:warehouse-role": "node scripts/migrate-staff-to-warehouse.js",
     "migrate:cost-centers": "node scripts/migrate-cost-centers.js",
     "migrate:permissions": "node scripts/migrate-permissions.js",
-    "redate:balance-forwarded": "node scripts/redate-balance-forwarded.js"
+    "redate:balance-forwarded": "node scripts/redate-balance-forwarded.js",
+    "fix:brand-aliases": "node scripts/fix-brand-aliases.js"
   },
   "keywords": [],
   "type": "commonjs",
