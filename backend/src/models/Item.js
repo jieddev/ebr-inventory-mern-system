@@ -59,6 +59,16 @@ const CATEGORIES = [
 // Trim, collapse inner spaces and uppercase, so "155 R12  arisun " and "155 R12 ARISUN" are the same item.
 const normalize = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 
+// Other spellings of a brand, saved as the main one, so the Brand list has one GOODYEAR.
+const BRAND_ALIASES = {
+  'GOOD YEAR': 'GOODYEAR',
+  'GOOD-YEAR': 'GOODYEAR',
+};
+const normalizeBrand = (value) => {
+  const brand = normalize(value);
+  return BRAND_ALIASES[brand] ?? brand;
+};
+
 const itemSchema = new mongoose.Schema(
   {
     // The cost center the item (and so its ledger) belongs to. Set when the item is added; never changes.
@@ -68,7 +78,7 @@ const itemSchema = new mongoose.Schema(
     itemId: { type: String },
     category: { type: String, enum: ['', ...CATEGORIES], default: '' },
     code: { type: String, required: true, maxlength: 80, set: normalize },
-    brand: { type: String, default: '', maxlength: 60, set: normalize },
+    brand: { type: String, default: '', maxlength: 60, set: normalizeBrand },
     typeDesign: { type: String, default: '', maxlength: 60, set: normalize },
     // The opening stock. Can be negative (more went out than was on hand), as in the Excel sheet.
     balanceForwarded: {
@@ -128,6 +138,7 @@ itemSchema.index({ costCenter: 1, itemId: 1 });
 itemSchema.index({ itemId: 1 }, { unique: true, sparse: true });
 
 itemSchema.statics.normalize = normalize;
+itemSchema.statics.normalizeBrand = normalizeBrand;
 
 // Not archived. Also matches items saved before archiving existed (no archivedAt field).
 const ACTIVE = { archivedAt: null };
@@ -135,5 +146,6 @@ const ACTIVE = { archivedAt: null };
 module.exports = mongoose.model('Item', itemSchema);
 module.exports.DEFAULT_TYPES = DEFAULT_TYPES;
 module.exports.DEFAULT_BRANDS = DEFAULT_BRANDS;
+module.exports.BRAND_ALIASES = BRAND_ALIASES;
 module.exports.CATEGORIES = CATEGORIES;
 module.exports.ACTIVE = ACTIVE;

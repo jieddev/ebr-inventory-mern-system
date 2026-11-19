@@ -207,7 +207,7 @@ function parseItemFields(body = {}) {
   const fields = {
     category: Item.normalize(body.category),
     code: Item.normalize(body.code),
-    brand: Item.normalize(body.brand),
+    brand: Item.normalizeBrand(body.brand),
     typeDesign: Item.normalize(body.typeDesign),
   };
   if (!CATEGORIES.includes(fields.category)) throw new HttpError(400, 'Select a category');

@@ -152,7 +152,7 @@ async function readSummaryReport(buffer) {
   for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     const code = Item.normalize(cellText(row.getCell(columns.code)));
-    const brand = Item.normalize(cellText(row.getCell(columns.brand)));
+    const brand = Item.normalizeBrand(cellText(row.getCell(columns.brand)));
     const typeDesign = columns.typeDesign ? Item.normalize(cellText(row.getCell(columns.typeDesign))) : '';
     const rawBalance = cellValue(row.getCell(columns.balance));
     const rawDate = columns.date ? cellValue(row.getCell(columns.date)) : null;
