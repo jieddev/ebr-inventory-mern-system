@@ -5,6 +5,9 @@ import { formatDate } from './format'
 // addedBy (user _ids) and checked (balance marked correct: yes / no) only on the Items page.
 export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', checked: '', added: '', addedBy: [], category: [], brand: [] }
 
+// The Brand filter's "No brand" choice: items with an empty brand. Keep in step with backend utils/filters.js.
+export const NO_BRAND = '__NONE__'
+
 // facet: where the dropdown finds the choices in GET /api/items/facets.
 export const LIST_FILTERS = [
   { key: 'category', label: 'Category', facet: 'categories' },
@@ -87,7 +90,7 @@ export function filterChips(filters, { addedByNames } = {}) {
     for (const value of filters[key]) {
       chips.push({
         id: `${key}:${value}`,
-        label: `${label}: ${value}`,
+        label: `${label}: ${key === 'brand' && value === NO_BRAND ? 'No brand' : value}`,
         without: { ...filters, [key]: filters[key].filter((v) => v !== value) },
       })
     }

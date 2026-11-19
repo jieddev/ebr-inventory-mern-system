@@ -13,7 +13,7 @@ const { broadcast, sourceClientId, EVERYONE } = require('../services/events.serv
 const { record, diff, describe, itemTarget } = require('../services/audit.service');
 const HttpError = require('../utils/httpError');
 const { today, parseDay, parseWholeNumber, parseObjectId, allWordsFilter, parsePage } = require('../utils/parse');
-const { itemConditions, entryMatch, andFilter, itemSort, startOfToday } = require('../utils/filters');
+const { NO_BRAND, itemConditions, entryMatch, andFilter, itemSort, startOfToday } = require('../utils/filters');
 const { findSimilarItems } = require('../services/similarItems.service');
 const { costCenterFileName, costCenterLabel } = require('../config/costCenters');
 const { can } = require('../config/permissions');
@@ -149,6 +149,7 @@ async function listFacets(req, res) {
         categories: countBy('category'),
         typeDesigns: countBy('typeDesign'),
         brands: countBy('brand'),
+        noBrand: [{ $match: { brand: { $in: ['', null] } } }, { $count: 'count' }],
         stock: [
           {
             $group: {
@@ -187,7 +188,8 @@ async function listFacets(req, res) {
   res.json({
     categories: CATEGORIES.map((value) => ({ value, count: categoryCounts.get(value) ?? 0 })),
     typeDesigns: facets.typeDesigns,
-    brands: facets.brands,
+    // "No brand" first, so it's always shown above "Show all".
+    brands: [{ value: NO_BRAND, label: 'No brand', count: facets.noBrand[0]?.count ?? 0 }, ...facets.brands],
     addedToday: facets.addedToday[0]?.count ?? 0,
     addedBy,
     checked: { yes: facets.checked[0]?.yes ?? 0, no: (facets.checked[0]?.total ?? 0) - (facets.checked[0]?.yes ?? 0) },

@@ -22,6 +22,10 @@ const ADDED_FILTERS = {
   today: () => ({ createdAt: { $gte: startOfToday() } }),
 };
 
+// The Brand filter's "No brand" choice (?brand=__NONE__): items with an empty brand.
+// Keep in step with frontend utils/filters.js.
+const NO_BRAND = '__NONE__';
+
 // A query value that may be repeated (?brand=A&brand=B) → normalized, de-duplicated list.
 function listParam(value) {
   return [...new Set([].concat(value ?? []).map(Item.normalize).filter(Boolean))];
@@ -49,9 +53,15 @@ function itemConditions(query) {
     const ids = addedBy.map((id) => new mongoose.Types.ObjectId(parseObjectId(id, 'Added by user')));
     conditions.push({ createdBy: { $in: ids } });
   }
-  for (const field of ['category', 'typeDesign', 'brand']) {
+  for (const field of ['category', 'typeDesign']) {
     const values = listParam(query[field]);
     if (values.length) conditions.push({ [field]: { $in: values } });
+  }
+  const brands = listParam(query.brand);
+  if (brands.length) {
+    const named = brands.filter((brand) => brand !== NO_BRAND);
+    // null also matches items without a brand field.
+    conditions.push({ brand: { $in: named.length < brands.length ? [...named, '', null] : named } });
   }
   return conditions;
 }
@@ -101,4 +111,4 @@ function itemSort(query, defaultSort) {
   return { sort: SORTS[value], collation: NATURAL_ORDER };
 }
 
-module.exports = { itemConditions, entryMatch, andFilter, itemSort, startOfToday };
+module.exports = { NO_BRAND, itemConditions, entryMatch, andFilter, itemSort, startOfToday };
