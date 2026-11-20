@@ -163,7 +163,7 @@
 }
 
 .txn-entry-row:hover {
-  background: var(--color-bg-subtle);
+  background: var(--color-row-hover);
 }
 
 .txn-entry-row.is-selected {

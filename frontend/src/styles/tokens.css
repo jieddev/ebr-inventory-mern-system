@@ -21,6 +21,7 @@
   --color-text: #231f20; /* text/primary */
   --color-text-muted: #6d6e71; /* text/secondary */
   --color-text-faint: #96989b; /* text/muted: placeholders, meta */
+  --color-row-hover: #eef2f7; /* table row under the mouse */
 
   /* Status */
   --color-in: #157a47; /* status/in */

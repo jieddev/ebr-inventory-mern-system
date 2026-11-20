@@ -15,10 +15,6 @@
   cursor: pointer;
 }
 
-.users-row:hover td {
-  background: var(--color-bg-subtle);
-}
-
 .users-row:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;

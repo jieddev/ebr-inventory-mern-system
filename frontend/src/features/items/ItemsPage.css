@@ -43,6 +43,15 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* Highlight the row under the mouse; checked rows keep their selected colour. */
+.items-table tbody td {
+  transition: background-color 0.15s;
+}
+
+.items-table tbody tr:not(.is-selected):hover td {
+  background: var(--color-row-hover);
+}
+
 .items-table .is-number {
   text-align: right;
   font-variant-numeric: tabular-nums;
