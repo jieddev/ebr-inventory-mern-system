@@ -31,6 +31,7 @@ const DEFAULT_BRANDS = [
   'MOTOLUBE',
   'MOBIL',
   'TOTAL',
+  'MAGNUM',
 ];
 
 // Item categories for Add Item. Items added before categories existed have ''.
