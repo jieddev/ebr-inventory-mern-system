@@ -34,6 +34,7 @@ const DEFAULT_BRANDS = [
   'MAGNUM',
   'GITI',
   'HANKOOK',
+  'BF GOODRICH',
 ];
 
 // Item categories for Add Item. Items added before categories existed have ''.
