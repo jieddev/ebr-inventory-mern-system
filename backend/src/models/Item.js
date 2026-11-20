@@ -36,6 +36,7 @@ const DEFAULT_BRANDS = [
   'HANKOOK',
   'BF GOODRICH',
   'LINGLONG',
+  'MONSTA TIRE',
 ];
 
 // Item categories for Add Item. Items added before categories existed have ''.
