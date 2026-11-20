@@ -32,6 +32,7 @@ const DEFAULT_BRANDS = [
   'MOBIL',
   'TOTAL',
   'MAGNUM',
+  'GITI',
 ];
 
 // Item categories for Add Item. Items added before categories existed have ''.
