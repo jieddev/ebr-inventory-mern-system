@@ -2,11 +2,13 @@ import { Fragment, useEffect, useState } from 'react'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import PickDateDialog from '../../components/ui/PickDateDialog'
 import SidePanel from '../../components/ui/SidePanel'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 import TextField from '../../components/ui/TextField'
 import { getErrorMessage } from '../../api/auth'
 import { getTransaction, rollbackTransaction, updateTransaction } from '../../api/transactions'
+import { updateSlipDate } from '../../api/receiving'
 import { costCenterLabel } from '../../utils/costCenters'
 import { formatDate, formatNumber } from '../../utils/format'
 import ReservationDialogs from '../reservations/ReservationDialogs'
@@ -66,8 +68,12 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
   // Users with only viewTransactions see reservations but can't confirm or cancel them.
   const canManageReservation = isReserved && can(user, 'addTransactions')
 
-  const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | null
+  const [dialog, setDialog] = useState(null) // 'release' | 'cancel' | 'rollback' | 'slipDate' | null
   const [rollback, setRollback] = useState({ isBusy: false, error: '' })
+  const [slipDate, setSlipDate] = useState({ isBusy: false, error: '' })
+  // Admins move a whole slip to another date; its entries can't change date one by one.
+  const canChangeSlipDate = user.role === 'admin' && Boolean(receiving)
+  const slipName = receiving?.kind === 'OUT' ? 'batch out' : 'receiving report'
   const [edit, setEdit] = useState(null) // { form, isBusy, error } while editing
 
   function startEdit() {
@@ -141,6 +147,24 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
     } catch (err) {
       setRollback({ isBusy: false, error: getErrorMessage(err) })
     }
+  }
+
+  async function handleSlipDate(date) {
+    setSlipDate({ isBusy: true, error: '' })
+    try {
+      await updateSlipDate(t._id, date)
+      setDialog(null)
+      setSlipDate({ isBusy: false, error: '' })
+      onChanged?.(t.item?._id)
+      setReloadKey((k) => k + 1)
+    } catch (err) {
+      setSlipDate({ isBusy: false, error: getErrorMessage(err, 'Could not change the slip date.') })
+    }
+  }
+
+  function closeSlipDate() {
+    setDialog(null)
+    setSlipDate({ isBusy: false, error: '' })
   }
 
   function closeRollback() {
@@ -354,6 +378,11 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
                   <dd>{(receiving.kind === 'OUT' ? receiving.releasedBy : receiving.receivedBy) || '—'}</dd>
                 </div>
               </dl>
+              {canChangeSlipDate && !edit && (
+                <Button variant="secondary" size="sm" onClick={() => setDialog('slipDate')}>
+                  Change slip date
+                </Button>
+              )}
             </section>
           )}
 
@@ -398,6 +427,20 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
         />
       )}
 
+      {dialog === 'slipDate' && t && receiving && (
+        <PickDateDialog
+          title="Change slip date"
+          subtitle={`All ${receiving.lineCount ?? ''} line${receiving.lineCount === 1 ? '' : 's'} of ${slipName}${receiving.reportNo ? ` No. ${receiving.reportNo}` : ''} will move to this date together. Each item's balance will be recalculated.`}
+          initialDate={toDayInput(t.date)}
+          label="New date"
+          confirmLabel="Change date"
+          isBusy={slipDate.isBusy}
+          error={slipDate.error}
+          onConfirm={handleSlipDate}
+          onCancel={closeSlipDate}
+        />
+      )}
+
       {(dialog === 'release' || dialog === 'cancel') && t && (
         <ReservationDialogs reservation={t} action={dialog} onDone={handleDone} onClose={() => setDialog(null)} />
       )}
@@ -410,7 +453,8 @@ export default function TransactionDetailsPanel({ transactionId, onClose, onChan
 // its type; its date and quantity also change on the other side. isBalanceForwarded: only the
 // date shows; the amount is set with Edit Item.
 function EditForm({ form, error, isReserved, slipKind, isTransfer, isBalanceForwarded, onChange, onSubmit }) {
-  const slipNote = slipKind && `Set by the ${slipKind === 'OUT' ? 'batch out slip' : 'receiving report'}`
+  const slipNote =
+    slipKind && `Set by the ${slipKind === 'OUT' ? 'batch out slip' : 'receiving report'}. Use Change slip date to move the whole slip.`
   return (
     <form id={FORM_ID} className="txn-details-section txn-edit-form" onSubmit={onSubmit}>
       <h3>Edit transaction</h3>

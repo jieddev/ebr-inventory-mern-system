@@ -121,7 +121,7 @@ async function getTransaction(req, res) {
       .populate('createdBy', 'userId name role')
       .populate('releasedBy', 'userId name role')
       .lean(),
-    ReceivingReport.findOne({ 'lines.transaction': id }).select({ kind: 1, reportNo: 1, receivedBy: 1, releasedBy: 1, 'lines.$': 1 }).lean(),
+    ReceivingReport.findOne({ 'lines.transaction': id }).select('kind reportNo receivedBy releasedBy lines').lean(),
   ]);
   // Another cost center's entry is answered like a missing one.
   if (!transaction || transaction.item?.costCenter !== req.costCenter) throw new HttpError(404, 'Transaction not found');
@@ -131,7 +131,8 @@ async function getTransaction(req, res) {
     reportNo: report.reportNo,
     receivedBy: report.receivedBy,
     releasedBy: report.releasedBy,
-    unit: report.lines[0]?.unit,
+    unit: report.lines.find((line) => String(line.transaction) === String(id))?.unit,
+    lineCount: report.lines.length,
   };
   res.json({ transaction, receiving: receiving ?? null, transfer: await transferInfo(transaction) });
 }
@@ -562,7 +563,9 @@ async function updateTransaction(req, res) {
       const slipName = slip.kind === 'OUT' ? 'batch out slip' : 'receiving report';
       throw new HttpError(
         400,
-        `This entry is on a ${slipName}, so its date and type follow the slip. Roll it back and add it again to change them.`,
+        changes.date
+          ? `This entry is on a ${slipName}, so its date follows the slip. Use Change slip date to move the whole slip.`
+          : `This entry is on a ${slipName}, so its type follows the slip. Roll it back and add it again to change it.`,
       );
     }
 

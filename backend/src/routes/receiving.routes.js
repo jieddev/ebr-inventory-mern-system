@@ -1,6 +1,6 @@
 const { Router } = require('express');
-const { checkReportNo, createReceivingReport, createBatchOut } = require('../controllers/receiving.controller');
-const { requireAuth, requirePermission, resolveCostCenter } = require('../middleware/auth');
+const { checkReportNo, createReceivingReport, createBatchOut, updateSlipDate } = require('../controllers/receiving.controller');
+const { requireAuth, requireRole, requirePermission, resolveCostCenter } = require('../middleware/auth');
 
 const router = Router();
 
@@ -9,5 +9,7 @@ router.use(requireAuth, requirePermission('addTransactions'), resolveCostCenter)
 router.get('/check', checkReportNo);
 router.post('/', createReceivingReport);
 router.post('/out', createBatchOut);
+// Admins move a whole slip (and every transaction on it) to another date.
+router.patch('/by-transaction/:transactionId/date', requireRole('admin'), updateSlipDate);
 
 module.exports = router;

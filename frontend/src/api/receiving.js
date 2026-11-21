@@ -19,3 +19,10 @@ export async function createBatchOut(slip) {
   const { data } = await api.post('/receiving-reports/out', slip)
   return data
 }
+
+// Admin: moves the whole slip that transaction `transactionId` is on (and every transaction on it) to
+// `date` ("YYYY-MM-DD"). Each item's balance is recalculated. { report, changed }.
+export async function updateSlipDate(transactionId, date) {
+  const { data } = await api.patch(`/receiving-reports/by-transaction/${transactionId}/date`, { date })
+  return data
+}

@@ -47,6 +47,8 @@ const ACTION_LABELS = {
   'transaction.count_verified': 'Verified physical count',
   'receiving.create': 'Receiving report',
   'batchout.create': 'Batch out',
+  'receiving.redate': 'Changed receiving report date',
+  'batchout.redate': 'Changed batch out date',
   'transfer.create': 'Stock transfer',
   'transfer.rollback': 'Rolled back stock transfer',
   'report.export': 'Exported Daily Report',
@@ -339,6 +341,25 @@ function Details({ entry }) {
           {d.reportNo && <li className="items-muted">On slip {d.reportNo}</li>}
         </ul>
       )
+    case 'receiving.redate':
+    case 'batchout.redate': {
+      const date = entry.changes?.date
+      return (
+        <ul className="activity-changes">
+          {date && (
+            <li>
+              Date: <span className="items-muted">{changeText('date', date.from)}</span> →{' '}
+              <strong>{changeText('date', date.to)}</strong>
+            </li>
+          )}
+          {(d.lines ?? []).map((line, i) => (
+            <li key={i} className="items-muted">
+              {formatNumber(line.quantity)} {line.unit} · {line.itemId} {line.code}
+            </li>
+          ))}
+        </ul>
+      )
+    }
     case 'item.create':
       return [
         d.category || 'No category',

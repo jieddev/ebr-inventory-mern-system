@@ -31,6 +31,8 @@ const ACTIONS = [
   'transaction.count_verified',
   'receiving.create',
   'batchout.create',
+  'receiving.redate',
+  'batchout.redate',
   'transfer.create',
   'transfer.rollback',
   'report.export',
