@@ -748,10 +748,55 @@ function announceIn(req, costCenter, items, activity) {
 // Activity log (audit.service.js record() reads req.costCenter).
 const inCostCenter = (req, costCenter) => Object.assign(Object.create(req), { costCenter });
 
+// "92479", "BIS-92479", "BIS# 92479" or "#92479" → "92479". Throws unless what's left is 1 to 12 digits.
+function parseBisNumber(value) {
+  const number = String(value ?? '').trim().replace(/^(?:BIS)?\s*(?:NO\.?)?[\s#:.-]*/i, '');
+  if (!/^\d{1,12}$/.test(number)) throw new HttpError(400, 'Enter the BIS number, digits only (e.g. 92479)');
+  return number;
+}
+
+// A customer name on that BIS: "BIS-92479", "BIS# 92479", "BIS #92479", "BIS 92479" or "BIS NO. 92479",
+// anywhere in the name (e.g. "BIS-92479/ JO-55772/ FATIMA FUNERAL - No. 46954").
+// Not 924790, and not a slip's "No. 92479".
+const bisRegex = (number) => new RegExp(`(?<![A-Z])BIS\\s*(?:NO\\.?)?[\\s#:.-]*0*${number}(?!\\d)`, 'i');
+
+// GET /api/transactions/bis?number=92479 — the items in the cost center with entries on that BIS,
+// in the order they first appear on it, each with its BIS entries (oldest first) and their totals.
+async function listBis(req, res) {
+  const number = parseBisNumber(req.query.number);
+  const rows = await Transaction.aggregate([
+    { $match: { customerName: bisRegex(number), isBalanceForwarded: { $ne: true } } },
+    { $lookup: { from: Item.collection.name, localField: 'item', foreignField: '_id', as: 'item' } },
+    { $unwind: '$item' },
+    { $match: { 'item.costCenter': req.costCenter, 'item.archivedAt': null } },
+    { $project: { date: 1, type: 1, quantity: 1, customerName: 1, item: { _id: 1, itemId: 1, code: 1, brand: 1, typeDesign: 1, balance: 1 } } },
+    { $sort: { date: 1, _id: 1 } },
+    {
+      $group: {
+        _id: '$item._id',
+        item: { $first: '$item' },
+        firstDate: { $first: '$date' },
+        entries: { $push: { _id: '$_id', date: '$date', type: '$type', quantity: '$quantity', customerName: '$customerName' } },
+      },
+    },
+    { $sort: { firstDate: 1, _id: 1 } },
+  ]);
+
+  res.json({
+    number,
+    items: rows.map(({ item, entries }) => {
+      const totals = { IN: 0, OUT: 0, RESERVE: 0 };
+      for (const entry of entries) if (entry.type in totals) totals[entry.type] += entry.quantity;
+      return { item, totals, entries };
+    }),
+  });
+}
+
 module.exports = {
   announceIn,
   inCostCenter,
   listTransactions,
+  listBis,
   getTransaction,
   createTransaction,
   listReservations,

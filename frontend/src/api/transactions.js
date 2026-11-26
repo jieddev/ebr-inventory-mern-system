@@ -7,6 +7,12 @@ export async function getTransactions({ search, page, limit, filters, sort } = {
   return data
 }
 
+// The items in the current cost center with entries on that BIS number: { number, items }.
+export async function getBis(number, { signal } = {}) {
+  const { data } = await api.get('/transactions/bis', { params: { number }, signal })
+  return data
+}
+
 export async function createTransaction(transaction) {
   const { data } = await api.post('/transactions', transaction)
   return data

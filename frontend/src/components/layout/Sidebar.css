@@ -270,6 +270,11 @@
   mask-image: url('../../assets/icons/transactions.svg');
 }
 
+.sidebar-icon-bis {
+  -webkit-mask-image: url('../../assets/icons/search.svg');
+  mask-image: url('../../assets/icons/search.svg');
+}
+
 .sidebar-icon-reservations {
   -webkit-mask-image: url('../../assets/icons/reservations.svg');
   mask-image: url('../../assets/icons/reservations.svg');

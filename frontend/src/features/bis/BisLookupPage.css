@@ -1,0 +1,57 @@
+.bis-header,
+.bis-controls,
+.bis-empty,
+.bis-card {
+  width: 100%;
+  max-width: 1080px;
+}
+
+/* The BIS number box and Search, on one row when there is room. */
+.bis-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.bis-controls .field {
+  margin: 0;
+}
+
+.bis-field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.bis-empty {
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.bis-title {
+  margin: 0;
+}
+
+/* One item's rows: the item cells span its BIS entries; a line between items. */
+.bis-item + .bis-item {
+  border-top: 2px solid var(--color-border);
+}
+
+.bis-item-id,
+.bis-item-description {
+  vertical-align: top;
+}
+
+.bis-item-description {
+  max-width: 320px;
+}
+
+.bis-item-description > span {
+  display: block;
+  overflow-wrap: anywhere;
+}
