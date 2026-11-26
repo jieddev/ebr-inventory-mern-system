@@ -13,6 +13,12 @@ export async function getBis(number, { signal } = {}) {
   return data
 }
 
+// The items on the receiving report (BRR) slip(s) with that Ref. No. in the current cost center: { number, items }.
+export async function getBrr(number, { signal } = {}) {
+  const { data } = await api.get('/transactions/brr', { params: { number }, signal })
+  return data
+}
+
 export async function createTransaction(transaction) {
   const { data } = await api.post('/transactions', transaction)
   return data

@@ -4,6 +4,7 @@ const { ACTIVE } = require('../models/Item');
 const Transaction = require('../models/Transaction');
 const { ENTRY_TYPES } = require('../models/Transaction');
 const ReceivingReport = require('../models/ReceivingReport');
+const { kindFilter } = require('../models/ReceivingReport');
 const StockTransfer = require('../models/StockTransfer');
 const { lineQuantities } = require('../models/StockTransfer');
 const { recalculateItem, balanceOn } = require('../services/balance.service');
@@ -757,18 +758,24 @@ function parseBisNumber(value) {
 
 // A customer name on that BIS: "BIS-92479", "BIS# 92479", "BIS #92479", "BIS 92479" or "BIS NO. 92479",
 // anywhere in the name (e.g. "BIS-92479/ JO-55772/ FATIMA FUNERAL - No. 46954").
-// Not 924790, and not a slip's "No. 92479".
-const bisRegex = (number) => new RegExp(`(?<![A-Z])BIS\\s*(?:NO\\.?)?[\\s#:.-]*0*${number}(?!\\d)`, 'i');
+// Not 924790, and not a slip's "No. 92479". Leading zeros don't matter: 092479 is 92479.
+const bisRegex = (number) => new RegExp(`(?<![A-Z])BIS\\s*(?:NO\\.?)?[\\s#:.-]*0*${number.replace(/^0+(?=\d)/, '')}(?!\\d)`, 'i');
 
-// GET /api/transactions/bis?number=92479 — the items in the cost center with entries on that BIS,
-// in the order they first appear on it, each with its BIS entries (oldest first) and their totals.
-async function listBis(req, res) {
-  const number = parseBisNumber(req.query.number);
+// "46954", "BRR 46954", "BRR# 46954" or "No. 46954" → "46954". Throws unless what's left is 1 to 12 digits.
+function parseBrrNumber(value) {
+  const number = String(value ?? '').trim().replace(/^(?:BRR)?\s*(?:NO\.?)?[\s#:.-]*/i, '');
+  if (!/^\d{1,12}$/.test(number)) throw new HttpError(400, 'Enter the BRR number, digits only (e.g. 46954)');
+  return number;
+}
+
+// The items in the cost center with entries matching `match`, in the order they first appear,
+// each with those entries (oldest first) and their totals. Shared by the BIS and BRR lookups.
+async function itemsOnEntries(match, costCenter) {
   const rows = await Transaction.aggregate([
-    { $match: { customerName: bisRegex(number), isBalanceForwarded: { $ne: true } } },
+    { $match: match },
     { $lookup: { from: Item.collection.name, localField: 'item', foreignField: '_id', as: 'item' } },
     { $unwind: '$item' },
-    { $match: { 'item.costCenter': req.costCenter, 'item.archivedAt': null } },
+    { $match: { 'item.costCenter': costCenter, 'item.archivedAt': null } },
     { $project: { date: 1, type: 1, quantity: 1, customerName: 1, item: { _id: 1, itemId: 1, code: 1, brand: 1, typeDesign: 1, balance: 1 } } },
     { $sort: { date: 1, _id: 1 } },
     {
@@ -781,15 +788,32 @@ async function listBis(req, res) {
     },
     { $sort: { firstDate: 1, _id: 1 } },
   ]);
-
-  res.json({
-    number,
-    items: rows.map(({ item, entries }) => {
-      const totals = { IN: 0, OUT: 0, RESERVE: 0 };
-      for (const entry of entries) if (entry.type in totals) totals[entry.type] += entry.quantity;
-      return { item, totals, entries };
-    }),
+  return rows.map(({ item, entries }) => {
+    const totals = { IN: 0, OUT: 0, RESERVE: 0 };
+    for (const entry of entries) if (entry.type in totals) totals[entry.type] += entry.quantity;
+    return { item, totals, entries };
   });
+}
+
+// GET /api/transactions/bis?number=92479 — the items in the cost center with entries on that BIS.
+async function listBis(req, res) {
+  const number = parseBisNumber(req.query.number);
+  const items = await itemsOnEntries({ customerName: bisRegex(number), isBalanceForwarded: { $ne: true } }, req.costCenter);
+  res.json({ number, items });
+}
+
+// GET /api/transactions/brr?number=46954 — the items on the Bodega Receiving Report slip(s) with
+// that Ref. No. in the cost center. Uses the saved slips (receiving.controller.js), not the
+// customer name's "No. 46954", which Batch Out slips and Stock Transfers write too. IN slips only;
+// a Ref. No. saved more than once shows every save's entries. 046954 is the same as 46954.
+async function listBrr(req, res) {
+  const number = parseBrrNumber(req.query.number);
+  const reports = await ReceivingReport.find({ costCenter: req.costCenter, ...kindFilter('IN'), reportNo: new RegExp(`^0*${number.replace(/^0+(?=\d)/, '')}$`) })
+    .select('lines.transaction')
+    .lean();
+  const ids = reports.flatMap((report) => report.lines.map((line) => line.transaction)).filter(Boolean);
+  const items = ids.length ? await itemsOnEntries({ _id: { $in: ids } }, req.costCenter) : [];
+  res.json({ number, items });
 }
 
 module.exports = {
@@ -797,6 +821,7 @@ module.exports = {
   inCostCenter,
   listTransactions,
   listBis,
+  listBrr,
   getTransaction,
   createTransaction,
   listReservations,

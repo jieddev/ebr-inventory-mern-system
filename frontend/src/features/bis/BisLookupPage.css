@@ -1,21 +1,70 @@
 .bis-header,
-.bis-controls,
+.bis-search,
 .bis-empty,
 .bis-card {
   width: 100%;
   max-width: 1080px;
 }
 
-/* The BIS number box and Search, on one row when there is room. */
-.bis-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: flex-end;
-  padding: var(--space-5);
+/* The search card: BIS / BRR tabs on top, the number box and Search below. */
+.bis-search {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+}
+
+.bis-tabs {
+  display: flex;
+  gap: var(--space-6);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* The yellow bar sits on the card's divider line. */
+.bis-tab {
+  margin-bottom: -1px;
+  padding: var(--space-4) var(--space-1);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.bis-tab:hover {
+  color: var(--color-primary);
+}
+
+.bis-tab.is-selected {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+.bis-tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.bis-controls {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.bis-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.bis-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
 }
 
 .bis-controls .field {

@@ -15,7 +15,7 @@ import './Sidebar.css'
 const LINKS = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
   { to: '/transactions', label: 'Transactions', icon: 'transactions', permission: TRANSACTION_VIEW_PERMISSIONS },
-  { to: '/bis', label: 'BIS lookup', icon: 'bis', permission: TRANSACTION_VIEW_PERMISSIONS },
+  { to: '/bis', label: 'BIS / BRR lookup', icon: 'bis', permission: TRANSACTION_VIEW_PERMISSIONS },
   { to: '/reservations', label: 'Reservations', icon: 'reservations', permission: 'addTransactions' },
   { to: '/items', label: 'Items', icon: 'items', permission: 'viewItems' },
   { to: '/reports', label: 'Reports', icon: 'reports', permission: REPORT_PERMISSIONS },
