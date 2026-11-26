@@ -438,15 +438,6 @@ export default function ItemsPage() {
 
         <div className="toolbar">
           <div className="toolbar-search">
-            <FilterDropdown
-              filters={filters}
-              onApply={applyFilters}
-              align="start"
-              withStock={seesStock}
-              withAdded
-              withChecked
-            />
-
             <label className="search-input">
               <img src={searchIcon} alt="" width="18" height="18" />
               <input
@@ -457,6 +448,15 @@ export default function ItemsPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </label>
+
+            <FilterDropdown
+              filters={filters}
+              onApply={applyFilters}
+              align="start"
+              withStock={seesStock}
+              withAdded
+              withChecked
+            />
           </div>
           <SortSelect options={ITEM_SORTS} value={sort} onChange={(next) => updateParams({ sort: next, page: null })} />
           {isAdmin && (
