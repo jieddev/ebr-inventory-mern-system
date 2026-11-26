@@ -2,6 +2,7 @@ const { Router } = require('express');
 const {
   listTransactions,
   listBis,
+  listBrr,
   getTransaction,
   createTransaction,
   listReservations,
@@ -22,8 +23,9 @@ const canAdd = requirePermission('addTransactions');
 router.use(requireAuth, requirePermission('addTransactions', 'viewTransactions'), resolveCostCenter);
 router.get('/', listTransactions);
 router.post('/', canAdd, createTransaction);
-// Before /:id, so "bis" isn't read as a transaction ID.
+// Before /:id, so "bis" and "brr" aren't read as transaction IDs.
 router.get('/bis', listBis);
+router.get('/brr', listBrr);
 // Before /:id, so "reservations" isn't read as a transaction ID.
 router.get('/reservations', canAdd, listReservations);
 router.get('/reservations/count', canAdd, reservationCounts);
