@@ -54,7 +54,7 @@ export default function Sidebar() {
             ref={triggerRef}
             type="button"
             className="sidebar-branch sidebar-branch-trigger"
-            title={`Cost center: ${label}`}
+            title={`Warehouse: ${label}`}
             aria-haspopup="true"
             aria-expanded={isPickerOpen}
             aria-controls={pickerId}
@@ -64,18 +64,18 @@ export default function Sidebar() {
               {label.charAt(0)}
             </span>
             <span className="sidebar-branch-control sidebar-branch-name">
-              <span className="visually-hidden">Cost center: </span>
+              <span className="visually-hidden">Warehouse: </span>
               {label}
             </span>
             <img className="sidebar-branch-chevron" src={chevronIcon} alt="" width="16" height="16" />
           </button>
         ) : (
-          <div className="sidebar-branch" title={`Cost center: ${label}`}>
+          <div className="sidebar-branch" title={`Warehouse: ${label}`}>
             <span className="sidebar-branch-mark" aria-hidden="true">
               {label.charAt(0)}
             </span>
             <span className="sidebar-branch-control sidebar-branch-name">
-              <span className="visually-hidden">Cost center: </span>
+              <span className="visually-hidden">Warehouse: </span>
               {label}
             </span>
           </div>
@@ -168,9 +168,9 @@ function CostCenterCard({ id, value, options, triggerRef, onSelect, onClose }) {
     <div id={id} ref={cardRef} className="cost-center-card" onKeyDown={handleKeyDown}>
       <div className="cost-center-card-header">
         <p id={titleId} className="cost-center-card-title">
-          Cost center
+          Warehouses
         </p>
-        <p className="cost-center-card-hint">Pages show this cost center's items and transactions.</p>
+        <p className="cost-center-card-hint">Pages show this warehouse's items and transactions.</p>
       </div>
       <div role="menu" aria-labelledby={titleId}>
         {options.map((c) => (
