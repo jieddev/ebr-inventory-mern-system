@@ -5,6 +5,7 @@ const COST_CENTERS = [
   { value: 'servitek', label: 'Servitek (#2 - #7)' },
   { value: 'repair-shop', label: 'Repair shop' },
   { value: 'accessory-shop', label: 'Accessory shop' },
+  { value: 'carlota', label: 'Carlota' },
 ];
 const COST_CENTER_VALUES = COST_CENTERS.map((c) => c.value);
 

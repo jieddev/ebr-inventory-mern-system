@@ -4,6 +4,7 @@ export const COST_CENTERS = [
   { value: 'servitek', label: 'Servitek (#2 - #7)' },
   { value: 'repair-shop', label: 'Repair shop' },
   { value: 'accessory-shop', label: 'Accessory shop' },
+  { value: 'carlota', label: 'Carlota' },
 ]
 
 export const DEFAULT_COST_CENTER = 'servitek'
