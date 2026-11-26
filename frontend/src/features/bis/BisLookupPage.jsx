@@ -21,14 +21,12 @@ const LOOKUPS = {
     label: 'BIS',
     fetch: getBis,
     placeholder: 'e.g. 92479',
-    hint: "The BIS# typed in the transaction's customer name, e.g. BIS# 92479.",
     title: (n) => `BIS# ${n}`,
   },
   brr: {
     label: 'BRR',
     fetch: getBrr,
     placeholder: 'e.g. 46954',
-    hint: 'The Ref. No. printed on a Bodega Receiving Report slip, e.g. 46954.',
     title: (n) => `BRR No. ${n}`,
   },
 }
@@ -153,9 +151,6 @@ export default function BisLookupPage() {
             role="search"
             aria-labelledby={`${id}-tab-${pickedType}`}
           >
-            <p id={`${id}-hint`} className="bis-hint">
-              {picked.hint}
-            </p>
             <div className="bis-row">
               <div className="field bis-field">
                 <label className="visually-hidden" htmlFor={`${id}-number`}>
