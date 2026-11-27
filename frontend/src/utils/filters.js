@@ -2,8 +2,9 @@ import { formatDate } from './format'
 
 // Filters live in the URL query string, so a filtered view survives a refresh and can be shared.
 // Entry filters (type, from, to) only apply on the Transactions page; added (date added) and
-// addedBy (user _ids) and checked (balance marked correct: yes / no) only on the Items page.
-export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', checked: '', added: '', addedBy: [], category: [], brand: [] }
+// addedBy (user _ids), checked (balance marked correct: yes / no) and transacted (has a last
+// transaction: yes / no) only on the Items page.
+export const EMPTY_FILTERS = { type: '', from: '', to: '', stock: '', checked: '', transacted: '', added: '', addedBy: [], category: [], brand: [] }
 
 // The Brand filter's "No brand" choice: items with an empty brand. Keep in step with backend utils/filters.js.
 export const NO_BRAND = '__NONE__'
@@ -28,6 +29,13 @@ export const CHECKED_OPTIONS = [
   { value: 'no', label: 'Not checked' },
 ]
 
+// The Items page's Last transaction filter: items with any ledger entry (BALANCE FORWARDED counts), or none.
+export const TRANSACTED_OPTIONS = [
+  { value: '', label: 'Any' },
+  { value: 'yes', label: 'Has transactions' },
+  { value: 'no', label: 'No transactions' },
+]
+
 export function readFilters(searchParams) {
   return {
     type: searchParams.get('type') ?? '',
@@ -35,6 +43,7 @@ export function readFilters(searchParams) {
     to: searchParams.get('to') ?? '',
     stock: searchParams.get('stock') ?? '',
     checked: searchParams.get('checked') ?? '',
+    transacted: searchParams.get('transacted') ?? '',
     added: searchParams.get('added') ?? '',
     addedBy: searchParams.getAll('addedBy'),
     category: searchParams.getAll('category'),
@@ -48,6 +57,7 @@ export function countActiveFilters(filters) {
     (filters.from || filters.to ? 1 : 0) +
     (filters.stock ? 1 : 0) +
     (filters.checked ? 1 : 0) +
+    (filters.transacted ? 1 : 0) +
     (filters.added ? 1 : 0) +
     filters.addedBy.length +
     LIST_FILTERS.reduce((sum, { key }) => sum + filters[key].length, 0)
@@ -77,6 +87,10 @@ export function filterChips(filters, { addedByNames } = {}) {
   if (filters.checked) {
     const label = CHECKED_OPTIONS.find((o) => o.value === filters.checked)?.label ?? filters.checked
     chips.push({ id: 'checked', label: `Balance: ${label}`, without: { ...filters, checked: '' } })
+  }
+  if (filters.transacted) {
+    const label = TRANSACTED_OPTIONS.find((o) => o.value === filters.transacted)?.label ?? filters.transacted
+    chips.push({ id: 'transacted', label: `Last transaction: ${label}`, without: { ...filters, transacted: '' } })
   }
   if (filters.added) chips.push({ id: 'added', label: 'Added today', without: { ...filters, added: '' } })
   for (const id of filters.addedBy) {

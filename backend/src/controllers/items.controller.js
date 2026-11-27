@@ -24,15 +24,15 @@ const BASIC_ITEM_FIELDS = 'itemId category code brand typeDesign balance balance
 const ITEM_FIELDS =
   'itemId category code brand typeDesign balance balanceForwarded transactionCount lastTransactionDate lastTransactionType archivedAt balanceCheck lowStockThreshold';
 
-// GET /api/items?search=&stock=&category=&typeDesign=&brand=&archived=&sort=&page=&limit=
+// GET /api/items?search=&stock=&checked=&transacted=&category=&typeDesign=&brand=&archived=&sort=&page=&limit=
 // Every item in the cost center, by item ID or ?sort= (see utils/filters.js itemSort) (Items page). See utils/filters.js for the filters.
 // ?archived=1 lists the archived items instead.
 async function listItems(req, res) {
   const { page, limit, skip } = parsePage(req.query, { defaultLimit: 25, maxLimit: 100 });
   const seesStock = can(req.user, 'viewItemStock');
   if (req.query.archived === '1' && req.user.role !== 'admin') throw new HttpError(403, 'You do not have access to this action');
-  // Without stock details they can't filter by stock either.
-  const filter = itemsPageFilter(req.costCenter, seesStock ? req.query : { ...req.query, stock: '' });
+  // Without stock details they can't filter by stock or last transaction either.
+  const filter = itemsPageFilter(req.costCenter, seesStock ? req.query : { ...req.query, stock: '', transacted: '' });
 
   const { sort, collation } = itemSort(req.query, { itemId: 1, _id: 1 });
 
@@ -70,9 +70,16 @@ const CHECKED_FILTERS = {
   no: { balanceCheck: null },
 };
 
+// The Last transaction filter (Items page only): has any ledger entry (BALANCE FORWARDED counts), or none.
+// null also matches items without the field.
+const TRANSACTED_FILTERS = {
+  yes: { lastTransactionDate: { $ne: null } },
+  no: { lastTransactionDate: null },
+};
+
 // The Items page's cost center, search, filters and Active / Archived view as one Item filter.
 // Shared by the list and the batch actions, so "all matching" means what the page shows.
-// ?checked=yes|no: balance marked correct or not.
+// ?checked=yes|no: balance marked correct or not. ?transacted=yes|no: has a last transaction or not.
 function itemsPageFilter(costCenter, query) {
   const conditions = [{ costCenter }, ...itemConditions(query)];
   conditions.push(query.archived === '1' ? { archivedAt: { $ne: null } } : ACTIVE);
@@ -80,6 +87,11 @@ function itemsPageFilter(costCenter, query) {
   if (checked) {
     if (!CHECKED_FILTERS[checked]) throw new HttpError(400, 'Balance must be yes or no');
     conditions.push(CHECKED_FILTERS[checked]);
+  }
+  const transacted = String(query.transacted ?? '').toLowerCase();
+  if (transacted) {
+    if (!TRANSACTED_FILTERS[transacted]) throw new HttpError(400, 'Last transaction must be yes or no');
+    conditions.push(TRANSACTED_FILTERS[transacted]);
   }
   const search = allWordsFilter(query.search, ['itemId', 'code', 'brand', 'typeDesign']);
   if (search) conditions.push(search);
@@ -163,6 +175,10 @@ async function listFacets(req, res) {
         ],
         // The Balance filter (marked correct or not).
         checked: [{ $group: { _id: null, yes: whenBalance({ $gt: ['$balanceCheck', null] }), total: { $sum: 1 } } }],
+        // The Last transaction filter (has one or not).
+        transacted: [
+          { $group: { _id: null, yes: whenBalance({ $gt: ['$lastTransactionDate', null] }), total: { $sum: 1 } } },
+        ],
         addedToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, { $count: 'count' }],
         addedBy: countBy('createdBy'),
         addedByToday: [{ $match: { createdAt: { $gte: startOfToday() } } }, ...countBy('createdBy')],
@@ -194,6 +210,12 @@ async function listFacets(req, res) {
     addedBy,
     checked: { yes: facets.checked[0]?.yes ?? 0, no: (facets.checked[0]?.total ?? 0) - (facets.checked[0]?.yes ?? 0) },
     ...((can(req.user, 'viewItemStock') || can(req.user, 'addTransactions')) && { stock: facets.stock[0] ?? { in: 0, out: 0, negative: 0 } }),
+    ...(can(req.user, 'viewItemStock') && {
+      transacted: {
+        yes: facets.transacted[0]?.yes ?? 0,
+        no: (facets.transacted[0]?.total ?? 0) - (facets.transacted[0]?.yes ?? 0),
+      },
+    }),
   });
 }
 
@@ -435,7 +457,7 @@ const BATCH_ACTIONS = ['archive', 'restore', 'balance_check', 'balance_uncheck']
 
 // POST /api/items/batch — archive, restore, mark correct or unmark many items at once (admin).
 // Body: { action: 'archive' | 'restore' | 'balance_check' | 'balance_uncheck', ids: [...] } for picked items, or
-// { action, all: true, query: { search, stock, added, addedBy, category, typeDesign, brand } } for every
+// { action, all: true, query: { search, stock, checked, transacted, added, addedBy, category, typeDesign, brand } } for every
 // item matching the Items page's current search and filters.
 async function batchItems(req, res) {
   const { action, ids, all, query = {} } = req.body ?? {};
@@ -722,11 +744,12 @@ const SORT_LABELS = {
 // brand name and item description. No stock, so anyone who can view items can export it.
 async function exportItemList(req, res) {
   const seesStock = can(req.user, 'viewItemStock');
-  const query = { ...req.query, archived: '', ...(seesStock ? {} : { stock: '' }) };
+  const query = { ...req.query, archived: '', ...(seesStock ? {} : { stock: '', transacted: '' }) };
   const filter = itemsPageFilter(req.costCenter, query);
   const { sort, collation } = itemSort(query, { itemId: 1, _id: 1 });
   const items = await Item.find(filter).sort(sort).collation(collation).select('itemId category brand code').lean();
-  const isFiltered = Boolean(String(query.search ?? '').trim()) || itemConditions(query).length > 0;
+  const isFiltered =
+    Boolean(String(query.search ?? '').trim()) || itemConditions(query).length > 0 || Boolean(query.checked || query.transacted);
   const buffer = await buildItemList(items, {
     costCenterName: costCenterLabel(req.costCenter),
     preparedBy: req.user.name,

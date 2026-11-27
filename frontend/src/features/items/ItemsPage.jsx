@@ -72,11 +72,12 @@ export default function ItemsPage() {
   const search = searchParams.get('search') ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const isArchivedView = isAdmin && searchParams.get('archived') === '1'
-  // The Items page only uses the item filters (stock, date added, added by, category, brand).
+  // The Items page only uses the item filters (stock, balance, last transaction, date added, added by,
+  // category, brand). Last transaction needs viewItemStock, like the column.
   const filters = useMemo(() => {
-    const { stock, checked, added, addedBy, category, brand } = readFilters(searchParams)
-    return { ...EMPTY_FILTERS, stock, checked, added, addedBy, category, brand }
-  }, [searchParams])
+    const { stock, checked, transacted, added, addedBy, category, brand } = readFilters(searchParams)
+    return { ...EMPTY_FILTERS, stock, checked, transacted: seesStock ? transacted : '', added, addedBy, category, brand }
+  }, [searchParams, seesStock])
   const sort = readSort(searchParams, ITEM_SORTS)
 
   const [searchText, setSearchText] = useState(search)
@@ -291,11 +292,11 @@ export default function ItemsPage() {
     const { action } = confirmBatch
     setConfirmBatch({ action, isBusy: true, error: '' })
     try {
-      const { stock, checked, added, addedBy, category, brand } = filters
+      const { stock, checked, transacted, added, addedBy, category, brand } = filters
       const count = await batchItems(
         action,
         selection.all
-          ? { all: true, query: { search, stock, checked, added, addedBy, category, brand } }
+          ? { all: true, query: { search, stock, checked, transacted, added, addedBy, category, brand } }
           : { ids: [...selection.ids] },
       )
       setConfirmBatch(null)
@@ -456,6 +457,7 @@ export default function ItemsPage() {
               withStock={seesStock}
               withAdded
               withChecked
+              withTransacted={seesStock}
             />
           </div>
           <SortSelect options={ITEM_SORTS} value={sort} onChange={(next) => updateParams({ sort: next, page: null })} />

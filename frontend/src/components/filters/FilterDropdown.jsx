@@ -2,7 +2,14 @@ import { useState } from 'react'
 import SegmentedControl from '../ui/SegmentedControl'
 import { getItemFacets } from '../../api/items'
 import { formatNumber } from '../../utils/format'
-import { CHECKED_OPTIONS, EMPTY_FILTERS, LIST_FILTERS, STOCK_OPTIONS, countActiveFilters } from '../../utils/filters'
+import {
+  CHECKED_OPTIONS,
+  EMPTY_FILTERS,
+  LIST_FILTERS,
+  STOCK_OPTIONS,
+  TRANSACTED_OPTIONS,
+  countActiveFilters,
+} from '../../utils/filters'
 import FilterPopover from './FilterPopover'
 import { ChecklistSection, DateRangeSection } from './FilterSections'
 import dotIn from '../../assets/icons/dot-in.svg'
@@ -31,7 +38,8 @@ function addedByOptions(users, draft) {
 // withEntryFilters adds transaction type and date range (Transactions page only).
 // withStock: false hides stock status (encoders don't see stock). withAdded: the "Added today"
 // and "Added by" filters (Items page only). withChecked: the Balance filter (marked correct or not;
-// Items page only). align: see FilterPopover.
+// Items page only). withTransacted: the Last transaction filter (has one or not; Items page only,
+// for users who see stock). align: see FilterPopover.
 export default function FilterDropdown({
   filters,
   onApply,
@@ -39,6 +47,7 @@ export default function FilterDropdown({
   withStock = true,
   withAdded = false,
   withChecked = false,
+  withTransacted = false,
   align = 'end',
 }) {
   const [facets, setFacets] = useState(null)
@@ -116,6 +125,28 @@ export default function FilterDropdown({
                     <span className="filter-option-label">{option.label}</span>
                     {option.value && facets?.checked && (
                       <span className="filter-option-count">{formatNumber(facets.checked[option.value])}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {withTransacted && (
+            <section className="filter-section">
+              <h3 className="filter-title">Last transaction</h3>
+              <div className="filter-options" role="radiogroup" aria-label="Last transaction">
+                {TRANSACTED_OPTIONS.map((option) => (
+                  <label key={option.value} className="filter-option">
+                    <input
+                      type="radio"
+                      name={`${idPrefix}-transacted`}
+                      checked={draft.transacted === option.value}
+                      onChange={() => set({ transacted: option.value })}
+                    />
+                    <span className="filter-option-label">{option.label}</span>
+                    {option.value && facets?.transacted && (
+                      <span className="filter-option-count">{formatNumber(facets.transacted[option.value])}</span>
                     )}
                   </label>
                 ))}
