@@ -257,7 +257,8 @@ function addReportTable(sheet, columns, header) {
 // report's title block (report.title, costCenterName, preparedBy; see addReportTable).
 // With beginningOf (a Daily Report for a range), each item's beginningBalance and the net change
 // come before the ending balance; the importer ignores those columns and the title block.
-async function buildSummaryReport(items, asOf, { beginningOf = null, title, costCenterName, preparedBy } = {}) {
+// sortLabel, when given, names the rows' order in the subtitle (e.g. "Brand name (A–Z)").
+async function buildSummaryReport(items, asOf, { beginningOf = null, title, costCenterName, preparedBy, sortLabel } = {}) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(SHEET_NAME);
   const isRange = beginningOf && beginningOf.getTime() !== asOf.getTime();
@@ -280,7 +281,9 @@ async function buildSummaryReport(items, asOf, { beginningOf = null, title, cost
     ],
     {
       title,
-      subtitle: isRange ? `For ${periodText(beginningOf, asOf)}` : `As of ${longDate(asOf)}`,
+      subtitle: [isRange ? `For ${periodText(beginningOf, asOf)}` : `As of ${longDate(asOf)}`, sortLabel && `sorted by ${sortLabel}`]
+        .filter(Boolean)
+        .join(' · '),
       costCenterName,
       dateLabel: isRange ? 'Period' : 'Report date',
       dateText: isRange ? periodText(beginningOf, asOf) : longDate(asOf),

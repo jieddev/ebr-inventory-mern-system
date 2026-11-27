@@ -3,10 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Button from '../../components/ui/Button'
 import Logo from '../../components/ui/Logo'
 import PickDateRangeDialog from '../../components/ui/PickDateRangeDialog'
+import SortSelect from '../../components/filters/SortSelect'
 import { getErrorMessage } from '../../api/auth'
 import { exportDailyReport, getDailyReport } from '../../api/reports'
 import { formatDate, formatNumber, todayInputValue } from '../../utils/format'
 import { costCenterLabel } from '../../utils/costCenters'
+import { DAILY_REPORT_SORTS, readSort } from '../../utils/sorts'
 import { useCostCenter } from '../costCenter/useCostCenter'
 import arrowLeftIcon from '../../assets/icons/arrow-left.svg'
 import calendarIcon from '../../assets/icons/calendar.svg'
@@ -30,6 +32,7 @@ const toDate = (day) => new Date(`${day}T00:00:00Z`)
 // Daily Report (design screen 06): every item's ending balance at the end of the chosen day,
 // from /reports/daily?date=YYYY-MM-DD. For a range (?from=&to=) each item also shows its
 // beginning balance when `from` starts and the net change. Pages on screen; Print prints every item.
+// ?sort= orders the rows (item ID, category, description or brand) on screen, in print and in Excel.
 export default function DailyReportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { costCenter } = useCostCenter()
@@ -37,7 +40,9 @@ export default function DailyReportPage() {
   const to = searchParams.get('to') || date || searchParams.get('from') || todayInputValue()
   const from = searchParams.get('from') || to
   const isRange = from < to
-  const period = `${from}|${to}`
+  const sort = readSort(searchParams, DAILY_REPORT_SORTS)
+  // A new period or sort starts on page 1.
+  const period = `${from}|${to}|${sort}`
   const [page, setPage] = useState({ period, number: 1 })
   // The last finished request; it's loading while that isn't the current request.
   const [response, setResponse] = useState({ key: null, data: null, error: '' })
@@ -49,20 +54,20 @@ export default function DailyReportPage() {
   const requestKey = `${period}|${reloadKey}`
   useEffect(() => {
     const controller = new AbortController()
-    getDailyReport({ from, to }, { signal: controller.signal })
+    getDailyReport({ from, to, sort }, { signal: controller.signal })
       .then((data) => setResponse({ key: requestKey, data, error: '' }))
       .catch((err) => {
         if (controller.signal.aborted) return
         setResponse({ key: requestKey, data: null, error: getErrorMessage(err, 'Could not generate the report.') })
       })
     return () => controller.abort()
-  }, [from, to, requestKey])
+  }, [from, to, sort, requestKey])
 
   async function handleExport() {
     setIsExporting(true)
     setExportError('')
     try {
-      await exportDailyReport({ from, to })
+      await exportDailyReport({ from, to, sort })
     } catch (err) {
       setExportError(getErrorMessage(err, 'Could not export the report.'))
     } finally {
@@ -73,7 +78,6 @@ export default function DailyReportPage() {
   const { data } = response
   const isLoading = response.key !== requestKey
   const rows = data?.rows ?? []
-  // A new period starts on page 1.
   const pageNumber = page.period === period ? page.number : 1
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const first = rows.length ? (pageNumber - 1) * PAGE_SIZE : 0
@@ -90,6 +94,16 @@ export default function DailyReportPage() {
             Back to reports
           </Link>
           <div className="page-actions">
+            <SortSelect
+              options={DAILY_REPORT_SORTS}
+              value={sort}
+              onChange={(next) => {
+                const params = new URLSearchParams(searchParams)
+                if (next) params.set('sort', next)
+                else params.delete('sort')
+                setSearchParams(params)
+              }}
+            />
             <Button variant="secondary" onClick={() => setIsPickingDates(true)}>
               <img src={calendarIcon} alt="" />
               Change dates
@@ -232,7 +246,9 @@ export default function DailyReportPage() {
           onCancel={() => setIsPickingDates(false)}
           onConfirm={(next) => {
             setIsPickingDates(false)
-            setSearchParams(next.from === next.to ? { date: next.to } : next)
+            const params = next.from === next.to ? { date: next.to } : { ...next }
+            if (sort) params.sort = sort
+            setSearchParams(params)
           }}
         />
       )}

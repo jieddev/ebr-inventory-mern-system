@@ -23,12 +23,29 @@ async function balancesBy(itemIds, dateMatch) {
   return new Map(balances.map((b) => [String(b._id), b]));
 }
 
+// The Daily Report's orders (?sort=): '' is item ID, the rest alphabetical. Each ends on _id so
+// the order is always the same. Keep in step with frontend utils/sorts.js DAILY_REPORT_SORTS.
+const DAILY_SORTS = {
+  '': { label: 'Item ID', sort: { itemId: 1, _id: 1 } },
+  category: { label: 'Category (A–Z)', sort: { category: 1, code: 1, brand: 1, typeDesign: 1, _id: 1 } },
+  description: { label: 'Item description (A–Z)', sort: { code: 1, brand: 1, typeDesign: 1, _id: 1 } },
+  brand: { label: 'Brand name (A–Z)', sort: { brand: 1, code: 1, typeDesign: 1, _id: 1 } },
+};
+
+function dailySort(query) {
+  const value = String(query.sort ?? '');
+  if (!DAILY_SORTS[value]) throw new HttpError(400, 'Sort must be category, description or brand');
+  return DAILY_SORTS[value];
+}
+
 // Every active item in the cost center with its ending balance at the end of `to` and the date of
 // its last transaction up to then. For a range (from < to) also its beginning balance: the stock
 // on hand when `from` starts, i.e. at the end of the day before. Items with no entries show 0.
-async function dailyRows(costCenter, from, to) {
+// sort: from DAILY_SORTS. Alphabetical orders are "natural": "2" before "10", case ignored.
+async function dailyRows(costCenter, from, to, sort = DAILY_SORTS[''].sort) {
   const items = await Item.find({ costCenter, ...ACTIVE })
-    .sort({ itemId: 1, _id: 1 })
+    .sort(sort)
+    .collation({ locale: 'en', numericOrdering: true })
     .select('itemId category code brand typeDesign')
     .lean();
   const itemIds = items.map((item) => item._id);
@@ -51,11 +68,12 @@ const dailyPeriod = (query) => reportPeriod({ from: query.from || query.date, to
 
 const dayText = (date) => date.toISOString().slice(0, 10);
 
-// GET /api/reports/daily?date=YYYY-MM-DD or ?from=&to= — the Daily Report. All rows are returned
+// GET /api/reports/daily?date=YYYY-MM-DD or ?from=&to=, &sort= — the Daily Report. All rows are returned
 // (≈1,800), so the page can print the whole report; it pages them on screen.
 async function dailyReport(req, res) {
   const { from, to } = dailyPeriod(req.query);
-  const rows = await dailyRows(req.costCenter, from, to);
+  const { sort } = dailySort(req.query);
+  const rows = await dailyRows(req.costCenter, from, to, sort);
 
   res.json({
     from,
@@ -68,11 +86,12 @@ async function dailyReport(req, res) {
   });
 }
 
-// GET /api/reports/daily/export?date= or ?from=&to= — the same report as an .xlsx, in the
+// GET /api/reports/daily/export?date= or ?from=&to=, &sort= — the same report as an .xlsx, in the
 // Summary Report layout of the Items export (plus beginning balance and net change for a range).
 async function exportDailyReport(req, res) {
   const { from, to } = dailyPeriod(req.query);
-  const rows = await dailyRows(req.costCenter, from, to);
+  const { sort, label } = dailySort(req.query);
+  const rows = await dailyRows(req.costCenter, from, to, sort);
   const buffer = await buildSummaryReport(
     rows.map((row) => ({ ...row, balance: row.endingBalance })),
     to,
@@ -81,10 +100,12 @@ async function exportDailyReport(req, res) {
       title: 'Daily Report',
       costCenterName: costCenterLabel(req.costCenter),
       preparedBy: req.user.name,
+      sortLabel: label,
     },
   );
   const period = from < to ? `${dayText(from)}_to_${dayText(to)}` : dayText(to);
   const details = { date: dayText(to), count: rows.length };
+  if (req.query.sort) details.sort = String(req.query.sort);
   if (from < to) details.from = dayText(from);
   await record(req, { action: 'report.export', details });
   res

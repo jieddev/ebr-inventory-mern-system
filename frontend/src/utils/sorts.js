@@ -11,6 +11,14 @@ const SORT_CHOICES = [
 export const TRANSACTION_SORTS = [{ value: '', label: 'Recent activity' }, ...SORT_CHOICES]
 export const ITEM_SORTS = [{ value: '', label: 'Item ID' }, ...SORT_CHOICES]
 
+// The Daily Report's ?sort= choices. Keep in step with backend reports.controller.js DAILY_SORTS.
+export const DAILY_REPORT_SORTS = [
+  { value: '', label: 'Item ID' },
+  { value: 'category', label: 'Category (A–Z)' },
+  { value: 'description', label: 'Item description (A–Z)' },
+  { value: 'brand', label: 'Brand name (A–Z)' },
+]
+
 // The URL value, or '' when it isn't one of `options`.
 export function readSort(searchParams, options) {
   const value = searchParams.get('sort') ?? ''
