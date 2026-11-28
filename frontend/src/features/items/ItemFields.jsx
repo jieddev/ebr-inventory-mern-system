@@ -87,7 +87,7 @@ export default function ItemFields({ form, errors, onChange, categoryRef, codeRe
         ref={codeRef}
         label="Item description"
         required
-        placeholder="e.g. 185 R14 DUNLOP VANO1"
+        placeholder="e.g. 185 R14 DUNLOP VANO1 (Size / Brand Name / Details)"
         autoComplete="off"
         value={form.code}
         onChange={(e) => onChange('code', e.target.value)}
