@@ -28,6 +28,12 @@ dist-ssr
 .env.*
 !.env.example
 
+# Personal Claude Code settings
+.claude/settings.local.json
+
+# Test coverage reports
+coverage/
+
 # Database backups
 backup/
 
