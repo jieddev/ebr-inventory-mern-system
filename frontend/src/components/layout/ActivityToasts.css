@@ -95,3 +95,11 @@
   font-size: var(--text-xs);
   color: var(--color-primary);
 }
+
+@media (max-width: 480px) {
+  .activity-toasts {
+    right: var(--space-4);
+    bottom: var(--space-4);
+    width: calc(100vw - 2 * var(--space-4));
+  }
+}

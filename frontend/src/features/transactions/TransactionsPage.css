@@ -147,3 +147,47 @@
   margin-right: var(--space-2);
   color: var(--color-text-faint);
 }
+
+/* Phones: tighter page padding; the search box and Filter take their own row. */
+@media (max-width: 768px) {
+  .workspace-content {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-xl);
+    line-height: 28px;
+  }
+
+  .toolbar-search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  /* Sort and the Active / Archived switch share the next row. */
+  .toolbar > .sort-select,
+  .toolbar > .segmented-field {
+    flex: 1 1 auto;
+  }
+
+  .toolbar > .segmented-field .segmented-option {
+    padding: 0 var(--space-3);
+  }
+
+  .table-footer {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .table-pager {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .workspace-content {
+    padding: var(--space-3);
+  }
+}

@@ -56,3 +56,22 @@
 .pick-date-field {
   margin-top: var(--space-5);
 }
+
+@media (max-width: 480px) {
+  .confirm-dialog {
+    padding: var(--space-5);
+  }
+
+  .confirm-dialog-warning {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-4);
+    padding: var(--space-3) var(--space-5);
+  }
+
+  .confirm-dialog footer {
+    flex-wrap: wrap-reverse;
+  }
+
+  .confirm-dialog footer > .btn {
+    flex: 1 1 auto;
+  }
+}

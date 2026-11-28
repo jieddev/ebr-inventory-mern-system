@@ -119,3 +119,77 @@
 .btn.profile-menu-item {
   justify-content: flex-start;
 }
+
+/* The drawer toggle: phones only. */
+.app-bar-menu {
+  display: none;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin-left: calc(-1 * var(--space-2));
+  padding: 0;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.app-bar-menu:hover,
+.app-bar-menu[aria-expanded='true'] {
+  background: var(--color-bg);
+}
+
+.app-bar-menu:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Wherever the sidebar is a drawer; keep in step with the query in Sidebar.css. */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .app-bar-menu {
+    display: grid;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-bar {
+    padding: 0 var(--space-4);
+  }
+
+  .app-bar-start {
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .app-bar-brand {
+    min-width: 0;
+  }
+
+  .app-bar-brand .logo {
+    flex-shrink: 0;
+  }
+
+  .app-bar-brand span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Small phones: the avatar alone opens the profile menu; the app's name gives way to the logo. */
+@media (max-width: 480px) {
+  .app-bar-brand span,
+  .app-bar-user-name,
+  .profile-menu-chevron {
+    display: none;
+  }
+
+  .profile-menu-trigger {
+    padding: 0 var(--space-1);
+  }
+
+  .profile-menu-popover {
+    max-width: calc(100vw - 2 * var(--space-4));
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import ActivityToasts from './ActivityToasts'
 import AppBar from './AppBar'
@@ -11,6 +11,9 @@ import './AppLayout.css'
 
 export default function AppLayout() {
   const location = useLocation()
+  // Phones: the sidebar is a drawer, opened from the app bar's menu button.
+  const [isNavOpen, setIsNavOpen] = useState(false)
+  const closeNav = useCallback(() => setIsNavOpen(false), [])
 
   // Each list page's filters, for the links that lead back to it (see Sidebar).
   useEffect(() => {
@@ -20,10 +23,14 @@ export default function AppLayout() {
   return (
     <CostCenterProvider>
       <div className="app-layout">
-        <AppBar />
+        <AppBar
+          isNavOpen={isNavOpen}
+          onMenuClick={() => setIsNavOpen((open) => !open)}
+          onNavigate={closeNav}
+        />
         <ClockWarning />
         <div className="app-body">
-          <Sidebar />
+          <Sidebar isOpen={isNavOpen} onClose={closeNav} />
           <main className="app-content">
             <CostCenterPage />
           </main>

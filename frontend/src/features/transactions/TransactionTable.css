@@ -206,3 +206,175 @@
   font-weight: var(--weight-semibold);
   color: var(--color-danger);
 }
+
+/* Short column titles for phones; the full ones stay for screen readers. */
+.txn-label-short {
+  display: none;
+}
+
+/*
+ * Phones: the five columns don't fit, so each entry shows date, type, quantity and balance on
+ * one line with the customer under the date. The item heading puts its counts on a second line.
+ * The indent guide becomes a line drawn by the row itself, so it runs through both lines.
+ */
+@media (max-width: 768px) {
+  .txn-table {
+    --txn-cols: minmax(0, 1fr) 84px 48px 68px;
+    --txn-indent: 21px; /* guide: 7px in, 2px wide, 12px gap */
+  }
+
+  .txn-row {
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+  }
+
+  .txn-label-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .txn-label-short {
+    display: inline;
+  }
+
+  .txn-header {
+    display: grid;
+    grid-template-columns: var(--txn-cols);
+  }
+
+  .txn-header .txn-col-customer {
+    display: none;
+  }
+
+  .txn-col-type,
+  .txn-col-qty,
+  .txn-col-balance {
+    width: auto;
+  }
+
+  .txn-col-type .badge {
+    padding: 2px 6px;
+  }
+
+  /* Item heading: ID, description and details on top (wrapping as needed), counts below. */
+  .txn-group-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 68px;
+    grid-template-areas:
+      'item balance'
+      'meta meta';
+    row-gap: 2px;
+    height: auto;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .txn-group-item {
+    grid-area: item;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .txn-group-code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .txn-group-details {
+    flex-basis: 100%;
+    padding-left: 26px; /* under the description, past the toggle */
+    white-space: normal;
+  }
+
+  .txn-group-meta {
+    grid-area: meta;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding-left: 26px;
+    white-space: normal;
+  }
+
+  .txn-group-balance {
+    grid-area: balance;
+    align-self: start;
+  }
+
+  .txn-entry-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--txn-cols);
+    grid-template-areas:
+      'date type qty balance'
+      'customer customer customer customer';
+    row-gap: 0;
+    height: auto;
+    min-height: 44px;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    padding-left: calc(var(--space-4) + var(--txn-indent));
+  }
+
+  .txn-entry-row::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--space-4) + 7px);
+    width: 2px;
+    content: '';
+    background: var(--color-border);
+  }
+
+  .txn-guide {
+    display: none;
+  }
+
+  .txn-entry-date {
+    grid-area: date;
+  }
+
+  .txn-entry-row .txn-col-type {
+    grid-area: type;
+  }
+
+  .txn-entry-row .txn-col-qty {
+    grid-area: qty;
+  }
+
+  .txn-entry-row .txn-col-balance {
+    grid-area: balance;
+  }
+
+  .txn-entry-customer {
+    grid-area: customer;
+    max-width: none;
+    font-size: var(--text-xs);
+    line-height: 16px;
+  }
+
+  .txn-entry-customer.is-empty {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .txn-row {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .txn-entry-row {
+    padding-left: calc(var(--space-3) + var(--txn-indent));
+  }
+
+  .txn-entry-row::before {
+    left: calc(var(--space-3) + 7px);
+  }
+
+  .txn-entry-date {
+    font-size: var(--text-sm);
+  }
+}

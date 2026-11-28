@@ -31,16 +31,28 @@ export default function TransactionTable({
           Item Description
         </span>
         <span className="txn-col-customer" role="columnheader">
-          Customer name / Details
+          <span className="txn-label-long">Customer name / Details</span>
+          <span className="txn-label-short" aria-hidden="true">
+            Customer
+          </span>
         </span>
         <span className="txn-col-type" role="columnheader">
-          Transaction type
+          <span className="txn-label-long">Transaction type</span>
+          <span className="txn-label-short" aria-hidden="true">
+            Type
+          </span>
         </span>
         <span className="txn-col-qty" role="columnheader">
-          Quantity
+          <span className="txn-label-long">Quantity</span>
+          <span className="txn-label-short" aria-hidden="true">
+            Qty
+          </span>
         </span>
         <span className="txn-col-balance" role="columnheader">
-          Ending balance
+          <span className="txn-label-long">Ending balance</span>
+          <span className="txn-label-short" aria-hidden="true">
+            Balance
+          </span>
         </span>
       </div>
 
@@ -112,7 +124,11 @@ export default function TransactionTable({
                     <span className="txn-guide" aria-hidden="true" />
                     {formatDate(entry.date)}
                   </div>
-                  <span className="txn-col-customer txn-entry-customer" role="cell" title={entry.customerName}>
+                  <span
+                    className={`txn-col-customer txn-entry-customer ${entry.customerName ? '' : 'is-empty'}`}
+                    role="cell"
+                    title={entry.customerName}
+                  >
                     {entry.customerName || '—'}
                   </span>
                   <span className="txn-col-type" role="cell">

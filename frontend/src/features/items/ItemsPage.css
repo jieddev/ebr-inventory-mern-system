@@ -300,3 +300,54 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+/* Phones: the table scrolls sideways inside its card; the cells and bulk bar get tighter. */
+.items-table-scroll {
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 768px) {
+  .items-table th,
+  .items-table td {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .items-table th:first-child,
+  .items-table td:first-child {
+    padding-left: var(--space-4);
+  }
+
+  .items-table th:last-child,
+  .items-table td:last-child {
+    padding-right: var(--space-4);
+  }
+
+  /* Long descriptions wrap instead of making the table very wide. */
+  .items-code {
+    min-width: 180px;
+  }
+
+  .items-bulk-bar {
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .btn.items-bulk-action {
+    margin-left: 0;
+  }
+
+  .import-result-problems li {
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .import-result-row {
+    width: auto;
+  }
+
+  .import-result-reason {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}

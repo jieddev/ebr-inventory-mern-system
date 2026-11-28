@@ -4,9 +4,14 @@
 }
 
 /* qty | unit | item | remove */
+.brr-lines {
+  --brr-qty: 72px;
+  --brr-unit: 84px;
+}
+
 .brr-line {
   display: grid;
-  grid-template-columns: 72px 84px minmax(0, 1fr) 28px;
+  grid-template-columns: var(--brr-qty) var(--brr-unit) minmax(0, 1fr) 28px;
   gap: var(--space-2);
   align-items: center;
 }
@@ -62,7 +67,7 @@
 
 .brr-line-details,
 .brr-line-error {
-  margin: 2px 0 var(--space-1) calc(72px + 84px + 2 * var(--space-2));
+  margin: 2px 0 var(--space-1) calc(var(--brr-qty) + var(--brr-unit) + 2 * var(--space-2));
   font-size: var(--text-xs);
 }
 
@@ -118,4 +123,11 @@
   color: var(--color-warning);
   background: var(--color-warning-soft);
   border-radius: var(--radius-md);
+}
+
+@media (max-width: 480px) {
+  .brr-lines {
+    --brr-qty: 56px;
+    --brr-unit: 68px;
+  }
 }

@@ -41,3 +41,10 @@
   right: var(--space-3);
   pointer-events: none;
 }
+
+/* Same as other fields: 16px stops iOS zooming in when the list opens. */
+@media (max-width: 768px), (pointer: coarse) {
+  .sort-select select {
+    font-size: 16px;
+  }
+}

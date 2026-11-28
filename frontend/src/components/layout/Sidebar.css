@@ -345,7 +345,100 @@
   margin-left: auto;
 }
 
+/* Shown only while the phone drawer is open (see the query below). */
+.sidebar-backdrop {
+  display: none;
+}
+
+/*
+ * Phones and touch-only screens (no hover, so the expand-on-hover rail can't work there): the
+ * sidebar is a drawer that slides in from the left, below the app bar, opened from the app bar's
+ * menu button. It takes no room in the layout, always shows the expanded look, and is hidden
+ * (so it can't be tabbed into) while closed. Keep the query in step with .app-bar-menu.
+ */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .sidebar {
+    position: fixed;
+    top: var(--app-bar-height);
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: 0;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: var(--app-bar-height) 0 0;
+    display: block;
+    background: var(--color-overlay);
+    animation: sidebar-backdrop-in 0.2s ease-out;
+  }
+
+  .sidebar-panel,
+  .sidebar-panel:hover,
+  .sidebar-panel:focus-within,
+  .sidebar-panel.is-pinned {
+    width: min(var(--sidebar-width-expanded), 85vw);
+    overflow-y: auto;
+    visibility: hidden;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+
+  .sidebar.is-open .sidebar-panel {
+    visibility: visible;
+    transform: none;
+    transition: transform 0.2s ease;
+  }
+
+  /* The expanded look, all the time. */
+  .sidebar-label,
+  .sidebar-branch-control {
+    opacity: 1;
+  }
+
+  .sidebar-branch {
+    padding-left: 0;
+  }
+
+  .sidebar-branch-mark {
+    display: none;
+  }
+
+  .sidebar-branch-chevron {
+    display: block;
+  }
+
+  .sidebar-badge {
+    position: static;
+    margin-left: auto;
+  }
+
+  /* The cost center card opens inside the drawer, under the branch row. */
+  .cost-center-card {
+    top: 60px;
+    left: var(--space-2);
+    width: calc(min(var(--sidebar-width-expanded), 85vw) - 2 * var(--space-2));
+  }
+
+  .cost-center-card-hint {
+    overflow-wrap: anywhere;
+  }
+}
+
+@keyframes sidebar-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .sidebar-backdrop {
+    animation: none;
+  }
+
+  .sidebar.is-open .sidebar-panel,
   .sidebar-panel,
   .sidebar-label,
   .sidebar-branch-control,

@@ -15,7 +15,16 @@ function initials(name) {
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts.at(-1)[0] : (parts[0]?.[1] ?? ''))).toUpperCase()
 }
 
-export default function AppBar() {
+// Phones only (CSS shows it below 768px): opens the sidebar as a drawer.
+function MenuIcon({ isOpen }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      {isOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+    </svg>
+  )
+}
+
+export default function AppBar({ isNavOpen = false, onMenuClick, onNavigate }) {
   const { user, logout } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -43,7 +52,17 @@ export default function AppBar() {
   return (
     <header className="app-bar">
       <div className="app-bar-start">
-        <Link to="/" className="app-bar-brand">
+        <button
+          type="button"
+          className="app-bar-menu"
+          aria-label={isNavOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isNavOpen}
+          aria-controls="app-nav"
+          onClick={onMenuClick}
+        >
+          <MenuIcon isOpen={isNavOpen} />
+        </button>
+        <Link to="/" className="app-bar-brand" onClick={onNavigate}>
           <Logo size="sm" />
           <span>EBR Inventory System</span>
         </Link>
@@ -80,6 +99,7 @@ export default function AppBar() {
                   className="profile-menu-item"
                   onClick={() => {
                     setIsMenuOpen(false)
+                    onNavigate?.()
                     navigate('/users/new')
                   }}
                 >

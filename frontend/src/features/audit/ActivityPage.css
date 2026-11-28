@@ -66,6 +66,7 @@
   overflow-wrap: anywhere;
 }
 
+
 /* Which cost center the item, transaction or report is in. */
 .activity-cost-center {
   display: block;
@@ -85,4 +86,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+@media (max-width: 768px) {
+  .activity-target,
+  .activity-details {
+    min-width: 160px;
+  }
 }

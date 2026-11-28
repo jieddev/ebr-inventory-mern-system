@@ -25,7 +25,8 @@ const LINKS = [
 ]
 
 // Shows icons only, and expands over the page on hover or keyboard focus.
-export default function Sidebar() {
+// Phones (below 768px, see Sidebar.css): a drawer that slides in while isOpen.
+export default function Sidebar({ isOpen = false, onClose }) {
   const { user } = useAuth()
   const { pathname, search } = useLocation()
   const links = LINKS.filter((link) => {
@@ -38,6 +39,23 @@ export default function Sidebar() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const triggerRef = useRef(null)
   const pickerId = useId()
+  const navRef = useRef(null)
+
+  // Drawer open: start on the current page's link; Escape closes the drawer (before an open
+  // side panel sees it, so only the drawer closes).
+  useEffect(() => {
+    if (!isOpen) return
+    navRef.current?.querySelector('.sidebar-link.active')?.focus({ preventScroll: true })
+    function handleKeyDown(event) {
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return
+      // The cost center card handles its own Escape.
+      if (event.target.closest?.('.cost-center-card')) return
+      event.stopPropagation()
+      onClose?.()
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [isOpen, onClose])
 
   function closePicker({ returnFocus = false } = {}) {
     setIsPickerOpen(false)
@@ -45,9 +63,16 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'is-open' : ''}`}>
+      {/* Phones: tapping outside the open drawer closes it. */}
+      {isOpen && <div className="sidebar-backdrop" aria-hidden="true" onClick={onClose} />}
       {/* Stays expanded while the cost center card is open, so the card stays beside it. */}
-      <nav className={`sidebar-panel ${isPickerOpen ? 'is-pinned' : ''}`} aria-label="Main">
+      <nav
+        id="app-nav"
+        ref={navRef}
+        className={`sidebar-panel ${isPickerOpen ? 'is-pinned' : ''}`}
+        aria-label="Main"
+      >
         {/* Collapsed: the cost center's initial. Expanded: its name, a button that opens the
             cost center card for users with several cost centers. */}
         {canSwitch ? (
@@ -91,6 +116,7 @@ export default function Sidebar() {
             end={link.to === '/'}
             className="sidebar-link"
             title={link.label}
+            onClick={onClose}
             aria-label={
               link.to === '/reservations' && reservations.pending
                 ? `${link.label}, ${reservations.pending} pending`
