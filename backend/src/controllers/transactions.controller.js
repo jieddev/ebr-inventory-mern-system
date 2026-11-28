@@ -817,6 +817,10 @@ async function listBrr(req, res) {
 }
 
 module.exports = {
+  // Exported for the unit tests.
+  parseBisNumber,
+  parseBrrNumber,
+  bisRegex,
   announceIn,
   inCostCenter,
   listTransactions,
