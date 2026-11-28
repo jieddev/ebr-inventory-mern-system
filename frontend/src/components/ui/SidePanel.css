@@ -117,3 +117,49 @@
   color: var(--color-danger);
   background: var(--color-danger-soft);
 }
+
+/* Tablets: no room beside the page, so the panel floats over its right side instead (still
+   non-modal: the page stays usable, e.g. picking another transaction swaps the details). */
+@media (max-width: 1024px) {
+  .side-panel {
+    position: fixed;
+    top: var(--app-bar-height);
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(var(--side-panel-width), 100%);
+    height: auto;
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* Phones: the panel takes the whole screen, over the app bar too. */
+@media (max-width: 480px) {
+  .side-panel {
+    top: 0;
+    z-index: 45;
+    width: 100%;
+    border-left: 0;
+  }
+
+  .side-panel-header {
+    padding: var(--space-4) var(--space-3) var(--space-3) var(--space-4);
+  }
+
+  .side-panel-body {
+    padding: var(--space-4);
+  }
+
+  .side-panel-footer {
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+  }
+
+  .side-panel-footer > .btn {
+    flex: 1 1 auto;
+  }
+
+  .panel-row {
+    grid-template-columns: 1fr;
+  }
+}

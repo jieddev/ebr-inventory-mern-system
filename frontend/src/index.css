@@ -43,6 +43,20 @@ button {
   cursor: pointer;
 }
 
+/* Fit the visible area on phones, where the browser's own bars come and go. */
+#root {
+  height: 100dvh;
+}
+
+/* iOS zooms into any field with text under 16px when it's focused. */
+@media (max-width: 768px), (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 .page-loading {
   display: grid;
   place-items: center;
@@ -85,3 +99,38 @@ button {
   }
 }
 
+
+/*
+ * Touch screens: small icon buttons get a larger invisible tap area (about 40px) without
+ * changing how they look.
+ */
+@media (pointer: coarse) {
+  .txn-toggle,
+  .active-filter button,
+  .copy-btn,
+  .brr-remove,
+  .import-result-close,
+  .activity-toast-close {
+    position: relative;
+  }
+
+  .txn-toggle::after,
+  .active-filter button::after,
+  .copy-btn::after,
+  .brr-remove::after,
+  .import-result-close::after,
+  .activity-toast-close::after {
+    position: absolute;
+    inset: -8px;
+    content: '';
+  }
+
+  .txn-toggle::after {
+    inset: -12px;
+  }
+
+  .side-panel-close {
+    width: 40px;
+    height: 40px;
+  }
+}

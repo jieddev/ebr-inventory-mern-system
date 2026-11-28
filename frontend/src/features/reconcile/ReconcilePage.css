@@ -48,3 +48,17 @@
   max-width: 260px;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 768px) {
+  .reconcile-controls {
+    padding: var(--space-4);
+  }
+
+  .reconcile-item {
+    flex-basis: 100%;
+  }
+
+  .reconcile-empty {
+    padding: var(--space-6) var(--space-4);
+  }
+}

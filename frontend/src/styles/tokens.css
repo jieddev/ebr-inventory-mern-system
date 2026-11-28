@@ -84,3 +84,16 @@
   --sidebar-width-expanded: 220px;
   --side-panel-footer-height: 73px; /* 16px padding ×2 + 40px button + 1px border */
 }
+
+/*
+ * Breakpoints (CSS can't use variables in @media, so these are written out where used):
+ *   max-width: 1024px  tablet: side panels float over the page instead of beside it
+ *   max-width: 768px   phone: the sidebar is a drawer, smaller app bar, tighter padding
+ *   max-width: 480px   small phone: full-screen side panels, one-column forms
+ * Desktop styles are the defaults; the queries only adjust them.
+ */
+@media (max-width: 768px) {
+  :root {
+    --app-bar-height: 64px;
+  }
+}

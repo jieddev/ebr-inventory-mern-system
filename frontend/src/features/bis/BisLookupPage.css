@@ -104,3 +104,28 @@
   display: block;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 768px) {
+  .bis-tabs {
+    gap: var(--space-4);
+    padding: 0 var(--space-4);
+  }
+
+  .bis-controls {
+    padding: var(--space-4);
+  }
+
+  .bis-row {
+    flex-wrap: wrap;
+  }
+
+  .bis-item-description {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bis-row > .btn {
+    flex: 1 1 100%;
+  }
+}

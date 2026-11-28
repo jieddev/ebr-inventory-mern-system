@@ -243,3 +243,54 @@
   font-weight: var(--weight-semibold);
   color: var(--color-text);
 }
+
+/* Small phones: the filters open as a sheet along the bottom of the screen (tapping above it
+   closes it, like clicking outside the popover). */
+@media (max-width: 480px) {
+  .filter-popover,
+  .filter-popover-start,
+  .filter-popover-end {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 46;
+    width: auto;
+    max-width: none;
+    max-height: 85dvh;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    /* The second shadow dims the page behind the sheet. */
+    box-shadow:
+      0 -12px 32px rgba(16, 24, 40, 0.16),
+      0 0 0 100vmax var(--color-overlay);
+    animation: filter-sheet-in 0.2s ease-out;
+  }
+
+  .filter-footer {
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  }
+
+  .filter-dates {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-option {
+    min-height: 40px;
+  }
+}
+
+@keyframes filter-sheet-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-popover {
+    animation: none;
+  }
+}

@@ -235,3 +235,36 @@
     color: var(--color-danger);
   }
 }
+
+.report-table-wrap {
+  overscroll-behavior-x: contain;
+}
+
+/* Phones: less padding around the report; the header and toolbar wrap. Print is unaffected
+   (the print rules above reset the card's padding). */
+@media screen and (max-width: 768px) {
+  .report-toolbar,
+  .report-header,
+  .report-footer {
+    flex-wrap: wrap;
+  }
+
+  .report-card {
+    gap: var(--space-5);
+    padding: var(--space-4);
+  }
+
+  .report-header h1 {
+    font-size: var(--text-xl);
+  }
+
+  .report-meta {
+    gap: var(--space-3) var(--space-6);
+  }
+
+  .report-table th,
+  .report-table td {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+}

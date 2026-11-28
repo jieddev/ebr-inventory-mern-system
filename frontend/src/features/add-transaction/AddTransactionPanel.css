@@ -122,3 +122,9 @@
   font-weight: var(--weight-semibold);
   color: var(--color-text);
 }
+
+@media (max-width: 360px) {
+  .item-details dl {
+    grid-template-columns: 1fr;
+  }
+}

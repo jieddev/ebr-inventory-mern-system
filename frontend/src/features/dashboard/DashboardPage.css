@@ -154,3 +154,34 @@
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
 }
+
+@media (max-width: 768px) {
+  /* Two tiles to a row on phones. */
+  .stat-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-3);
+  }
+
+  .stat-tile {
+    padding: var(--space-4);
+  }
+
+  .stat-value {
+    font-size: var(--text-2xl);
+    line-height: 32px;
+  }
+
+  .dashboard-cost-center {
+    font-size: var(--text-xl);
+  }
+
+  .dashboard-card-header,
+  .recent-list li {
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+
+  .recent-list .badge {
+    min-width: 0;
+  }
+}
