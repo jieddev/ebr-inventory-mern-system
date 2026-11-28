@@ -519,4 +519,16 @@ async function buildStockcard(items, transactionsByItem, beginningByItem, from, 
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { readSummaryReport, buildSummaryReport, buildTransactionReport, buildItemList, buildReconcileReport, buildStockcard };
+module.exports = {
+  readSummaryReport,
+  buildSummaryReport,
+  buildTransactionReport,
+  buildItemList,
+  buildReconcileReport,
+  buildStockcard,
+  // Exported for the unit tests.
+  parseRowDate,
+  parseLongDate,
+  categoryFor,
+  cellValue,
+};
