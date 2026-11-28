@@ -11,6 +11,21 @@ function step(balance, reserved, entry) {
   return balance + (entry.type === 'IN' ? entry.quantity : -entry.quantity);
 }
 
+// Walks entries already in ledger order (LEDGER_ORDER) from nothing. Gives the balance after each
+// entry (and, for a count, the signed change it made), plus the final balance and the
+// reservations still pending. Pure: the stock rules in one place, without the database.
+function walkLedger(entries) {
+  let balance = 0;
+  let reserved = 0;
+  const steps = entries.map((entry) => {
+    const before = balance;
+    balance = step(balance, reserved, entry);
+    if (entry.type === 'RESERVE') reserved += entry.quantity;
+    return entry.type === 'ADJUST' ? { endingBalance: balance, adjustment: balance - before } : { endingBalance: balance };
+  });
+  return { balance, reserved, steps };
+}
+
 // Walks an item's ledger in order and rewrites every entry's ending balance (and each count's
 // change), then refreshes the item's balance and last-transaction fields. Running the whole
 // ledger (instead of "previous balance ± quantity") keeps back-dated entries correct.
@@ -23,22 +38,18 @@ async function recalculateItem(itemId, session) {
     .session(session)
     .lean();
 
-  let balance = 0;
-  let reserved = 0;
+  const { balance, steps } = walkLedger(entries);
   const updates = [];
-  for (const entry of entries) {
-    const next = step(balance, reserved, entry);
+  entries.forEach((entry, i) => {
+    const { endingBalance, adjustment } = steps[i];
     const update = {};
     if (entry.type === 'ADJUST') {
-      const adjustment = next - balance;
       if (entry.adjustment !== adjustment) update.adjustment = adjustment;
       if (entry.quantity !== Math.abs(adjustment)) update.quantity = Math.abs(adjustment);
     }
-    if (entry.type === 'RESERVE') reserved += entry.quantity;
-    balance = next;
-    if (entry.endingBalance !== balance) update.endingBalance = balance;
+    if (entry.endingBalance !== endingBalance) update.endingBalance = endingBalance;
     if (Object.keys(update).length) updates.push({ updateOne: { filter: { _id: entry._id }, update } });
-  }
+  });
   if (updates.length) await Transaction.bulkWrite(updates, { session });
 
   // The latest entry by date (ties: the one entered last).
@@ -65,13 +76,8 @@ async function balanceOn(itemId, day, session) {
     .select('type quantity countedQuantity')
     .session(session)
     .lean();
-  let balance = 0;
-  let reserved = 0;
-  for (const entry of entries) {
-    balance = step(balance, reserved, entry);
-    if (entry.type === 'RESERVE') reserved += entry.quantity;
-  }
+  const { balance, reserved } = walkLedger(entries);
   return { balance, reserved };
 }
 
-module.exports = { recalculateItem, balanceOn };
+module.exports = { walkLedger, recalculateItem, balanceOn };
