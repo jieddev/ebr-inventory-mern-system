@@ -14,10 +14,9 @@ describe('parseDay', () => {
     expect(() => parseDay(value)).toThrow(expect.objectContaining({ status: 400, message: 'Date is not a valid date' }));
   });
 
-  // KNOWN BUG, found by this test: Date.UTC rolls month 13 into January of the next year (and
-  // month 00 into December of the year before) and only the day is checked, so these are
-  // accepted. Fix it test-first: remove `.fails`, see it go red, then fix parseDay.
-  it.fails.each(['2026-13-01', '2026-00-15'])('rejects the month in %s with a 400', (value) => {
+  // Date.UTC rolls month 13 into January of the next year and month 00 into December of the
+  // year before, so the month has to be checked as well as the day.
+  it.each(['2026-13-01', '2026-00-15'])('rejects the month in %s with a 400', (value) => {
     expect(() => parseDay(value)).toThrow(expect.objectContaining({ status: 400 }));
   });
 
