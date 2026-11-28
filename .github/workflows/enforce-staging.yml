@@ -1,0 +1,19 @@
+name: Enforce staging -> main
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  check-source-branch:
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only allows PR from staging
+        if: >
+            github.head_ref != 'staging' ||
+            github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "PRs into main must come from 'staging' in this repo (got: ${{ github.head_ref }})"
+          exit 1
