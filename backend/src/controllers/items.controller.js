@@ -803,6 +803,8 @@ function fileNameOf(req) {
 }
 
 module.exports = {
+  // Exported for the unit tests.
+  parseItemFields,
   listItems,
   searchItems,
   findByItemId,

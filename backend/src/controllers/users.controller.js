@@ -136,4 +136,11 @@ async function createUser(req, res) {
   res.status(201).json({ user });
 }
 
-module.exports = { listUsers, createUser, updateUser };
+module.exports = {
+  listUsers,
+  createUser,
+  updateUser,
+  // Exported for the unit tests.
+  parsePermissions,
+  parseCostCenters,
+};
