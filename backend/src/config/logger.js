@@ -11,7 +11,8 @@ const logger = pino({
     paths: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]', '*.password'],
     censor: '[hidden]',
   },
-  ...(nodeEnv !== 'production' && {
+  // Not in tests: pino-pretty runs in a worker thread that would keep the test run open.
+  ...(nodeEnv !== 'production' && nodeEnv !== 'test' && {
     // The request fields are already in the message ("GET /api/items 200 12ms"), so they're hidden here.
     transport: {
       target: 'pino-pretty',
