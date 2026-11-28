@@ -5,7 +5,11 @@ const HttpError = require('./httpError');
 function parseDay(value, label = 'Date') {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value ?? ''));
   const date = match && new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
-  if (!date || date.getUTCDate() !== +match[3]) throw new HttpError(400, `${label} is not a valid date`);
+  // Date.UTC rolls over out-of-range parts (Feb 30 → Mar 2, month 13 → next January): a real day
+  // comes back with the same month and day it was given.
+  if (!date || date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3]) {
+    throw new HttpError(400, `${label} is not a valid date`);
+  }
   return date;
 }
 
