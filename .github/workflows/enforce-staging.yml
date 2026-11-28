@@ -1,19 +1,24 @@
-# name: Enforce staging -> main
+name: Enforce staging -> main
 
-# on:
-#   pull_request:
-#     branches: [main]
-#     types: [opened, reopened, synchronize, edited]
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited]
 
-# jobs:
-#   check-source-branch:
+permissions: {}
 
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Only allows PR from staging
-#         if: >
-#             github.head_ref != 'staging' ||
-#             github.event.pull_request.head.repo.full_name != github.repository
-#         run: |
-#           echo "PRs into main must come from 'staging' in this repo (got: ${{ github.head_ref }})"
-#           exit 1
+jobs:
+  check-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only allow PRs from staging
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REF" != "staging" ] || [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::PRs into main must come from the 'staging' branch of $BASE_REPO (got: $HEAD_REPO:$HEAD_REF)"
+            exit 1
+          fi
+          echo "OK: PR comes from $BASE_REPO:staging"
